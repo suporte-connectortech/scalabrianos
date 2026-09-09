@@ -63,6 +63,9 @@
         "status": "Status",
         "situation": "Situação",
         "house": "Presença Missionária",
+        "city_birth": "Cidade de Nascimento",
+        "country_birth": "País de Nascimento",
+        "registration": "Cadastro",
         "actions": "Ações",
         "view_details": "Ver Detalhes"
       },
@@ -164,13 +167,13 @@
         "saude_individual": "7. Saúde",
         "previdenciario": "8. Previdenciário / IR",
         "contas_bancarias": "9. Contas Bancárias",
-        "formacao_missao": "11. Formação & Missão",
-        "career": "5/6/11. Formação & Missão",
-        "health_finance": "7-10. Saúde & Financeiro",
+        "formacao_missao": "10. Formação & Missão",
+        "career": "5/6/10. Formação & Missão",
+        "health_finance": "7-9. Saúde & Financeiro",
         "houses": "Presença Missionária",
         "access": "Acesso",
-        "obs": "12. Observações",
-        "quadro_pessoal": "13. Quadro de Pessoal CV",
+        "obs": "11. Observações",
+        "quadro_pessoal": "12. Curriculum Vitae",
         "permissions": "Permissões"
       },
       "sections": {

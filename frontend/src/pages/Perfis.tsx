@@ -3,6 +3,7 @@ import { Search, Filter, Lock, Eye, EyeOff, X, Save, Loader2, AlertCircle } from
 import { useAuth, type UserRole } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
+import { isHiddenTestUser } from '../utils/userFilter';
 import '../styles/Perfis.css';
 
 interface UserProfile {
@@ -35,7 +36,7 @@ const Perfis: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await api.post('/usuarios/get');
-      setProfiles(response.data);
+      setProfiles(Array.isArray(response.data) ? response.data.filter((u: any) => !isHiddenTestUser(u.login)) : []);
       setError(null);
     } catch (err: any) {
       console.error('Error fetching profiles:', err);

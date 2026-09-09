@@ -7,11 +7,18 @@ const api = axios.create({
 
 export const getFileUrl = (path: string | null) => {
   if (!path) return null;
-  if (path.startsWith('http')) return path;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
+    return path;
+  }
   
   // Use the full API_URL (which includes /api) to ensure the proxy handles it correctly
   const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  if (baseUrl && path.startsWith(baseUrl)) {
+    return path;
+  }
+
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
 };
 
 api.interceptors.request.use((config) => {

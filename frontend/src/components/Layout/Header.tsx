@@ -14,8 +14,6 @@ const Header: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
 
-  const isMissionary = user?.role === 'PADRE';
-
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
   };
@@ -29,12 +27,6 @@ const Header: React.FC = () => {
         <div className="logo-container">
           <img src={logo} alt="Scalabrianos Logo" className="header-logo" />
         </div>
-      </div>
-
-      <div className="header-center">
-        <h1 className="header-title">
-          {isMissionary ? 'Portal Scalabrinianos Missionário' : t('header.title')}
-        </h1>
       </div>
 
       <div className="header-right">

@@ -3,6 +3,7 @@ import { Search, Filter, Lock, Eye, EyeOff, Trash2, X, Save, Loader2, AlertCircl
 import { useTranslation } from 'react-i18next';
 import { useAuth, type UserRole } from '../context/AuthContext';
 import api from '../api';
+import { isHiddenTestUser } from '../utils/userFilter';
 import '../styles/Perfis.css';
 import '../styles/Missionarios.css';
 
@@ -74,19 +75,18 @@ interface AdminProfile {
 }
 
 const PERMISSIONS_LIST = [
-  { id: 'dados_civis', label: '1. Dados Civis (visualização)' },
-  { id: 'contatos', label: '2. Contatos (visualização)' },
-  { id: 'dados_religiosos', label: '3. Dados Religiosos (visualização)' },
+  { id: 'dados_civis', label: '1. Dados Civis (Visualização)' },
+  { id: 'contatos', label: '2. Contatos (Visualização)' },
+  { id: 'dados_religiosos', label: '3. Dados Religiosos (Visualização)' },
   { id: 'itinerario_formativo', label: '4. Itinerário Formativo (Visualização)' },
   { id: 'formacao_academica', label: '5. Formação Acadêmica (Visualização)' },
   { id: 'atividade_missionaria', label: '6. Atividade Missionária (Visualização)' },
   { id: 'saude', label: '7. Saúde (Visualização)' },
   { id: 'previdenciario_ir', label: '8. Previdenciário/IR (Visualização)' },
-  { id: 'conta_bancaria', label: '9. Conta Bancária (Visualização)' },
-  { id: 'documentos', label: '10. Documentos (Visualização)' },
-  { id: 'obras_realizadas', label: '11. Obras realizadas (Visualização)' },
-  { id: 'observacoes', label: '12. Observações (Visualização)' },
-  { id: 'quadro_pessoal', label: '13. Quadro de Pessoal CV (Visualização)' },
+  { id: 'conta_bancaria', label: '9. Contas Bancárias (Visualização)' },
+  { id: 'obras_realizadas', label: '10. Formação & Missão (Visualização)' },
+  { id: 'observacoes', label: '11. Observações (Visualização)' },
+  { id: 'quadro_pessoal', label: '12. Curriculum Vitae (Visualização)' },
 ];
 
 const ADMIN_ROLES: UserRole[] = [
@@ -251,7 +251,7 @@ const Administradores: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await api.post('/usuarios/get');
-      const adminOnly = response.data.filter((u: AdminProfile) => ADMIN_ROLES.includes(u.role));
+      const adminOnly = response.data.filter((u: AdminProfile) => ADMIN_ROLES.includes(u.role) && !isHiddenTestUser(u.login));
       setProfiles(adminOnly);
       setError(null);
     } catch (err: any) {

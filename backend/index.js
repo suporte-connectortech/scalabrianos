@@ -109,6 +109,15 @@ app.use((req, res, next) => {
 });
 const JWT_SECRET = process.env.JWT_SECRET || 'scalabrianos-secret-key-2026-super-secure';
 
+const HIDDEN_TEST_USERS = [
+  'felipisousa604@gmail.com',
+  'missionario.egresso@teste.com',
+  'felipe@teste.com',
+  'economo.regional@teste.com'
+];
+const HIDDEN_USERS_SQL = "LOWER(TRIM(login)) NOT IN ('felipisousa604@gmail.com', 'missionario.egresso@teste.com', 'felipe@teste.com', 'economo.regional@teste.com')";
+const HIDDEN_USERS_ALIAS_SQL = (alias = 'u') => `LOWER(TRIM(${alias}.login)) NOT IN ('felipisousa604@gmail.com', 'missionario.egresso@teste.com', 'felipe@teste.com', 'economo.regional@teste.com')`;
+
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -670,39 +679,7 @@ app.put('/api/meu-perfil/conta', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/usuarios', authenticateToken, async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT u.id, u.nome, u.login, u.role, u.status, u.situacao, u.is_oconomo, u.is_superior,
-      c.nome as casa_nome, c.cidade, c.pais,
-      (SELECT COUNT(*) FROM tb_dados_religiosos dr WHERE dr.usuario_id = u.id) as has_3,
-      (SELECT COUNT(*) FROM tb_itinerario_formativo it WHERE it.usuario_id = u.id) as has_4,
-      (SELECT COUNT(*) FROM tb_formacao_academica fa WHERE fa.usuario_id = u.id) as has_5,
-      (SELECT COUNT(*) FROM tb_atividade_missionaria am WHERE am.usuario_id = u.id) as has_6,
-      (SELECT COUNT(*) FROM tb_obras_realizadas orr WHERE orr.usuario_id = u.id) as has_11,
-      (SELECT COUNT(*) FROM tb_observacoes_gerais og WHERE og.usuario_id = u.id) as has_12
-      FROM tb_usuarios u
-      LEFT JOIN tb_missionario_casas mc ON mc.usuario_id = u.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE())
-      LEFT JOIN tb_casas_religiosas c ON c.id = mc.casa_id
-      GROUP BY u.id
-    `);
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.get('/api/usuarios/:id', authenticateToken, async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT id, nome, login, role, status, situacao, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
-    res.json(rows[0]);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.post('/api/usuarios/get', authenticateToken, async (req, res) => {
+const handleGetUsuarios = async (req, res) => {
   try {
     // Detect if the houses table contains cidade/pais columns; if not, fallback to civil data
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
@@ -724,9 +701,21 @@ app.post('/api/usuarios/get', authenticateToken, async (req, res) => {
         (SELECT c.endereco FROM tb_missionario_casas mc JOIN tb_casas_religiosas c ON c.id = mc.casa_id WHERE mc.usuario_id = u.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE()) ORDER BY mc.data_inicio DESC LIMIT 1) as casa_endereco,
         ${hasCidade.length > 0 ? `(SELECT c.cidade FROM tb_missionario_casas mc JOIN tb_casas_religiosas c ON c.id = mc.casa_id WHERE mc.usuario_id = u.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE()) ORDER BY mc.data_inicio DESC LIMIT 1)` : `NULL`} as casa_cidade,
         ${selectCasaPais} as pais,
+        COALESCE(
+          (SELECT NULLIF(dc.cidade_estado, '') FROM tb_dados_civis dc WHERE dc.usuario_id = u.id LIMIT 1),
+          (SELECT NULLIF(dc.naturalidade, '') FROM tb_dados_civis dc WHERE dc.usuario_id = u.id LIMIT 1)
+        ) as cidade_nascimento,
+        (SELECT NULLIF(dc.pais, '') FROM tb_dados_civis dc WHERE dc.usuario_id = u.id LIMIT 1) as pais_nascimento,
         ${hasPmColumn.length > 0 ? `(SELECT mc.pm FROM tb_missionario_casas mc WHERE mc.usuario_id = u.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE()) ORDER BY mc.data_inicio DESC LIMIT 1)` : `NULL`} as pm,
-        ${hasCidade.length > 0 ? `NULL` : `(SELECT dc.cidade_estado FROM tb_dados_civis dc WHERE dc.usuario_id = u.id LIMIT 1)`} as cidade
+        ${hasCidade.length > 0 ? `NULL` : `(SELECT dc.cidade_estado FROM tb_dados_civis dc WHERE dc.usuario_id = u.id LIMIT 1)`} as cidade,
+        (SELECT COUNT(*) FROM tb_dados_religiosos dr WHERE dr.usuario_id = u.id) as has_3,
+        (SELECT COUNT(*) FROM tb_itinerario_formativo it WHERE it.usuario_id = u.id) as has_4,
+        (SELECT COUNT(*) FROM tb_formacao_academica fa WHERE fa.usuario_id = u.id) as has_5,
+        (SELECT COUNT(*) FROM tb_atividade_missionaria am WHERE am.usuario_id = u.id) as has_6,
+        (SELECT COUNT(*) FROM tb_obras_realizadas orr WHERE orr.usuario_id = u.id) as has_11,
+        (SELECT COUNT(*) FROM tb_observacoes_gerais og WHERE og.usuario_id = u.id) as has_12
       FROM tb_usuarios u
+      WHERE ${HIDDEN_USERS_ALIAS_SQL('u')}
     `;
 
     const [rows] = await db.query(sql);
@@ -774,7 +763,21 @@ app.post('/api/usuarios/get', authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+app.get('/api/usuarios', authenticateToken, handleGetUsuarios);
+
+app.get('/api/usuarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, nome, login, role, status, situacao, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
+
+app.post('/api/usuarios/get', authenticateToken, handleGetUsuarios);
 
 app.post('/api/usuarios', authenticateToken, async (req, res) => {
   const { nome, login, password, role, status, situacao, is_oconomo, is_superior } = req.body;
@@ -886,7 +889,7 @@ app.post('/api/casas-religiosas/get', authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT c.*, 
-      (SELECT COUNT(*) FROM tb_missionario_casas mc WHERE mc.casa_id = c.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE())) as missionarios_count
+      (SELECT COUNT(*) FROM tb_missionario_casas mc JOIN tb_usuarios u ON u.id = mc.usuario_id WHERE mc.casa_id = c.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE()) AND ${HIDDEN_USERS_ALIAS_SQL('u')}) as missionarios_count
       FROM tb_casas_religiosas c
     `);
     res.json(rows);
@@ -1028,6 +1031,7 @@ app.get('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
       FROM tb_usuarios u
       JOIN tb_missionario_casas mc ON u.id = mc.usuario_id
       WHERE mc.casa_id = ? AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE())
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
     `, [req.params.id]);
 
     const house = rows[0];
@@ -1158,6 +1162,15 @@ app.post('/api/usuarios/:id/dados-civis', authenticateToken, async (req, res) =>
 
 app.get('/api/usuarios/:id/nacionalidades', authenticateToken, async (req, res) => {
   try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_nacionalidades (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        nacionalidade VARCHAR(100) NOT NULL,
+        doc_path VARCHAR(500),
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      )
+    `);
     const [rows] = await db.query('SELECT nacionalidade FROM tb_nacionalidades WHERE usuario_id = ?', [req.params.id]);
     res.json(rows.map(r => r.nacionalidade));
   } catch (error) {
@@ -1167,20 +1180,37 @@ app.get('/api/usuarios/:id/nacionalidades', authenticateToken, async (req, res) 
 });
 
 app.post('/api/usuarios/:id/nacionalidades', authenticateToken, async (req, res) => {
-  const { nacionalidades } = req.body; // Array of strings
+  let nacList = req.body?.nacionalidades;
+  if (nacList === undefined && Array.isArray(req.body)) {
+    nacList = req.body;
+  }
+  if (typeof nacList === 'string') {
+    nacList = nacList.split(',').map(s => s.trim());
+  }
+  if (!Array.isArray(nacList)) {
+    nacList = [];
+  }
+
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS tb_nacionalidades (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        nacionalidade VARCHAR(100) NOT NULL,
+        doc_path VARCHAR(500),
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      )
+    `);
     
     // Remove existing
     await connection.query('DELETE FROM tb_nacionalidades WHERE usuario_id = ?', [req.params.id]);
     
     // Insert new ones
-    if (nacionalidades && nacionalidades.length > 0) {
-      for (const nac of nacionalidades) {
-        if (nac.trim()) {
-          await connection.query('INSERT INTO tb_nacionalidades (usuario_id, nacionalidade) VALUES (?, ?)', [req.params.id, nac.trim()]);
-        }
+    for (const nac of nacList) {
+      if (typeof nac === 'string' && nac.trim()) {
+        await connection.query('INSERT INTO tb_nacionalidades (usuario_id, nacionalidade) VALUES (?, ?)', [req.params.id, nac.trim()]);
       }
     }
     
@@ -1407,6 +1437,7 @@ app.get('/api/itinerario-dashboard', authenticateToken, async (req, res) => {
        LIMIT 1) as casa_nome
       FROM tb_usuarios u 
       WHERE u.role = 'PADRE'
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
     `);
 
     const dashboard = await Promise.all(users.map(async (u) => {
@@ -1509,19 +1540,40 @@ app.delete('/api/usuarios/:id/casas-historico/:vid', authenticateToken, async (r
 // 1. Formação Acadêmica
 app.get('/api/usuarios/:id/formacao-academica', authenticateToken, async (req, res) => {
   try {
+    try {
+      await db.query('ALTER TABLE tb_formacao_academica ADD COLUMN observacoes TEXT');
+    } catch (_) {}
     const [rows] = await db.query('SELECT * FROM tb_formacao_academica WHERE usuario_id = ?', [req.params.id]);
     res.json(rows);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 app.post('/api/usuarios/:id/formacao-academica', authenticateToken, async (req, res) => {
-  const { curso, faculdade, periodo, doc_path } = req.body;
+  const { curso, faculdade, periodo, doc_path, observacoes } = req.body;
   try {
-    await db.query('INSERT INTO tb_formacao_academica (usuario_id, curso, faculdade, periodo, doc_path) VALUES (?, ?, ?, ?, ?)', 
-      [req.params.id, sanitizeString(curso), sanitizeString(faculdade), sanitizeString(periodo), sanitizeString(doc_path)]);
+    try {
+      await db.query('ALTER TABLE tb_formacao_academica ADD COLUMN observacoes TEXT');
+    } catch (_) {}
+    await db.query('INSERT INTO tb_formacao_academica (usuario_id, curso, faculdade, periodo, doc_path, observacoes) VALUES (?, ?, ?, ?, ?, ?)', 
+      [req.params.id, sanitizeString(curso), sanitizeString(faculdade), sanitizeString(periodo), sanitizeString(doc_path), sanitizeString(observacoes)]);
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in formacao-academica:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
+app.put('/api/usuarios/:id/formacao-academica/:fid', authenticateToken, async (req, res) => {
+  const { curso, faculdade, periodo, doc_path, observacoes } = req.body;
+  try {
+    try {
+      await db.query('ALTER TABLE tb_formacao_academica ADD COLUMN observacoes TEXT');
+    } catch (_) {}
+    await db.query('UPDATE tb_formacao_academica SET curso = ?, faculdade = ?, periodo = ?, doc_path = ?, observacoes = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(curso), sanitizeString(faculdade), sanitizeString(periodo), sanitizeString(doc_path), sanitizeString(observacoes), req.params.fid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT formacao-academica:', err);
     res.status(500).json({ message: err.message }); 
   }
 });
@@ -1556,6 +1608,21 @@ app.post('/api/usuarios/:id/atividade-missionaria', authenticateToken, async (re
   }
 });
 
+app.put('/api/usuarios/:id/atividade-missionaria/:aid', authenticateToken, async (req, res) => {
+  const { periodo, lugar, missao, doc_path, funcao_atividade } = req.body;
+  try {
+    try {
+      await db.query('ALTER TABLE tb_atividade_missionaria ADD COLUMN funcao_atividade TEXT');
+    } catch (_) {}
+    await db.query('UPDATE tb_atividade_missionaria SET periodo = ?, lugar = ?, missao = ?, doc_path = ?, funcao_atividade = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(periodo), sanitizeString(lugar), sanitizeString(missao), sanitizeString(doc_path), sanitizeString(funcao_atividade), req.params.aid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT atividade-missionaria:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
 app.delete('/api/usuarios/:id/atividade-missionaria/:aid', authenticateToken, async (req, res) => {
   try {
     await db.query('DELETE FROM tb_atividade_missionaria WHERE id = ? AND usuario_id = ?', [req.params.aid, req.params.id]);
@@ -1579,6 +1646,18 @@ app.post('/api/usuarios/:id/saude', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in saude:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
+app.put('/api/usuarios/:id/saude/:sid', authenticateToken, async (req, res) => {
+  const { sus_card, seguradora, numero_carteira, doc_path } = req.body;
+  try {
+    await db.query('UPDATE tb_saude SET sus_card = ?, seguradora = ?, numero_carteira = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(sus_card), sanitizeString(seguradora), sanitizeString(numero_carteira), sanitizeString(doc_path), req.params.sid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT saude:', err);
     res.status(500).json({ message: err.message }); 
   }
 });
@@ -1610,6 +1689,18 @@ app.post('/api/usuarios/:id/contas-bancarias', authenticateToken, async (req, re
   }
 });
 
+app.put('/api/usuarios/:id/contas-bancarias/:bid', authenticateToken, async (req, res) => {
+  const { tipo_conta, titularidade, agencia, numero, doc_path } = req.body;
+  try {
+    await db.query('UPDATE tb_contas_bancarias SET tipo_conta = ?, titularidade = ?, agencia = ?, numero = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(tipo_conta), sanitizeString(titularidade), sanitizeString(agencia), sanitizeString(numero), sanitizeString(doc_path), req.params.bid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT contas-bancarias:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
 app.delete('/api/usuarios/:id/contas-bancarias/:bid', authenticateToken, async (req, res) => {
   try {
     await db.query('DELETE FROM tb_contas_bancarias WHERE id = ? AND usuario_id = ?', [req.params.bid, req.params.id]);
@@ -1633,6 +1724,18 @@ app.post('/api/usuarios/:id/obras-realizadas', authenticateToken, async (req, re
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in obras-realizadas:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
+app.put('/api/usuarios/:id/obras-realizadas/:oid', authenticateToken, async (req, res) => {
+  const { periodo, lugar, obra, doc_path } = req.body;
+  try {
+    await db.query('UPDATE tb_obras_realizadas SET periodo = ?, lugar = ?, obra = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(periodo), sanitizeString(lugar), sanitizeString(obra), sanitizeString(doc_path), req.params.oid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT obras-realizadas:', err);
     res.status(500).json({ message: err.message }); 
   }
 });
@@ -1684,6 +1787,18 @@ app.post('/api/usuarios/:id/observacoes-gerais', authenticateToken, async (req, 
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in observacoes-gerais:', err);
+    res.status(500).json({ message: err.message }); 
+  }
+});
+
+app.put('/api/usuarios/:id/observacoes-gerais/:oid', authenticateToken, async (req, res) => {
+  const { texto, doc_path } = req.body;
+  try {
+    await db.query('UPDATE tb_observacoes_gerais SET texto = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
+      [sanitizeString(texto), sanitizeString(doc_path), req.params.oid, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    console.error('Error in PUT observacoes-gerais:', err);
     res.status(500).json({ message: err.message }); 
   }
 });
@@ -1865,6 +1980,7 @@ app.get('/api/financas-mensais/pendentes/casa/:casa_id', authenticateToken, asyn
       FROM tb_financas_mensais p
       JOIN tb_usuarios u ON p.usuario_id = u.id
       WHERE p.casa_id = ? AND p.status IN ('PENDENTE', 'EM_VALIDACAO')
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
       ORDER BY p.updated_at DESC
     `, [casa_id]);
     res.json(rows);
@@ -1881,6 +1997,7 @@ app.get('/api/financas-mensais/historico/casa/:casa_id', authenticateToken, asyn
       FROM tb_financas_mensais p
       JOIN tb_usuarios u ON p.usuario_id = u.id
       WHERE p.casa_id = ? AND p.status IN ('VALIDADO', 'DEVOLVIDO')
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
       ORDER BY p.updated_at DESC
     `, [casa_id]);
     res.json(rows);
@@ -1972,6 +2089,7 @@ app.get('/api/financas-mensais/consolidado/casa/:casa_id/mes/:mes', authenticate
       FROM tb_financas_mensais p
       JOIN tb_usuarios u ON p.usuario_id = u.id
       WHERE p.casa_id = ? AND p.mes_referencia = ?
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
     `, [casa_id, mes]);
     res.json(rows);
   } catch (error) {
@@ -2442,6 +2560,7 @@ app.get('/api/logs-acesso', authenticateToken, async (req, res) => {
       SELECT l.*, u.nome as usuario_nome, u.login as usuario_login
       FROM tb_logs_acesso l
       LEFT JOIN tb_usuarios u ON l.usuario_id = u.id
+      WHERE u.login IS NULL OR ${HIDDEN_USERS_ALIAS_SQL('u')}
       ORDER BY l.created_at DESC LIMIT 200
     `);
     res.json(rows);
@@ -2453,7 +2572,10 @@ app.get('/api/logs-acesso', authenticateToken, async (req, res) => {
 // Documents
 app.get('/api/usuarios/:id/documentos', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tb_documentos WHERE usuario_id = ? ORDER BY created_at DESC', [req.params.id]);
+    const [rows] = await db.query(
+      `SELECT * FROM tb_documentos WHERE usuario_id = ? AND descricao NOT LIKE 'Documento formacao-academica%' AND descricao NOT LIKE 'Documento quadro-pessoal%' ORDER BY created_at DESC`,
+      [req.params.id]
+    );
     // Map to frontend-expected shape: url (from arquivo_path) and data_upload (from created_at)
     const BASE_URL = process.env.BASE_URL || '';
     const docs = rows.map(r => ({
@@ -2465,6 +2587,28 @@ app.get('/api/usuarios/:id/documentos', authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+// Dedicated Attachment Upload (Does NOT insert into tb_documentos)
+app.post(['/api/upload-anexo', '/api/usuarios/:id/upload-anexo'], authenticateToken, (req, res, next) => {
+  upload.single('arquivo')(req, res, (err) => {
+    if (err) {
+      console.error('[ATTACHMENT UPLOAD ERROR]', err.message);
+      return res.status(400).json({ message: err.message });
+    }
+    next();
+  });
+}, (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Arquivo não enviado.' });
+  const filePath = `/uploads/documentos/${req.file.filename}`;
+  const BASE_URL = process.env.BASE_URL || '';
+  res.json({
+    success: true,
+    arquivo_path: filePath,
+    url: `${BASE_URL}${filePath}`,
+    filename: req.file.filename,
+    original_name: sanitizeFilename(req.file.originalname)
+  });
 });
 
 app.post('/api/usuarios/:id/documentos', authenticateToken, (req, res, next) => {
@@ -2581,9 +2725,9 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
     }
 
     // Admin view
-    const [userCount] = await db.query("SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE'");
+    const [userCount] = await db.query(`SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE' AND ${HIDDEN_USERS_SQL}`);
     const [houseCount] = await db.query('SELECT COUNT(*) as count FROM tb_casas_religiosas');
-    const [itineraryCount] = await db.query("SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE'");
+    const [itineraryCount] = await db.query(`SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE' AND ${HIDDEN_USERS_SQL}`);
     
     res.json({
       totalUsers: userCount[0].count,
@@ -2623,9 +2767,9 @@ app.post('/api/stats', authenticateToken, async (req, res) => {
       });
     }
 
-    const [userCount] = await db.query("SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE'");
+    const [userCount] = await db.query(`SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE' AND ${HIDDEN_USERS_SQL}`);
     const [houseCount] = await db.query('SELECT COUNT(*) as count FROM tb_casas_religiosas');
-    const [itineraryCount] = await db.query("SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE'");
+    const [itineraryCount] = await db.query(`SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE' AND ${HIDDEN_USERS_SQL}`);
     
     // Detailed counts by type
     let housesByType = { CR: 0, CI: 0, M: 0, P: 0, PV: 0, CS: 0 };
@@ -2729,6 +2873,7 @@ app.get('/api/validacoes/pendentes', authenticateToken, async (req, res) => {
       JOIN tb_usuarios u ON p.usuario_id = u.id
       JOIN tb_casas_religiosas c ON p.casa_id = c.id
       WHERE p.status IN ('PENDENTE', 'EM_VALIDACAO')
+      AND ${HIDDEN_USERS_ALIAS_SQL('u')}
     `;
     const paramsMensal = [];
     if (!isAdmin && !isRegional) {
@@ -2763,6 +2908,7 @@ app.get('/api/validacoes/pendentes', authenticateToken, async (req, res) => {
         JOIN tb_usuarios u ON p.usuario_id = u.id
         JOIN tb_casas_religiosas c ON p.casa_id = c.id
         WHERE p.status = 'ENVIADO_REGIONAL'
+        AND ${HIDDEN_USERS_ALIAS_SQL('u')}
       `;
       const paramsConsolidado = [];
       if (!isAdmin && !isRegional) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, Download, CheckCircle, XCircle, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api';
+import { isHiddenTestUser } from '../utils/userFilter';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Relatorios.css';
 import '../styles/FinanceiroSpreadsheet.css';
@@ -71,7 +72,7 @@ const GestaoFinanceira: React.FC = () => {
         setCategorias(catsRes.data);
         // Only active missionaries (PADRE role, status ATIVO)
         const ativos: MissionarioOption[] = (misRes.data || [])
-          .filter((u: any) => u.role === 'PADRE' && u.status === 'ATIVO')
+          .filter((u: any) => u.role === 'PADRE' && u.status === 'ATIVO' && !isHiddenTestUser(u.login))
           .map((u: any) => ({ id: u.id, nome: u.nome }))
           .sort((a: MissionarioOption, b: MissionarioOption) => a.nome.localeCompare(b.nome));
         setAllMissionarios(ativos);

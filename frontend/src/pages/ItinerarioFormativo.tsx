@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import { isHiddenTestUser } from '../utils/userFilter';
 import '../styles/ItinerarioFormativo.css';
 import '../styles/ItinerarioDashboard.css';
 
@@ -65,7 +66,7 @@ const ItinerarioFormativo: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await api.get('/itinerario-dashboard');
-      setDashboardData(response.data);
+      setDashboardData(Array.isArray(response.data) ? response.data.filter((u: any) => !isHiddenTestUser(u.login)) : []);
     } catch (err) {
       console.error('Error fetching itinerary dashboard:', err);
     } finally {
