@@ -334,3 +334,70 @@
 .role-tag.acao-editar { background: #e3f2fd; color: #1565c0; }
 .role-tag.acao-remover { background: #fce4ec; color: #c62828; }
 .role-tag.acao-default { background: #f5f5f5; color: #555; }
+
+/* ── Mobile Responsive (App Mobile View) ─────────────────── */
+@media (max-width: 768px) {
+  .wizard-modal {
+    width: 96% !important;
+    min-width: 0 !important;
+    max-width: 96vw !important;
+    max-height: 95vh;
+    border-radius: 14px;
+  }
+
+  .wizard-body {
+    padding: 14px 16px;
+  }
+
+  .wizard-steps {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+
+  .step-label {
+    display: none;
+  }
+
+  .form-grid-2,
+  .form-grid-3,
+  .form-grid-4,
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .filters-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1.15rem !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+
+  .filters-grid {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  .data-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .data-table table {
+    min-width: 650px !important;
+  }
+
+  .wizard-footer {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .wizard-footer > div {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+}

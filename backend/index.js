@@ -96,11 +96,97 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files - using /api prefix for proxy compatibility and fallback for os.tmpdir
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/api/uploads', express.static(path.join(os.tmpdir(), 'uploads')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads', express.static(path.join(os.tmpdir(), 'uploads')));
+// Robust file streamer for uploaded files (supporting all /api/uploads, /uploads, /documentos prefixes and direct file requests)
+const serveUploadedFile = (req, res, next) => {
+  let reqPath = req.path || '';
+  try {
+    reqPath = decodeURIComponent(reqPath);
+  } catch (e) {}
+
+  if (reqPath.startsWith('/api/uploads')) {
+    reqPath = reqPath.replace(/^\/api\/uploads/, '');
+  } else if (reqPath.startsWith('/uploads')) {
+    reqPath = reqPath.replace(/^\/uploads/, '');
+  } else if (reqPath.startsWith('/api/documentos')) {
+    reqPath = reqPath.replace(/^\/api\/documentos/, '');
+  } else if (reqPath.startsWith('/documentos')) {
+    reqPath = reqPath.replace(/^\/documentos/, '');
+  }
+  
+  // Sanitize relative path
+  const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '').replace(/^[\/\\]+/, '');
+  const filename = path.basename(safePath);
+
+  if (!filename || filename === '.' || filename === '/') {
+    return next();
+  }
+
+  // Candidate directories where uploads might be stored across different production environments
+  const candidateDirs = [
+    process.env.UPLOADS_DIR,
+    path.join(__dirname, 'uploads'),
+    path.join(__dirname, 'uploads', 'documentos'),
+    path.join(__dirname, '..', 'uploads'),
+    path.join(__dirname, '..', 'uploads', 'documentos'),
+    path.join(process.cwd(), 'uploads'),
+    path.join(process.cwd(), 'uploads', 'documentos'),
+    path.join(process.cwd(), 'backend', 'uploads'),
+    path.join(process.cwd(), 'backend', 'uploads', 'documentos'),
+    path.join(os.tmpdir(), 'uploads'),
+    path.join(os.tmpdir(), 'uploads', 'documentos'),
+    path.join(os.tmpdir(), 'scalabrianos', 'uploads'),
+    path.join(os.tmpdir(), 'scalabrianos', 'uploads', 'documentos')
+  ].filter(Boolean);
+
+  const setServeHeaders = () => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  };
+
+  for (const baseDir of candidateDirs) {
+    // 1. Try direct relative sub-path (e.g. baseDir + '/documentos/doc_123.pdf')
+    const fullPath1 = path.join(baseDir, safePath);
+    if (fs.existsSync(fullPath1)) {
+      try {
+        if (fs.statSync(fullPath1).isFile()) {
+          setServeHeaders();
+          return res.sendFile(path.resolve(fullPath1));
+        }
+      } catch (e) {}
+    }
+
+    // 2. Try direct filename (e.g. baseDir + '/doc_123.pdf')
+    const fullPath2 = path.join(baseDir, filename);
+    if (fs.existsSync(fullPath2)) {
+      try {
+        if (fs.statSync(fullPath2).isFile()) {
+          setServeHeaders();
+          return res.sendFile(path.resolve(fullPath2));
+        }
+      } catch (e) {}
+    }
+  }
+
+  // If not found in any folder, log diagnostic and return explicit error message
+  console.warn(`[UPLOAD_404] Document not found: "${safePath}" (filename: "${filename}") in searched directories`);
+  return res.status(404).json({
+    error: 'Documento não encontrado no servidor',
+    filename: filename,
+    path: req.originalUrl,
+    hint: 'Verifique se o arquivo foi enviado corretamente ou reenvie o anexo.'
+  });
+};
+
+app.use('/api/uploads', serveUploadedFile);
+app.use('/uploads', serveUploadedFile);
+app.use('/api/documentos', serveUploadedFile);
+app.use('/documentos', serveUploadedFile);
+
+// Also intercept any direct GET request for uploaded doc patterns (e.g. /doc_*.pdf or ending in typical doc formats)
+app.get(/\/uploads\/.*|\/documentos\/.*|\/doc_[0-9]+.*\.(pdf|jpg|jpeg|png|webp)/i, serveUploadedFile);
 
 // Diagnostic logging for all requests
 app.use((req, res, next) => {
@@ -2239,11 +2325,17 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
     if (existing.length > 0) {
       await db.query(`
         UPDATE tb_dados_situacao SET 
-          data_falecimento = ?, cidade_falecimento = ?, certidao_obito_path = ?, local_sepultamento = ?,
-          egresso_incardinado_path = ?, egresso_desistencia_path = ?, egresso_laicizado_path = ?,
-          egresso_transf_sacerdotes_path = ?,
-          egresso_transf_para_regiao_path = ?, egresso_transf_da_regiao_path = ?,
-          exclaustrado_data = ?, exclaustrado_processo = ?, exclaustrado_doc_path = ?
+          data_falecimento = ?, cidade_falecimento = ?, 
+          certidao_obito_path = COALESCE(?, certidao_obito_path), 
+          local_sepultamento = ?,
+          egresso_incardinado_path = COALESCE(?, egresso_incardinado_path), 
+          egresso_desistencia_path = COALESCE(?, egresso_desistencia_path), 
+          egresso_laicizado_path = COALESCE(?, egresso_laicizado_path),
+          egresso_transf_sacerdotes_path = COALESCE(?, egresso_transf_sacerdotes_path),
+          egresso_transf_para_regiao_path = COALESCE(?, egresso_transf_para_regiao_path), 
+          egresso_transf_da_regiao_path = COALESCE(?, egresso_transf_da_regiao_path),
+          exclaustrado_data = ?, exclaustrado_processo = ?, 
+          exclaustrado_doc_path = COALESCE(?, exclaustrado_doc_path)
         WHERE usuario_id = ?
       `, [
         sanitizeDate(data_falecimento), 
@@ -2330,6 +2422,35 @@ app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) 
     }
   });
 });
+
+// Remover documento específico de situação
+const handleRemoveSituacaoDoc = async (req, res) => {
+  const { id, campo } = req.params;
+  const allowedCampos = [
+    'certidao_obito_path',
+    'egresso_incardinado_path',
+    'egresso_desistencia_path',
+    'egresso_laicizado_path',
+    'egresso_transf_sacerdotes_path',
+    'egresso_transf_para_regiao_path',
+    'egresso_transf_da_regiao_path',
+    'exclaustrado_doc_path'
+  ];
+  if (!allowedCampos.includes(campo)) {
+    return res.status(400).json({ message: 'Campo inválido' });
+  }
+
+  try {
+    await db.query(`UPDATE tb_dados_situacao SET \`${campo}\` = NULL WHERE usuario_id = ?`, [id]);
+    res.json({ success: true, message: 'Documento removido com sucesso', campo });
+  } catch (error) {
+    console.error('Error removing situacao doc:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+app.delete('/api/usuarios/:id/situacao/doc/:campo', authenticateToken, handleRemoveSituacaoDoc);
+app.post('/api/usuarios/:id/situacao/doc/:campo/delete', authenticateToken, handleRemoveSituacaoDoc);
 
 app.get('/api/financas-casa/casa/:casa_id', authenticateToken, async (req, res) => {
   try {

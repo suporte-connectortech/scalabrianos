@@ -6,7 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-import api from '../../api';
+import api, { getFileUrl } from '../../api';
 
 interface Categoria {
   id: number;
@@ -716,92 +716,92 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             {/* INSERTION FORM AREA */}
             {isOwner && !isLocked && (
               <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-                {/* RECEITA COL */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <span style={{ fontWeight: 800, color: '#166534', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <TrendingUp size={14} /> Receita
-                  </span>
-                  <select
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
-                    value={tempReceitaCat}
-                    onChange={e => { setTempReceitaCat(e.target.value); setTempReceitaVal(''); setObsReceita(''); }}
-                  >
-                    <option value="">Selecione a categoria...</option>
-                    {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
-                      <option key={c.id} value={c.id}>{c.nome}</option>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                      <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                <div className="spreadsheet-insertion-grid">
+                  {/* RECEITA COL */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <span style={{ fontWeight: 800, color: '#166534', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <TrendingUp size={14} /> Receita
+                    </span>
+                    <select
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
+                      value={tempReceitaCat}
+                      onChange={e => { setTempReceitaCat(e.target.value); setTempReceitaVal(''); setObsReceita(''); }}
+                    >
+                      <option value="">Selecione a categoria...</option>
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ position: 'relative', flex: '0 0 120px' }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <input
+                          type="text"
+                          placeholder="0,00"
+                          style={{ width: '100%', padding: '12px 12px 12px 32px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 700, outline: 'none' }}
+                          value={tempReceitaVal}
+                          onChange={e => setTempReceitaVal(formatCurrencyMask(e.target.value))}
+                        />
+                      </div>
                       <input
                         type="text"
-                        placeholder="0,00"
-                        style={{ width: '100%', padding: '12px 12px 12px 32px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 700, outline: 'none' }}
-                        value={tempReceitaVal}
-                        onChange={e => setTempReceitaVal(formatCurrencyMask(e.target.value))}
+                        placeholder="Observação da receita..."
+                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        value={obsReceita}
+                        onChange={e => setObsReceita(e.target.value)}
                       />
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Observação da receita..."
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                      value={obsReceita}
-                      onChange={e => setObsReceita(e.target.value)}
-                    />
+                    <button
+                      onClick={() => handleAddItem('CREDITO')}
+                      style={{ width: '100%', padding: '12px', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      Adicionar Receita
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleAddItem('CREDITO')}
-                    style={{ width: '100%', padding: '12px', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                  >
-                    Adicionar Receita
-                  </button>
-                </div>
 
-                {/* DESPESA COL */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <span style={{ fontWeight: 800, color: '#991b1b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <TrendingDown size={14} /> Despesa
-                  </span>
-                  <select
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
-                    value={tempDespesaCat}
-                    onChange={e => { setTempDespesaCat(e.target.value); setTempDespesaVal(''); setObsDespesa(''); }}
-                  >
-                    <option value="">Selecione a categoria...</option>
-                    {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
-                      <option key={c.id} value={c.id}>{c.nome}</option>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                      <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                  {/* DESPESA COL */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <span style={{ fontWeight: 800, color: '#991b1b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <TrendingDown size={14} /> Despesa
+                    </span>
+                    <select
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
+                      value={tempDespesaCat}
+                      onChange={e => { setTempDespesaCat(e.target.value); setTempDespesaVal(''); setObsDespesa(''); }}
+                    >
+                      <option value="">Selecione a categoria...</option>
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ position: 'relative', flex: '0 0 120px' }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <input
+                          type="text"
+                          placeholder="0,00"
+                          style={{ width: '100%', padding: '12px 12px 12px 32px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 700, outline: 'none' }}
+                          value={tempDespesaVal}
+                          onChange={e => setTempDespesaVal(formatCurrencyMask(e.target.value))}
+                        />
+                      </div>
                       <input
                         type="text"
-                        placeholder="0,00"
-                        style={{ width: '100%', padding: '12px 12px 12px 32px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 700, outline: 'none' }}
-                        value={tempDespesaVal}
-                        onChange={e => setTempDespesaVal(formatCurrencyMask(e.target.value))}
+                        placeholder="Observação da despesa..."
+                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        value={obsDespesa}
+                        onChange={e => setObsDespesa(e.target.value)}
                       />
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Observação da despesa..."
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
-                      value={obsDespesa}
-                      onChange={e => setObsDespesa(e.target.value)}
-                    />
+                    <button
+                      onClick={() => handleAddItem('DEBITO')}
+                      style={{ width: '100%', padding: '12px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      Adicionar Despesa
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleAddItem('DEBITO')}
-                    style={{ width: '100%', padding: '12px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                  >
-                    Adicionar Despesa
-                  </button>
                 </div>
               </div>
-            </div>
             )}
 
             {!isOwner && planilha && (planilha.obs_receita || planilha.obs_despesa) && (
@@ -821,78 +821,86 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             )}
 
             {/* TABELA DE VISUALIZAÇÃO DOS VALORES (CINZA & BLOQUEADA) */}
-            <div className="spreadsheet-grid" style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
+            <div className="spreadsheet-grid">
               {/* RECEITAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
-                <h4 className="column-title credito" style={{ background: '#e2e8f0', color: '#475569', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+              <div className="spreadsheet-column">
+                <h4 className="column-title credito" style={{ background: '#e2e8f0', color: '#475569' }}>
                   <TrendingUp size={18} color="#64748b" /> {t('planilha.receitas')} (Visualização)
                 </h4>
-                <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
-                    <div style={{ width: '40px' }}>CÓD.</div>
-                    <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                    <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
-                  </div>
-                </div>
-                <div style={{ padding: '2px 0' }}>
-                  {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
-                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
-                      <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
-                      <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
-                      <div style={{ width: '110px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
-                          <input
-                            type="text"
-                            placeholder="0,00"
-                            value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
-                            readOnly
-                            disabled
-                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
-                          />
-                        </div>
+                <div className="spreadsheet-subtable-container">
+                  <div className="spreadsheet-subtable">
+                    <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
+                        <div style={{ width: '40px' }}>CÓD.</div>
+                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
+                        <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
                       </div>
                     </div>
-                  ))}
+                    <div style={{ padding: '2px 0' }}>
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
+                        <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
+                          <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
+                          <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
+                          <div style={{ width: '110px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
+                              <input
+                                type="text"
+                                placeholder="0,00"
+                                value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
+                                readOnly
+                                disabled
+                                style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155' }}>
+                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155', marginTop: 'auto' }}>
                   <span>{t('planilha.total_receitas')}</span>
                   <strong style={{ fontSize: '15px' }}>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                 </div>
               </div>
 
               {/* DESPESAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
-                <h4 className="column-title debito" style={{ background: '#e2e8f0', color: '#475569', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+              <div className="spreadsheet-column">
+                <h4 className="column-title debito" style={{ background: '#e2e8f0', color: '#475569' }}>
                   <TrendingDown size={18} color="#64748b" /> {t('planilha.despesas')} (Visualização)
                 </h4>
-                <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
-                    <div style={{ width: '40px' }}>CÓD.</div>
-                    <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                    <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
-                  </div>
-                </div>
-                <div style={{ padding: '2px 0' }}>
-                  {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
-                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
-                      <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
-                      <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
-                      <div style={{ width: '110px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
-                          <input
-                            type="text"
-                            placeholder="0,00"
-                            value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
-                            readOnly
-                            disabled
-                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
-                          />
-                        </div>
+                <div className="spreadsheet-subtable-container">
+                  <div className="spreadsheet-subtable">
+                    <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
+                        <div style={{ width: '40px' }}>CÓD.</div>
+                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
+                        <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
                       </div>
                     </div>
-                  ))}
+                    <div style={{ padding: '2px 0' }}>
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
+                        <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
+                          <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
+                          <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
+                          <div style={{ width: '110px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
+                              <input
+                                type="text"
+                                placeholder="0,00"
+                                value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
+                                readOnly
+                                disabled
+                                style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155' }}>
+                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155', marginTop: 'auto' }}>
                   <span>{t('planilha.total_despesas')}</span>
                   <strong style={{ fontSize: '15px' }}>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                 </div>
@@ -928,7 +936,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <FileText size={20} /> {anexoFile ? anexoFile.name : (anexoUrl ? "Substituir Anexos" : "Anexar Comprovantes (PDF/IMG)")}
                 </label>
                 {anexoUrl && (
-                  <a href={`${api.defaults.baseURL}${anexoUrl}`} target="_blank" rel="noreferrer" className="btn-icon-view" title="Ver Anexo" style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex' }}>
+                  <a href={getFileUrl(anexoUrl) || '#'} target="_blank" rel="noreferrer" className="btn-icon-view" title="Ver Anexo" style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex' }}>
                     <FileText size={24} color="#013375" />
                   </a>
                 )}

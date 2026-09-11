@@ -946,14 +946,14 @@ const Administradores: React.FC = () => {
 
             {/* MODAL TABS */}
             {editingProfile.id !== 0 && (
-              <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 25px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 16px', overflowX: 'auto' }}>
                 <button
                   type="button"
                   style={{
-                    padding: '12px 20px',
+                    padding: '12px 16px',
                     border: 'none',
                     background: 'none',
-                    fontSize: '0.9rem',
+                    fontSize: '0.875rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
@@ -970,10 +970,10 @@ const Administradores: React.FC = () => {
                 <button
                   type="button"
                   style={{
-                    padding: '12px 20px',
+                    padding: '12px 16px',
                     border: 'none',
                     background: 'none',
-                    fontSize: '0.9rem',
+                    fontSize: '0.875rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
@@ -995,10 +995,10 @@ const Administradores: React.FC = () => {
                 <button
                   type="button"
                   style={{
-                    padding: '12px 20px',
+                    padding: '12px 16px',
                     border: 'none',
                     background: 'none',
-                    fontSize: '0.9rem',
+                    fontSize: '0.875rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
@@ -1024,7 +1024,7 @@ const Administradores: React.FC = () => {
               
               {/* ABA 1: DADOS & PERMISSÕES */}
               {activeModalTab === 'dados' && (
-                <div style={{ padding: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', overflowY: 'auto', flex: 1 }}>
 
                   {/* COLUNA ESQUERDA: DADOS BÁSICOS */}
                   <div className="form-column">

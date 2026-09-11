@@ -420,6 +420,16 @@ const PerfilMissionario: React.FC = () => {
       });
       if (res.data?.filePath) {
         setSituacaoData(prev => ({ ...prev, [campo]: res.data.filePath }));
+        const sitRes = await api.get(`/usuarios/${id}/situacao`).catch(() => null);
+        if (sitRes?.data) {
+          setSituacaoData(prev => ({
+            ...prev,
+            ...sitRes.data,
+            [campo]: res.data.filePath,
+            data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : prev.data_falecimento,
+            exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : prev.exclaustrado_data,
+          }));
+        }
         alert('Documento anexado com sucesso!');
       }
     } catch (err: any) {
@@ -432,13 +442,14 @@ const PerfilMissionario: React.FC = () => {
 
   const renderSituacaoDocField = (label: string, campo: keyof SituacaoData, elementId?: string) => {
     const filePath = situacaoData[campo] as string;
+    const docUrl = filePath ? (getFileUrl(filePath) || filePath) : null;
     return (
       <div id={elementId} className="form-group full" style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', transition: 'all 0.3s ease' }}>
         <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>{label}</label>
         {filePath ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <a
-              href={`${api.defaults.baseURL?.replace('/api', '') || ''}${filePath}`}
+              href={docUrl!}
               target="_blank"
               rel="noreferrer"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
@@ -448,7 +459,20 @@ const PerfilMissionario: React.FC = () => {
             {canEdit && (
               <button
                 type="button"
-                onClick={() => setSituacaoData(prev => ({ ...prev, [campo]: '' }))}
+                onClick={async () => {
+                  if (window.confirm('Deseja realmente remover este documento anexado?')) {
+                    setIsSaving(true);
+                    try {
+                      await api.delete(`/usuarios/${id}/situacao/doc/${campo}`);
+                      setSituacaoData(prev => ({ ...prev, [campo]: '' }));
+                      alert('Documento removido com sucesso!');
+                    } catch (err: any) {
+                      alert('Erro ao remover documento: ' + (err?.response?.data?.message || err.message));
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }
+                }}
                 style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
               >
                 <Trash2 size={14} /> Remover Anexo
@@ -489,30 +513,33 @@ const PerfilMissionario: React.FC = () => {
 
         {filePaths.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-            {filePaths.map((path, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <a
-                  href={`${api.defaults.baseURL?.replace('/api', '') || ''}${path}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
-                >
-                  <FileText size={16} /> Ver Documento {idx + 1}
-                </a>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newPaths = filePaths.filter((_, i) => i !== idx);
-                      setSituacaoData(prev => ({ ...prev, exclaustrado_doc_path: newPaths.join(',') }));
-                    }}
-                    style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+            {filePaths.map((path, idx) => {
+              const docUrl = getFileUrl(path) || path;
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <a
+                    href={docUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
                   >
-                    <Trash2 size={14} /> Remover
-                  </button>
-                )}
-              </div>
-            ))}
+                    <FileText size={16} /> Ver Documento {idx + 1}
+                  </a>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPaths = filePaths.filter((_, i) => i !== idx);
+                        setSituacaoData(prev => ({ ...prev, exclaustrado_doc_path: newPaths.join(',') }));
+                      }}
+                      style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                    >
+                      <Trash2 size={14} /> Remover
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', display: 'block', marginBottom: '12px' }}>Nenhum documento anexado.</span>
@@ -975,12 +1002,25 @@ const PerfilMissionario: React.FC = () => {
       setHistoricoSituacao(Array.isArray(hSitRes.data) ? hSitRes.data : []);
       setHistoricoPerfil(Array.isArray(hPerfRes.data) ? hPerfRes.data : []);
 
-      if (sitRes.data) setSituacaoData({
-        ...sitRes.data,
-        data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : '',
-        exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : '',
-        exclaustrado_doc_path: sitRes.data.exclaustrado_doc_path || '',
-      });
+      if (sitRes.data) {
+        setSituacaoData(prev => ({
+          ...prev,
+          ...sitRes.data,
+          data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : '',
+          cidade_falecimento: sitRes.data.cidade_falecimento || '',
+          certidao_obito_path: sitRes.data.certidao_obito_path || '',
+          local_sepultamento: sitRes.data.local_sepultamento || '',
+          egresso_incardinado_path: sitRes.data.egresso_incardinado_path || '',
+          egresso_desistencia_path: sitRes.data.egresso_desistencia_path || '',
+          egresso_laicizado_path: sitRes.data.egresso_laicizado_path || '',
+          egresso_transf_sacerdotes_path: sitRes.data.egresso_transf_sacerdotes_path || '',
+          egresso_transf_para_regiao_path: sitRes.data.egresso_transf_para_regiao_path || '',
+          egresso_transf_da_regiao_path: sitRes.data.egresso_transf_da_regiao_path || '',
+          exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : '',
+          exclaustrado_processo: sitRes.data.exclaustrado_processo || '',
+          exclaustrado_doc_path: sitRes.data.exclaustrado_doc_path || '',
+        }));
+      }
 
     } catch (err) {
       console.error('Erro ao carregar dados:', err);

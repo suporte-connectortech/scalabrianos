@@ -66,7 +66,7 @@ const MapaRNSMM: React.FC = () => {
   }
 
   return (
-    <div className="page-container" style={{ gap: '2rem', padding: '2rem 3rem' }}>
+    <div className="page-container">
       <div className="page-header" style={{ marginBottom: '0.5rem' }}>
         <div className="title-with-badge">
           <Globe size={32} className="text-primary" />
@@ -78,7 +78,7 @@ const MapaRNSMM: React.FC = () => {
 
       {/* Main Stats Row */}
       {isAdm && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
+        <div className="mapa-stats-grid">
           <div className="card-lite" onClick={() => navigate('/missionarios')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Missionários</span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalUsers || 0}</span>
@@ -96,9 +96,9 @@ const MapaRNSMM: React.FC = () => {
 
       {/* Presença Missionária Detailed Breakdown */}
       {isAdm && (
-        <div className="card-lite" style={{ padding: '2rem', borderRadius: '24px', border: '1px solid #fee2e2' }}>
-          <h3 style={{ margin: '0 0 2rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>Presença Missionária</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+        <div className="card-lite mapa-presenca-card">
+          <h3 style={{ margin: '0 0 1.5rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>Presença Missionária</h3>
+          <div className="mapa-presenca-grid">
               {[
                   { label: 'Casas Religiosas (CR)', count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
                   { label: 'Casas de Idosos (CI)', count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
@@ -107,8 +107,8 @@ const MapaRNSMM: React.FC = () => {
                   { label: 'Pastoral Vocacional (PV)', count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
                   { label: 'Seminários (CS)', count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
               ].map((item, idx) => (
-                  <div key={idx} onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '15px', border: '1px solid #10b981', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'white' }}>
-                      <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.9rem', textAlign: 'center' }}>{item.label}</span>
+                  <div key={idx} onClick={() => navigate('/casas-religiosas')} className="mapa-presenca-item">
+                      <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.85rem', textAlign: 'center' }}>{item.label}</span>
                       <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{item.count}</span>
                   </div>
               ))}
@@ -117,7 +117,7 @@ const MapaRNSMM: React.FC = () => {
       )}
 
       <div className="map-full-card card-lite" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
-        <div style={{ padding: '1.75rem 2.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
+        <div className="mapa-header-bar">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Globe className="text-primary" size={28} />
                 <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Sede Canônica RNSMM</h3>
@@ -142,7 +142,7 @@ const MapaRNSMM: React.FC = () => {
             </a>
         </div>
         
-        <div style={{ position: 'relative', width: '100%', height: '550px' }}>
+        <div className="mapa-iframe-wrapper">
             <iframe
                 title="Google Maps Sede RNSMM"
                 width="100%"
@@ -155,7 +155,7 @@ const MapaRNSMM: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
+      <div className="mapa-bottom-grid">
         <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
             <Info size={22} /> Missão e História
@@ -170,7 +170,7 @@ const MapaRNSMM: React.FC = () => {
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
             <Globe size={22} /> Países da Região
           </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
             {countries.map(c => (
               <div key={c.name} style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid #e2e8f0' }}>
                 <span>{c.flag}</span>

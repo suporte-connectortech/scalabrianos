@@ -6,7 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-import api from '../../api';
+import api, { getFileUrl } from '../../api';
 
 interface Categoria {
   id: number;
@@ -492,7 +492,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
           <>
             {!isLocked && (
               <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                <div className="spreadsheet-insertion-grid">
                   {/* RECEITA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <span style={{ fontWeight: 800, color: '#166534', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -580,116 +580,124 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
               </div>
             )}
 
-            <div className="spreadsheet-grid" style={{ display: 'flex', gap: '20px' }}>
+            <div className="spreadsheet-grid">
               {/* RECEITAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                <h4 className="column-title credito" style={{ background: '#dcfce7', color: '#166534', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+              <div className="spreadsheet-column">
+                <h4 className="column-title credito">
                   <TrendingUp size={18} /> {t('planilha.receitas')}
                 </h4>
-                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
-                    <div style={{ width: '50px' }}>CÓD.</div>
-                    <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                    <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
-                    <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
-                    <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                <div className="spreadsheet-subtable-container">
+                  <div className="spreadsheet-subtable">
+                    <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
+                        <div style={{ width: '50px' }}>CÓD.</div>
+                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
+                        <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                      </div>
+                    </div>
+                    <div style={{ padding: '2px 0' }}>
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2').map(cat => {
+                        const houseVal = editValues[cat.id] || 0;
+                        const missVal = missionarySums[cat.id] || 0;
+                        const totalVal = houseVal + missVal;
+                        return (
+                          <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '6px 12px' }}>
+                            <div style={{ width: '50px', fontWeight: 700, color: '#166534' }}>{cat.codigo}</div>
+                            <div style={{ flex: 1, color: '#334155', paddingRight: '10px' }}>{cat.nome}</div>
+
+                            {/* Casa */}
+                            <div style={{ width: '90px', textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 6px', width: '80px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="0,00"
+                                  value={formatCurrencyMask(numToDigits(houseVal))}
+                                  readOnly
+                                  disabled
+                                  style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '11px', color: '#475569', cursor: 'not-allowed' }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Missionários */}
+                            <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
+                              {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                            </div>
+
+                            {/* Total */}
+                            <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#166534', fontSize: '11px' }}>
+                              R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-                <div style={{ padding: '2px 0' }}>
-                  {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2').map(cat => {
-                    const houseVal = editValues[cat.id] || 0;
-                    const missVal = missionarySums[cat.id] || 0;
-                    const totalVal = houseVal + missVal;
-                    return (
-                      <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '6px 12px' }}>
-                        <div style={{ width: '50px', fontWeight: 700, color: '#166534' }}>{cat.codigo}</div>
-                        <div style={{ flex: 1, color: '#334155', paddingRight: '10px' }}>{cat.nome}</div>
-
-                        {/* Casa */}
-                        <div style={{ width: '90px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 6px', width: '80px' }}>
-                            <input
-                              type="text"
-                              placeholder="0,00"
-                              value={formatCurrencyMask(numToDigits(houseVal))}
-                              readOnly
-                              disabled
-                              style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '11px', color: '#475569', cursor: 'not-allowed' }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Missionários */}
-                        <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
-                          {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
-                        </div>
-
-                        {/* Total */}
-                        <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#166534', fontSize: '11px' }}>
-                          R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ background: '#f0fdf4', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #bcf0da', color: '#166534' }}>
+                <div style={{ background: '#f0fdf4', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #bcf0da', color: '#166534', marginTop: 'auto' }}>
                   <span>TOTAL RECEITAS</span>
                   <span>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
               {/* DESPESAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                <h4 className="column-title debito" style={{ background: '#fee2e2', color: '#991b1b', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+              <div className="spreadsheet-column">
+                <h4 className="column-title debito">
                   <TrendingDown size={18} /> {t('planilha.despesas')}
                 </h4>
-                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
-                    <div style={{ width: '50px' }}>CÓD.</div>
-                    <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                    <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
-                    <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
-                    <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                <div className="spreadsheet-subtable-container">
+                  <div className="spreadsheet-subtable">
+                    <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
+                        <div style={{ width: '50px' }}>CÓD.</div>
+                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
+                        <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                      </div>
+                    </div>
+                    <div style={{ padding: '2px 0' }}>
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2').map(cat => {
+                        const houseVal = editValues[cat.id] || 0;
+                        const missVal = missionarySums[cat.id] || 0;
+                        const totalVal = houseVal + missVal;
+                        return (
+                          <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '6px 12px' }}>
+                            <div style={{ width: '50px', fontWeight: 700, color: '#991b1b' }}>{cat.codigo}</div>
+                            <div style={{ flex: 1, color: '#334155', paddingRight: '10px' }}>{cat.nome}</div>
+
+                            {/* Casa */}
+                            <div style={{ width: '90px', textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 6px', width: '80px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="0,00"
+                                  value={formatCurrencyMask(numToDigits(houseVal))}
+                                  readOnly
+                                  disabled
+                                  style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '11px', color: '#475569', cursor: 'not-allowed' }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Missionários */}
+                            <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
+                              {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                            </div>
+
+                            {/* Total */}
+                            <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#991b1b', fontSize: '11px' }}>
+                              R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-                <div style={{ padding: '2px 0' }}>
-                  {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2').map(cat => {
-                    const houseVal = editValues[cat.id] || 0;
-                    const missVal = missionarySums[cat.id] || 0;
-                    const totalVal = houseVal + missVal;
-                    return (
-                      <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '6px 12px' }}>
-                        <div style={{ width: '50px', fontWeight: 700, color: '#991b1b' }}>{cat.codigo}</div>
-                        <div style={{ flex: 1, color: '#334155', paddingRight: '10px' }}>{cat.nome}</div>
-
-                        {/* Casa */}
-                        <div style={{ width: '90px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 6px', width: '80px' }}>
-                            <input
-                              type="text"
-                              placeholder="0,00"
-                              value={formatCurrencyMask(numToDigits(houseVal))}
-                              readOnly
-                              disabled
-                              style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '11px', color: '#475569', cursor: 'not-allowed' }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Missionários */}
-                        <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
-                          {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
-                        </div>
-
-                        {/* Total */}
-                        <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#991b1b', fontSize: '11px' }}>
-                          R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ background: '#fef2f2', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #fecaca', color: '#991b1b' }}>
+                <div style={{ background: '#fef2f2', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #fecaca', color: '#991b1b', marginTop: 'auto' }}>
                   <span>TOTAL DESPESAS</span>
                   <span>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -729,7 +737,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                     <FileText size={18} /> {anexoFile ? anexoFile.name : (anexoUrl ? t('planilha.replace_files') : t('planilha.attach_files'))}
                   </label>
                   {anexoUrl && (
-                    <a href={`${api.defaults.baseURL}${anexoUrl}`} target="_blank" rel="noreferrer" className="btn-icon-view" title="Ver Anexo">
+                    <a href={getFileUrl(anexoUrl) || '#'} target="_blank" rel="noreferrer" className="btn-icon-view" title="Ver Anexo">
                       <FileText size={20} />
                     </a>
                   )}
@@ -764,7 +772,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                 {anexoUrl && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <a
-                      href={`${api.defaults.baseURL}${anexoUrl}`}
+                      href={getFileUrl(anexoUrl) || '#'}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-save"

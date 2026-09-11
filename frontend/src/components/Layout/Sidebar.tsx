@@ -7,7 +7,7 @@ import { useLayout } from '../../context/LayoutContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../api';
+import { getFileUrl } from '../../api';
 import '../../styles/Sidebar.css';
 
 interface SubItem {
@@ -135,7 +135,7 @@ const Sidebar: React.FC = () => {
         <div className={`sidebar-item ${location.pathname === '/meu-perfil' ? 'active' : ''}`} onClick={() => navigate('/meu-perfil')}>
           <span className="item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {user?.foto_perfil ? (
-               <img src={user.foto_perfil.startsWith('data:') || user.foto_perfil.startsWith('http') ? user.foto_perfil : `${api.defaults.baseURL}${user.foto_perfil}`} alt="Perfil" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+               <img src={getFileUrl(user.foto_perfil) || user.foto_perfil} alt="Perfil" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold' }}>
                  {getInitials(user?.nome || '')}

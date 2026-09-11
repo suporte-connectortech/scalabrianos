@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import api from '../api';
+import api, { getFileUrl } from '../api';
 import '../styles/MeuPerfil.css';
 
 function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: number) {
@@ -217,7 +217,7 @@ const MeuPerfil: React.FC = () => {
         <div className="meu-perfil-header" style={{ position: 'relative' }}>
           <div className="avatar-wrapper" onClick={handleAvatarClick}>
             {perfil?.foto_perfil ? (
-              <img src={perfil.foto_perfil.startsWith('data:') || perfil.foto_perfil.startsWith('http') ? perfil.foto_perfil : `${api.defaults.baseURL}${perfil.foto_perfil}`} alt="Perfil" className="avatar-img" />
+              <img src={getFileUrl(perfil.foto_perfil) || perfil.foto_perfil} alt="Perfil" className="avatar-img" />
             ) : (
               <span>{getInitials(perfil?.nome || user?.nome || '')}</span>
             )}

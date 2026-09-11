@@ -374,3 +374,52 @@ td {
 .password-toggle:hover {
     color: var(--primary);
 }
+
+/* ── Mobile Responsive (App Mobile View) ─────────────────── */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 1rem;
+    }
+
+    .title-with-badge {
+        justify-content: center;
+    }
+
+    .btn-new {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .filters-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1.15rem;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .filter-group {
+        width: 100%;
+    }
+
+    .data-table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .data-table table {
+        min-width: 650px;
+    }
+
+    .modal-content {
+        min-width: 0 !important;
+        width: 95% !important;
+        max-width: 95vw !important;
+        padding: 1.25rem !important;
+    }
+}
