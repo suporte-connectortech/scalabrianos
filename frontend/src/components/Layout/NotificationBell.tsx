@@ -25,16 +25,42 @@ const NotificationBell: React.FC = () => {
 
 
   const fetchNotificacoes = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
     try {
       const res = await api.get('/notificacoes');
-      setNotificacoes(res.data);
-    } catch (err) { console.error('Error fetching notifications:', err); }
+      if (Array.isArray(res.data)) {
+        setNotificacoes(res.data);
+      }
+    } catch (err) {
+      // Silently catch to avoid polluting logs on background polls
+    }
   };
 
   useEffect(() => {
     fetchNotificacoes();
-    const interval = setInterval(fetchNotificacoes, 30000); // 30s
-    return () => clearInterval(interval);
+
+    // 2 minutes polling (120s) only if active tab and logged in
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchNotificacoes();
+      }
+    }, 120000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchNotificacoes();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
