@@ -926,14 +926,14 @@ const Administradores: React.FC = () => {
       {/* MODAL PRINCIPAL */}
       {isModalOpen && editingProfile && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '1020px', width: '96%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
-            <div className="modal-header" style={{ padding: '20px 30px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(to right, #f8fafc, #ffffff)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
+          <div className="modal-content admin-modal-container" style={{ maxWidth: '980px', width: 'min(980px, 96vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: 0, borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(to right, #f8fafc, #ffffff)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ background: '#013375', color: 'white', padding: '8px', borderRadius: '10px' }}>
                   <ShieldCheck size={20} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.3rem', color: '#0f172a', fontWeight: 800, margin: 0 }}>
+                  <h3 style={{ fontSize: '1.25rem', color: '#0f172a', fontWeight: 800, margin: 0 }}>
                     {editingProfile.id === 0 ? 'Novo Registro de Acesso' : `${editingProfile.nome || 'Usuário'} — #${editingProfile.id}`}
                   </h3>
                   <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
@@ -946,7 +946,7 @@ const Administradores: React.FC = () => {
 
             {/* MODAL TABS */}
             {editingProfile.id !== 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 16px', overflowX: 'auto' }}>
+              <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '8px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 24px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 <button
                   type="button"
                   style={{
@@ -954,11 +954,13 @@ const Administradores: React.FC = () => {
                     border: 'none',
                     background: 'none',
                     fontSize: '0.875rem',
-                    fontWeight: 700,
+                    fontWeight: activeModalTab === 'dados' ? 800 : 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     color: activeModalTab === 'dados' ? '#013375' : '#64748b',
                     borderBottom: activeModalTab === 'dados' ? '3px solid #013375' : '3px solid transparent',
                     transition: 'all 0.2s'
@@ -974,11 +976,13 @@ const Administradores: React.FC = () => {
                     border: 'none',
                     background: 'none',
                     fontSize: '0.875rem',
-                    fontWeight: 700,
+                    fontWeight: activeModalTab === 'historico' ? 800 : 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     color: activeModalTab === 'historico' ? '#013375' : '#64748b',
                     borderBottom: activeModalTab === 'historico' ? '3px solid #013375' : '3px solid transparent',
                     transition: 'all 0.2s'
@@ -987,7 +991,7 @@ const Administradores: React.FC = () => {
                 >
                   <History size={16} /> Histórico de Perfil & Cadastro
                   {historicoCompleto.historico_perfil?.length > 0 && (
-                    <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 7px', borderRadius: '10px', fontSize: '0.75rem' }}>
+                    <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
                       {historicoCompleto.historico_perfil.length}
                     </span>
                   )}
@@ -999,11 +1003,13 @@ const Administradores: React.FC = () => {
                     border: 'none',
                     background: 'none',
                     fontSize: '0.875rem',
-                    fontWeight: 700,
+                    fontWeight: activeModalTab === 'atividades' ? 800 : 600,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     color: activeModalTab === 'atividades' ? '#013375' : '#64748b',
                     borderBottom: activeModalTab === 'atividades' ? '3px solid #013375' : '3px solid transparent',
                     transition: 'all 0.2s'
@@ -1012,7 +1018,7 @@ const Administradores: React.FC = () => {
                 >
                   <Activity size={16} /> Atividades no Sistema
                   {historicoCompleto.logs?.length > 0 && (
-                    <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 7px', borderRadius: '10px', fontSize: '0.75rem' }}>
+                    <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
                       {historicoCompleto.logs.length}
                     </span>
                   )}

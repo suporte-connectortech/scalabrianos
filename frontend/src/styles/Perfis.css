@@ -266,6 +266,19 @@ td {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
+.admin-modal-container {
+    width: min(980px, 96vw) !important;
+    max-width: 980px !important;
+    min-width: min(680px, 96vw) !important;
+}
+
+@media (max-width: 768px) {
+    .admin-modal-container {
+        min-width: 0 !important;
+        width: 96% !important;
+    }
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
