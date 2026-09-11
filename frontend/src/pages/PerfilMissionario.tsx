@@ -19,11 +19,34 @@ interface Missionario {
   id: number;
   nome: string;
   login: string;
+  role?: string;
+  status?: string;
   situacao: string;
   is_oconomo: boolean;
   is_superior: boolean;
   proximos_passos: string;
   permissoes?: Record<string, boolean>;
+  created_at?: string;
+}
+
+export interface HistoricoSituacaoItem {
+  id: number;
+  situacao_anterior: string;
+  situacao_nova: string;
+  motivo?: string;
+  alterado_por_id?: number;
+  alterado_por_nome?: string;
+  created_at: string;
+}
+
+export interface HistoricoPerfilItem {
+  id: number;
+  perfil_anterior: string;
+  perfil_novo: string;
+  motivo?: string;
+  alterado_por_id?: number;
+  alterado_por_nome?: string;
+  created_at: string;
 }
 
 interface ItineraryStage {
@@ -378,6 +401,11 @@ const PerfilMissionario: React.FC = () => {
     egresso_transf_sacerdotes_path: '', egresso_transf_para_regiao_path: '', egresso_transf_da_regiao_path: '',
     exclaustrado_data: '', exclaustrado_processo: '', exclaustrado_doc_path: ''
   });
+  const [originalSituacao, setOriginalSituacao] = useState('');
+  const [showSituacaoConfirmModal, setShowSituacaoConfirmModal] = useState(false);
+  const [motivoSituacao, setMotivoSituacao] = useState('');
+  const [historicoSituacao, setHistoricoSituacao] = useState<HistoricoSituacaoItem[]>([]);
+  const [historicoPerfil, setHistoricoPerfil] = useState<HistoricoPerfilItem[]>([]);
 
   const uploadSituacaoDoc = async (campo: keyof SituacaoData, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -878,17 +906,14 @@ const PerfilMissionario: React.FC = () => {
 
       const normSit = normalizeSituacao(mRes.data?.situacao);
       setMissionario({ ...mRes.data, situacao: normSit });
+      setOriginalSituacao(normSit);
       const isSelf = authUser?.id === mRes.data?.id;
 
       if (isInitial) {
         if (isSelf) {
           setActiveTab('dados');
-        } else if (normSit === 'Egresso') {
-          setActiveTab('situacao_egresso_incardinado_path');
-        } else if (normSit === 'Falecido') {
-          setActiveTab('situacao_falecido_data_cidade');
-        } else if (normSit === 'Exclaustrado') {
-          setActiveTab('situacao_exclaustrado_data');
+        } else if (normSit !== 'Ativo') {
+          setActiveTab('situacao');
         } else {
           setActiveTab('dados');
         }
@@ -925,8 +950,8 @@ const PerfilMissionario: React.FC = () => {
       setItinerarioStages(Array.isArray(itinRes.data) ? itinRes.data : []);
       setNit(civRes.data?.nit || '');
 
-      // Load new sections
-      const [fRes, aRes, oRes, sRes, bRes, obsRes, qRes, contRes] = await Promise.all([
+      // Load new sections and history
+      const [fRes, aRes, oRes, sRes, bRes, obsRes, qRes, contRes, sitRes, hSitRes, hPerfRes] = await Promise.all([
         api.get(`/usuarios/${id}/formacao-academica`),
         api.get(`/usuarios/${id}/atividade-missionaria`),
         api.get(`/usuarios/${id}/obras-realizadas`),
@@ -935,6 +960,9 @@ const PerfilMissionario: React.FC = () => {
         api.get(`/usuarios/${id}/observacoes-gerais`),
         api.get(`/usuarios/${id}/quadro-pessoal`),
         api.get(`/usuarios/${id}/contatos`),
+        api.get(`/usuarios/${id}/situacao`),
+        api.get(`/usuarios/${id}/historico-situacao`).catch(() => ({ data: [] })),
+        api.get(`/usuarios/${id}/historico-perfil`).catch(() => ({ data: [] })),
       ]);
       setFormacaoAcademica(Array.isArray(fRes.data) ? fRes.data : []);
       setAtividadesMissionarias(Array.isArray(aRes.data) ? aRes.data : []);
@@ -944,8 +972,9 @@ const PerfilMissionario: React.FC = () => {
       setObservacoesGerais(Array.isArray(obsRes.data) ? obsRes.data : []);
       setQuadroPessoal(Array.isArray(qRes.data) ? qRes.data[0] : (qRes.data || null));
       setContatos(Array.isArray(contRes.data) ? contRes.data : []);
+      setHistoricoSituacao(Array.isArray(hSitRes.data) ? hSitRes.data : []);
+      setHistoricoPerfil(Array.isArray(hPerfRes.data) ? hPerfRes.data : []);
 
-      const sitRes = await api.get(`/usuarios/${id}/situacao`);
       if (sitRes.data) setSituacaoData({
         ...sitRes.data,
         data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : '',
@@ -1145,8 +1174,9 @@ const PerfilMissionario: React.FC = () => {
         is_oconomo: missionario.is_oconomo,
         is_superior: missionario.is_superior,
         proximos_passos: missionario.proximos_passos,
-        role: 'PADRE',
-        status: 'ATIVO'
+        role: missionario.role || 'MISSIONARIO',
+        status: missionario.status || 'ATIVO',
+        permissoes: missionario.permissoes || {}
       };
 
       if (newPassword.trim()) {
@@ -1154,12 +1184,66 @@ const PerfilMissionario: React.FC = () => {
       }
 
       await api.put(`/usuarios/${id}`, payload);
-      alert('Informações atualizadas com sucesso!');
+      alert('Informações de acesso atualizadas com sucesso!');
       setNewPassword('');
+      const hPerfRes = await api.get(`/usuarios/${id}/historico-perfil`).catch(() => ({ data: [] }));
+      setHistoricoPerfil(Array.isArray(hPerfRes.data) ? hPerfRes.data : []);
     } catch (err: any) {
       alert('Erro ao salvar informações: ' + (err.response?.data?.message || err.message));
     }
     finally { setIsSaving(false); }
+  };
+
+  const handleSaveSituacao = async () => {
+    if (!missionario) return;
+    const currentSit = normalizeSituacao(missionario.situacao);
+    if (currentSit !== normalizeSituacao(originalSituacao)) {
+      setShowSituacaoConfirmModal(true);
+    } else {
+      setIsSaving(true);
+      try {
+        await api.post(`/usuarios/${id}/situacao`, situacaoData);
+        alert('Dados de situação atualizados com sucesso!');
+      } catch (err: any) {
+        alert('Erro ao salvar dados de situação: ' + (err.response?.data?.message || err.message));
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  const handleConfirmSituacaoSave = async () => {
+    if (!missionario) return;
+    setIsSaving(true);
+    try {
+      const payload: any = {
+        nome: missionario.nome,
+        login: missionario.login,
+        situacao: missionario.situacao,
+        is_oconomo: missionario.is_oconomo,
+        is_superior: missionario.is_superior,
+        proximos_passos: missionario.proximos_passos,
+        role: missionario.role || 'MISSIONARIO',
+        status: missionario.status || 'ATIVO',
+        permissoes: missionario.permissoes || {},
+        motivo_situacao: motivoSituacao
+      };
+      await api.put(`/usuarios/${id}`, payload);
+      await api.post(`/usuarios/${id}/situacao`, situacaoData);
+
+      const norm = normalizeSituacao(missionario.situacao);
+      setOriginalSituacao(norm);
+      setShowSituacaoConfirmModal(false);
+      setMotivoSituacao('');
+      alert('Situação atualizada com sucesso e registrada no histórico!');
+
+      const hSitRes = await api.get(`/usuarios/${id}/historico-situacao`).catch(() => ({ data: [] }));
+      setHistoricoSituacao(Array.isArray(hSitRes.data) ? hSitRes.data : []);
+    } catch (err: any) {
+      alert('Erro ao salvar situação: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -1271,7 +1355,6 @@ const PerfilMissionario: React.FC = () => {
   if (isLoading) return <div className="perfil-loading"><Loader2 className="animate-spin" size={40} /><p>{t('profile.loading')}</p></div>;
   if (!missionario) return <div className="perfil-loading"><AlertCircle size={40} /><p>{t('profile.not_found')}</p></div>;
 
-  const currentSituacao = normalizeSituacao(missionario?.situacao);
   const isSelfProfile = authUser?.id === missionario?.id;
   const canPrint = (isAdminGeral || canEdit || isRegional) && !isSelfProfile;
 
@@ -1282,70 +1365,28 @@ const PerfilMissionario: React.FC = () => {
     { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
   ];
 
-  let sidebarItems: { key: string; label: string; icon: React.ReactNode; perm: string | null }[] = [];
-
-  if (!isSelfProfile && currentSituacao === 'Egresso') {
-    sidebarItems = [
-      { key: 'situacao_egresso_incardinado_path', label: '1. Incardinados', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_desistencia_path', label: '2. Desistência ou outro inst.', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_laicizado_path', label: '3. Laicizados', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_transf_sacerdotes_path', label: '4. Sacerdotes/Rel. Transf.', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_transf_para_regiao_path', label: '4.1 Para a Região', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_transf_da_regiao_path', label: '4.2 Da Região p/ Províncias', icon: <FileText size={16} />, perm: null },
-      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
-      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
-    ];
-  } else if (!isSelfProfile && currentSituacao === 'Falecido') {
-    sidebarItems = [
-      { key: 'situacao_falecido_data_cidade', label: '1. Data e Cidade', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_certidao_obito_path', label: '2. Certidão de Óbito', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_falecido_sepultamento', label: '3. Local de Sepultamento', icon: <FileText size={16} />, perm: null },
-      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
-      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
-    ];
-  } else if (!isSelfProfile && currentSituacao === 'Exclaustrado') {
-    sidebarItems = [
-      { key: 'situacao_exclaustrado_data', label: '1. Data de Exclaustração', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_exclaustrado_processo', label: '2. Processo / Decreto', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_exclaustrado_doc_path', label: '3. Documento', icon: <FileText size={16} />, perm: null },
-      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
-      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
-    ];
-  } else {
-    sidebarItems = [
-      { key: 'religiosos', label: t('profile.tabs.religious'), icon: <BookOpen size={16} />, perm: 'dados_religiosos' },
-      { key: 'itinerario', label: t('profile.tabs.itinerary'), icon: <Activity size={16} />, perm: 'itinerario_formativo' },
-      { key: 'formacao_academica', label: t('profile.tabs.formacao_academica'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
-      { key: 'atividade_missionaria', label: t('profile.tabs.atividade_missionaria'), icon: <MapPin size={16} />, perm: 'atividade_missionaria' },
-      { key: 'saude_individual', label: t('profile.tabs.saude_individual'), icon: <Activity size={16} />, perm: 'saude' },
-      { key: 'previdenciario', label: t('profile.tabs.previdenciario'), icon: <ShieldCheck size={16} />, perm: 'previdenciario_ir' },
-      { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
-      { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
-      { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
-      { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
-      { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
-      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
-    ];
-  }
+  const sidebarItems: { key: string; label: string; icon: React.ReactNode; perm: string | null }[] = [
+    { key: 'religiosos', label: t('profile.tabs.religious'), icon: <BookOpen size={16} />, perm: 'dados_religiosos' },
+    { key: 'itinerario', label: t('profile.tabs.itinerary'), icon: <Activity size={16} />, perm: 'itinerario_formativo' },
+    { key: 'formacao_academica', label: t('profile.tabs.formacao_academica'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
+    { key: 'atividade_missionaria', label: t('profile.tabs.atividade_missionaria'), icon: <MapPin size={16} />, perm: 'atividade_missionaria' },
+    { key: 'saude_individual', label: t('profile.tabs.saude_individual'), icon: <Activity size={16} />, perm: 'saude' },
+    { key: 'previdenciario', label: t('profile.tabs.previdenciario'), icon: <ShieldCheck size={16} />, perm: 'previdenciario_ir' },
+    { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
+    { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
+    { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
+    { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
+    { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
+    { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
+    { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
+  ];
 
   const handleSidebarItemClick = (key: string) => {
     setActiveTab(key);
   };
 
   const handleMainTabClick = (key: string) => {
-    if (key === 'situacao') {
-      const normSit = normalizeSituacao(missionario?.situacao);
-      if (normSit === 'Egresso') setActiveTab('situacao_egresso_incardinado_path');
-      else if (normSit === 'Falecido') setActiveTab('situacao_falecido_data_cidade');
-      else if (normSit === 'Exclaustrado') setActiveTab('situacao_exclaustrado_data');
-      else setActiveTab('situacao');
-    } else {
-      setActiveTab(key);
-    }
+    setActiveTab(key);
   };
 
   const TABS = mainTabs.filter(tab => {
@@ -1710,12 +1751,65 @@ const PerfilMissionario: React.FC = () => {
 
                     {canEdit && (
                       <div className="section-actions" style={{ marginTop: '20px' }}>
-                        <button className="btn-save-perfil" onClick={saveReligiosos} disabled={isSaving}>
+                        <button className="btn-save-perfil" onClick={handleSaveSituacao} disabled={isSaving}>
                           {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                           Salvar Situação
                         </button>
                       </div>
                     )}
+
+                    {/* ── HISTÓRICO DE ALTERAÇÕES DE SITUAÇÃO ── */}
+                    <div style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <Activity size={18} style={{ color: '#013375' }} />
+                        <h4 style={{ margin: 0, fontSize: '1rem', color: '#1e293b', fontWeight: 700 }}>
+                          Histórico de Alterações de Situação
+                        </h4>
+                      </div>
+
+                      {historicoSituacao.length === 0 ? (
+                        <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.88rem', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+                          Nenhuma alteração de situação registrada até o momento.
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                            <thead>
+                              <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
+                                <th style={{ padding: '10px 12px' }}>Data / Hora</th>
+                                <th style={{ padding: '10px 12px' }}>Mudança de Situação</th>
+                                <th style={{ padding: '10px 12px' }}>Alterado Por</th>
+                                <th style={{ padding: '10px 12px' }}>Motivo / Observação</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {historicoSituacao.map(item => (
+                                <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: '#64748b' }}>
+                                    {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '—'}
+                                  </td>
+                                  <td style={{ padding: '10px 12px' }}>
+                                    <span className={`situacao-tag-premium ${(item.situacao_anterior || '').toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                                      {item.situacao_anterior || '—'}
+                                    </span>
+                                    <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
+                                    <span className={`situacao-tag-premium ${(item.situacao_nova || '').toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                                      {item.situacao_nova}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '10px 12px', fontWeight: 600, color: '#334155' }}>
+                                    {item.alterado_por_nome || 'Sistema'}
+                                  </td>
+                                  <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                                    {item.motivo || '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -2182,7 +2276,12 @@ const PerfilMissionario: React.FC = () => {
             {activeTab === 'acesso' && (
               <div className="tab-panel">
                 <div className="section-card">
-                  <h3 className="section-title"><ShieldCheck size={16} /> Acesso ao Sistema</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+                    <h3 className="section-title" style={{ margin: 0 }}><ShieldCheck size={16} /> Acesso ao Sistema</h3>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <strong>Data de Cadastro:</strong> {missionario.created_at ? new Date(missionario.created_at).toLocaleString('pt-BR') : '—'}
+                    </div>
+                  </div>
                   <div className="form-grid-2">
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                       <label>Nome</label>
@@ -2236,6 +2335,59 @@ const PerfilMissionario: React.FC = () => {
                       </button>
                     </div>
                   )}
+
+                  {/* ── HISTÓRICO DE TROCA DE PERFIL ── */}
+                  <div style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                      <Activity size={18} style={{ color: '#013375' }} />
+                      <h4 style={{ margin: 0, fontSize: '1rem', color: '#1e293b', fontWeight: 700 }}>
+                        Histórico de Alterações de Perfil / Cargo
+                      </h4>
+                    </div>
+
+                    {historicoPerfil.length === 0 ? (
+                      <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.88rem', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+                        Nenhuma troca de perfil/cargo registrada até o momento.
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
+                              <th style={{ padding: '10px 12px' }}>Data / Hora</th>
+                              <th style={{ padding: '10px 12px' }}>Mudança de Perfil</th>
+                              <th style={{ padding: '10px 12px' }}>Alterado Por</th>
+                              <th style={{ padding: '10px 12px' }}>Motivo / Observação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historicoPerfil.map(item => (
+                              <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: '#64748b' }}>
+                                  {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '—'}
+                                </td>
+                                <td style={{ padding: '10px 12px' }}>
+                                  <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontSize: '0.78rem', fontWeight: 600 }}>
+                                    {item.perfil_anterior || '—'}
+                                  </span>
+                                  <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
+                                  <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#e0e7ff', color: '#3730a3', fontSize: '0.78rem', fontWeight: 700 }}>
+                                    {item.perfil_novo}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 12px', fontWeight: 600, color: '#334155' }}>
+                                  {item.alterado_por_nome || 'Sistema'}
+                                </td>
+                                <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                                  {item.motivo || '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -2985,6 +3137,79 @@ const PerfilMissionario: React.FC = () => {
                       <strong>Nota de Administrador:</strong> Você pode alterar estas permissões na tela de <a href="#/administradores" style={{ color: '#013375', fontWeight: 700 }}>Gestão de Acessos</a> ou editando o cadastro do missionário.
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* --- MODAL CONFIRMAÇÃO SITUAÇÃO --- */}
+            {showSituacaoConfirmModal && (
+              <div className="modal-overlay">
+                <div className="modal-content" style={{ maxWidth: '520px', width: '90%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ background: '#fef3c7', color: '#b45309', padding: '10px', borderRadius: '10px' }}>
+                      <AlertCircle size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Confirmar Alteração de Situação</h3>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>Registro de auditoria permanente</p>
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.88rem', color: '#92400e' }}>
+                    <strong>⚠️ Atenção:</strong> Esta alteração será gravada permanentemente no histórico deste perfil, registrando seu usuário e data/hora.
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Situação Anterior</div>
+                      <span className={`situacao-tag-premium ${(originalSituacao || 'ativo').toLowerCase()}`} style={{ fontSize: '0.82rem', padding: '4px 10px' }}>
+                        {originalSituacao || 'Ativo'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '1.2rem', color: '#94a3b8' }}>➔</div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Nova Situação</div>
+                      <span className={`situacao-tag-premium ${(missionario.situacao || 'ativo').toLowerCase()}`} style={{ fontSize: '0.82rem', padding: '4px 10px' }}>
+                        {missionario.situacao}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '6px', display: 'block' }}>
+                      Motivo / Observação da Mudança (Opcional):
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Ex: Falecimento confirmado, decreto de transferência, laicização..."
+                      value={motivoSituacao}
+                      onChange={e => setMotivoSituacao(e.target.value)}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => {
+                        setMissionario({ ...missionario, situacao: originalSituacao });
+                        setShowSituacaoConfirmModal(false);
+                      }}
+                      disabled={isSaving}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-perfil"
+                      onClick={handleConfirmSituacaoSave}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      Confirmar e Salvar
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

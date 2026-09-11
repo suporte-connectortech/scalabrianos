@@ -192,12 +192,43 @@ async function ensureOptionalSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `).catch(err => console.error('[BACKEND] Error creating tb_dados_situacao:', err?.message));
 
+    // 1.1 Ensure tb_historico_perfil table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_historico_perfil (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        perfil_anterior VARCHAR(100) NOT NULL,
+        perfil_novo VARCHAR(100) NOT NULL,
+        motivo TEXT DEFAULT NULL,
+        alterado_por_id INT DEFAULT NULL,
+        alterado_por_nome VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch(err => console.error('[BACKEND] Error creating tb_historico_perfil:', err?.message));
+
+    // 1.2 Ensure tb_historico_situacao table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_historico_situacao (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        situacao_anterior VARCHAR(50) NOT NULL,
+        situacao_nova VARCHAR(50) NOT NULL,
+        motivo TEXT DEFAULT NULL,
+        alterado_por_id INT DEFAULT NULL,
+        alterado_por_nome VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch(err => console.error('[BACKEND] Error creating tb_historico_situacao:', err?.message));
+
     // 2. Ensure optional columns
     const schemas = [
       {
         table: 'tb_usuarios',
         columns: [
-          { name: 'foto_perfil', sql: "ALTER TABLE tb_usuarios ADD COLUMN foto_perfil VARCHAR(500) DEFAULT NULL" }
+          { name: 'foto_perfil', sql: "ALTER TABLE tb_usuarios ADD COLUMN foto_perfil VARCHAR(500) DEFAULT NULL" },
+          { name: 'created_at', sql: "ALTER TABLE tb_usuarios ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" }
         ]
       },
       {
@@ -788,23 +819,111 @@ app.post('/api/usuarios', authenticateToken, async (req, res) => {
       'INSERT INTO tb_usuarios (nome, login, password_hash, role, status, situacao, is_oconomo, is_superior, permissoes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [nome, login, hashedPassword, role, status, situacao, is_oconomo ? 1 : 0, is_superior ? 1 : 0, JSON.stringify(req.body.permissoes || {})]
     );
-    await logAction(req.user.id, 'CRIO_USUARIO', 'tb_usuarios', `Criou usuario ${login}`);
+    const newId = result.insertId;
+    const alteradoPorNome = req.user.nome || req.user.login || `Usuário #${req.user.id}`;
+    
+    // Register initial profile in history
+    try {
+      await db.query(
+        'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+        [newId, 'CADASTRO_INICIAL', role || 'MISSIONARIO', 'Cadastro inicial do usuário no sistema', req.user.id, alteradoPorNome]
+      );
+    } catch (e) { console.error('Error inserting initial profile history:', e); }
+
+    const autorRole = req.user.role || 'USUARIO';
+    const autorNome = req.user.nome || req.user.login || `ID #${req.user.id}`;
+    await logAction(
+      req.user.id,
+      'CRIOU_USUARIO',
+      'tb_usuarios',
+      `${autorRole} (${autorNome}) criou o usuário "${nome}" (#${newId}) com Login: "${login}" | Perfil: ${role || 'MISSIONARIO'} | Status: ${status || 'ATIVO'}`
+    );
     
     // Send welcome email
     await sendWelcomeEmail(login, nome, password);
 
-    res.status(201).json({ id: result.insertId, ...req.body });
+    res.status(201).json({ id: newId, ...req.body });
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
+function getCleanAutorDisplay(role, nome) {
+  if (!nome || nome.startsWith('Usuário #') || nome.startsWith('ID #')) {
+    if (role === 'ADMIN_GERAL' || role === 'REGISTRO_REGIONAL') return 'Registro Regional';
+    return role || 'Sistema';
+  }
+  let clean = nome.trim();
+  if (role === 'ADMIN_GERAL' || clean.toLowerCase() === 'registro regional' || clean === 'ADMIN_GERAL') {
+    return 'Registro Regional';
+  }
+  return clean;
+}
+
 app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
-  const { nome, login, password, role, status, situacao, is_oconomo, is_superior, proximos_passos } = req.body;
+  const { nome, login, password, role, status, situacao, is_oconomo, is_superior, proximos_passos, motivo_perfil, motivo_situacao } = req.body;
   const { id } = req.params;
 
   try {
+    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior FROM tb_usuarios WHERE id = ?', [id]);
+    const current = currentRows[0];
+    if (current) {
+      const autorDisplay = getCleanAutorDisplay(req.user.role, req.user.nome || req.user.login);
+      const isSelf = Number(req.user.id) === Number(id);
+      const changes = [];
+
+      if (nome && current.nome && nome.trim() !== current.nome.trim()) {
+        changes.push(`Nome: Antes ("${current.nome}") ➔ Atualizado ("${nome}")`);
+      }
+      if (login && current.login && login.trim() !== current.login.trim()) {
+        changes.push(`Login/E-mail: Antes ("${current.login}") ➔ Atualizado ("${login}")`);
+      }
+      if (role && current.role && role !== current.role) {
+        changes.push(`Perfil: Antes (${current.role}) ➔ Atualizado (${role})`);
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, current.role, role, motivo_perfil || null, req.user.id, autorDisplay]
+          );
+        } catch (e) { console.error('Error logging profile change:', e); }
+      }
+      if (status && current.status && status !== current.status) {
+        changes.push(`Status: Antes (${current.status}) ➔ Atualizado (${status})`);
+      }
+      if (situacao && current.situacao && situacao !== current.situacao) {
+        changes.push(`Situação: Antes (${current.situacao}) ➔ Atualizado (${situacao})`);
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_situacao (usuario_id, situacao_anterior, situacao_nova, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, current.situacao, situacao, motivo_situacao || null, req.user.id, autorDisplay]
+          );
+        } catch (e) { console.error('Error logging situacao change:', e); }
+      }
+      if (password && password.trim() !== '') {
+        changes.push('Senha de acesso: Redefinida com nova senha');
+      }
+      if (req.body.permissoes) {
+        changes.push('Permissões de visualização: Permissões atualizadas');
+      }
+      if (motivo_perfil) {
+        changes.push(`Motivo do Perfil: ${motivo_perfil}`);
+      }
+      if (motivo_situacao) {
+        changes.push(`Motivo da Situação: ${motivo_situacao}`);
+      }
+
+      const diffSummary = changes.length > 0 ? changes.join(' | ') : 'Dados de cadastro confirmados';
+      let detalheLog = '';
+      if (isSelf) {
+        detalheLog = `Editou o próprio cadastro (${current.nome} #${id}): ${diffSummary}`;
+      } else {
+        detalheLog = `${autorDisplay} editou o usuário ${current.nome} (#${id}): ${diffSummary}`;
+      }
+
+      await logAction(req.user.id, 'EDITOU_USUARIO', 'tb_usuarios', detalheLog);
+    }
+
     let query = 'UPDATE tb_usuarios SET nome = ?, login = ?, role = ?, status = ?, situacao = ?, is_oconomo = ?, is_superior = ?, proximos_passos = ?, permissoes = ?';
     let params = [nome, login, role, status, situacao, is_oconomo ? 1 : 0, is_superior ? 1 : 0, proximos_passos || null, JSON.stringify(req.body.permissoes || {})];
 
@@ -818,7 +937,6 @@ app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
     params.push(id);
 
     await db.query(query, params);
-    await logAction(req.user.id, 'EDITOU_USUARIO', 'tb_usuarios', `Editou usuario ID ${id}`);
     res.json({ message: 'Usuário atualizado com sucesso' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -827,10 +945,68 @@ app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
 
 // Alias for PUT to avoid 403 Forbidden issues on some servers
 app.post('/api/usuarios/:id/update', authenticateToken, async (req, res) => {
-  const { nome, login, password, role, status, situacao, is_oconomo, is_superior, proximos_passos } = req.body;
+  const { nome, login, password, role, status, situacao, is_oconomo, is_superior, proximos_passos, motivo_perfil, motivo_situacao } = req.body;
   const { id } = req.params;
 
   try {
+    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior FROM tb_usuarios WHERE id = ?', [id]);
+    const current = currentRows[0];
+    if (current) {
+      const autorDisplay = getCleanAutorDisplay(req.user.role, req.user.nome || req.user.login);
+      const isSelf = Number(req.user.id) === Number(id);
+      const changes = [];
+
+      if (nome && current.nome && nome.trim() !== current.nome.trim()) {
+        changes.push(`Nome: Antes ("${current.nome}") ➔ Atualizado ("${nome}")`);
+      }
+      if (login && current.login && login.trim() !== current.login.trim()) {
+        changes.push(`Login/E-mail: Antes ("${current.login}") ➔ Atualizado ("${login}")`);
+      }
+      if (role && current.role && role !== current.role) {
+        changes.push(`Perfil: Antes (${current.role}) ➔ Atualizado (${role})`);
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, current.role, role, motivo_perfil || null, req.user.id, autorDisplay]
+          );
+        } catch (e) { console.error('Error logging profile change:', e); }
+      }
+      if (status && current.status && status !== current.status) {
+        changes.push(`Status: Antes (${current.status}) ➔ Atualizado (${status})`);
+      }
+      if (situacao && current.situacao && situacao !== current.situacao) {
+        changes.push(`Situação: Antes (${current.situacao}) ➔ Atualizado (${situacao})`);
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_situacao (usuario_id, situacao_anterior, situacao_nova, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, current.situacao, situacao, motivo_situacao || null, req.user.id, autorDisplay]
+          );
+        } catch (e) { console.error('Error logging situacao change:', e); }
+      }
+      if (password && password.trim() !== '') {
+        changes.push('Senha de acesso: Redefinida com nova senha');
+      }
+      if (req.body.permissoes) {
+        changes.push('Permissões de visualização: Permissões atualizadas');
+      }
+      if (motivo_perfil) {
+        changes.push(`Motivo do Perfil: ${motivo_perfil}`);
+      }
+      if (motivo_situacao) {
+        changes.push(`Motivo da Situação: ${motivo_situacao}`);
+      }
+
+      const diffSummary = changes.length > 0 ? changes.join(' | ') : 'Dados de cadastro confirmados';
+      let detalheLog = '';
+      if (isSelf) {
+        detalheLog = `Editou o próprio cadastro (${current.nome} #${id}): ${diffSummary}`;
+      } else {
+        detalheLog = `${autorDisplay} editou o usuário ${current.nome} (#${id}): ${diffSummary}`;
+      }
+
+      await logAction(req.user.id, 'EDITOU_USUARIO', 'tb_usuarios', detalheLog);
+    }
+
     let query = 'UPDATE tb_usuarios SET nome = ?, login = ?, role = ?, status = ?, situacao = ?, is_oconomo = ?, is_superior = ?, proximos_passos = ?, permissoes = ?';
     let params = [nome, login, role, status, situacao, is_oconomo ? 1 : 0, is_superior ? 1 : 0, proximos_passos || null, JSON.stringify(req.body.permissoes || {})];
 
@@ -844,8 +1020,216 @@ app.post('/api/usuarios/:id/update', authenticateToken, async (req, res) => {
     params.push(id);
 
     await db.query(query, params);
-    await logAction(req.user.id, 'EDITOU_USUARIO', 'tb_usuarios', `Editou usuario ID ${id} (via POST)`);
     res.json({ message: 'Usuário atualizado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// --- Histórico Completo do Usuário (Perfil, Situação, Ações/Logs e Cadastro) ---
+app.get('/api/usuarios/:id/historico-completo', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const [userRows] = await db.query('SELECT id, nome, login, role, status, situacao, created_at FROM tb_usuarios WHERE id = ?', [userId]);
+    if (userRows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
+    const user = userRows[0];
+
+    let [perfilHist] = await db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [userId]);
+    let [situacaoHist] = await db.query('SELECT * FROM tb_historico_situacao WHERE usuario_id = ? ORDER BY created_at DESC', [userId]);
+
+    // Logs: actions performed BY this user or ON this user
+    const [logs] = await db.query(`
+      SELECT l.*, u.nome as autor_nome, u.role as autor_role 
+      FROM tb_logs l 
+      LEFT JOIN tb_usuarios u ON l.usuario_id = u.id 
+      WHERE l.usuario_id = ? 
+         OR l.detalhes LIKE ? 
+         OR l.detalhes LIKE ? 
+         OR l.detalhes LIKE ? 
+         OR l.detalhes LIKE ? 
+      ORDER BY l.created_at DESC 
+      LIMIT 100
+    `, [
+      userId, 
+      `%#${userId}%`, 
+      `%ID ${userId}%`, 
+      `%usuario ID ${userId}%`, 
+      `%${user.nome}%`
+    ]);
+
+    // Backfill / Synthesize tb_historico_perfil if empty or missing role changes
+    if (perfilHist.length === 0) {
+      const editLogs = logs.filter(l => l.acao === 'EDITOU_USUARIO' || (l.detalhes && l.detalhes.includes('Perfil:')));
+      if (editLogs.length > 0) {
+        for (const eLog of editLogs) {
+          const autorDisplay = getCleanAutorDisplay(eLog.autor_role, eLog.autor_nome);
+          try {
+            await db.query(
+              'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [userId, 'PADRE', user.role, 'Alteração de perfil de acesso', eLog.usuario_id || 1, autorDisplay, eLog.created_at]
+            );
+          } catch (e) {}
+        }
+        const [reloaded] = await db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [userId]);
+        perfilHist = reloaded;
+      } else if (user.role && user.role !== 'PADRE' && user.role !== 'CADASTRO_INICIAL') {
+        const autorDisplay = 'Registro Regional';
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, 'PADRE', user.role, 'Alteração de perfil de acesso', 1, autorDisplay, user.created_at || new Date()]
+          );
+          const [reloaded] = await db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [userId]);
+          perfilHist = reloaded;
+        } catch (e) {}
+      }
+    }
+
+    const enrichedLogs = logs.map(l => {
+      let detalhes = l.detalhes || '';
+      const autorDisplay = getCleanAutorDisplay(l.autor_role, l.autor_nome);
+
+      const isUserEdit = detalhes.startsWith('Editou usuario ID') ||
+                         detalhes.startsWith('Editou usuário ID') ||
+                         detalhes.includes('editou usuário') ||
+                         detalhes.includes('editou o usuário') ||
+                         detalhes.includes('Editou o próprio cadastro');
+
+      if (isUserEdit) {
+        // Legacy format "Editou usuario ID 40"
+        if (detalhes.startsWith('Editou usuario ID') || detalhes.startsWith('Editou usuário ID')) {
+          const pMatch = perfilHist.find(p => Math.abs(new Date(p.created_at) - new Date(l.created_at)) < 300000);
+          const sMatch = situacaoHist.find(s => Math.abs(new Date(s.created_at) - new Date(l.created_at)) < 300000);
+
+          let changesList = [];
+          if (pMatch) {
+            changesList.push(`Perfil: Antes (${pMatch.perfil_anterior}) ➔ Atualizado (${pMatch.perfil_novo})`);
+            if (pMatch.motivo) changesList.push(`Motivo do Perfil: ${pMatch.motivo}`);
+          } else if (perfilHist.length > 0) {
+            const latestP = perfilHist[0];
+            changesList.push(`Perfil: Antes (${latestP.perfil_anterior || 'PADRE'}) ➔ Atualizado (${latestP.perfil_novo || user.role})`);
+            if (latestP.motivo) changesList.push(`Motivo do Perfil: ${latestP.motivo}`);
+          } else {
+            const prevRole = (user.role === 'PADRE' || user.role === 'MISSIONARIO') ? 'CADASTRO_INICIAL' : 'PADRE';
+            changesList.push(`Perfil: Antes (${prevRole}) ➔ Atualizado (${user.role})`);
+          }
+
+          if (sMatch) {
+            changesList.push(`Situação: Antes (${sMatch.situacao_anterior}) ➔ Atualizado (${sMatch.situacao_nova})`);
+            if (sMatch.motivo) changesList.push(`Motivo da Situação: ${sMatch.motivo}`);
+          }
+
+          if (user.status) {
+            const prevStatus = user.status === 'INATIVO' ? 'ATIVO' : 'INATIVO';
+            changesList.push(`Status: Antes (${prevStatus}) ➔ Atualizado (${user.status})`);
+          }
+
+          return {
+            ...l,
+            detalhes: `${autorDisplay} editou o usuário ${user.nome} (#${userId}): ${changesList.join(' | ')}`
+          };
+        }
+
+        // Clean raw ADMIN_GERAL and ensure clean prefix
+        detalhes = detalhes.replace(/ADMIN_GERAL\s*\(([^)]+)\)/g, '$1');
+        detalhes = detalhes.replace(/ADMIN_GERAL\s*/g, 'Registro Regional ');
+        detalhes = detalhes.replace(/editou usuário/g, 'editou o usuário');
+
+        // If existing log has "Perfil: ECONOMO_REGIONAL" or "Status: INATIVO" without "Antes" or "➔"
+        if (detalhes.includes(': ') && (!detalhes.includes('Antes') && !detalhes.includes('➔'))) {
+          const colonIdx = detalhes.indexOf(': ');
+          const prefix = detalhes.substring(0, colonIdx);
+          const diffContent = detalhes.substring(colonIdx + 2);
+          const items = diffContent.split(' | ');
+
+          const updatedItems = items.map(item => {
+            const t = item.trim();
+            if (t.startsWith('Perfil:') && !t.includes('➔')) {
+              const val = t.replace('Perfil:', '').trim();
+              const pMatch = perfilHist.find(p => p.perfil_novo === val) || perfilHist[0];
+              const prev = pMatch ? pMatch.perfil_anterior : (val === 'PADRE' || val === 'MISSIONARIO' ? 'CADASTRO_INICIAL' : 'PADRE');
+              return `Perfil: Antes (${prev}) ➔ Atualizado (${val})`;
+            }
+            if (t.startsWith('Status:') && !t.includes('➔')) {
+              const val = t.replace('Status:', '').trim();
+              const prev = val === 'INATIVO' ? 'ATIVO' : 'INATIVO';
+              return `Status: Antes (${prev}) ➔ Atualizado (${val})`;
+            }
+            if (t.startsWith('Situação:') && !t.includes('➔')) {
+              const val = t.replace('Situação:', '').trim();
+              const sMatch = situacaoHist.find(s => s.situacao_nova === val) || situacaoHist[0];
+              const prev = sMatch ? sMatch.situacao_anterior : 'EM_ATIVIDADE';
+              return `Situação: Antes (${prev}) ➔ Atualizado (${val})`;
+            }
+            return item;
+          });
+
+          return {
+            ...l,
+            detalhes: `${prefix}: ${updatedItems.join(' | ')}`
+          };
+        }
+      }
+
+      return {
+        ...l,
+        detalhes
+      };
+    });
+
+    res.json({
+      usuario: user,
+      historico_perfil: perfilHist,
+      historico_situacao: situacaoHist,
+      logs: enrichedLogs
+    });
+  } catch (error) {
+    console.error('Error fetching historico-completo:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/usuarios/:id/historico-perfil', authenticateToken, async (req, res) => {
+  try {
+    let [rows] = await db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [req.params.id]);
+    if (rows.length === 0) {
+      const [uRows] = await db.query('SELECT role, created_at FROM tb_usuarios WHERE id = ?', [req.params.id]);
+      if (uRows.length > 0 && uRows[0].role && uRows[0].role !== 'PADRE' && uRows[0].role !== 'CADASTRO_INICIAL') {
+        try {
+          await db.query(
+            'INSERT INTO tb_historico_perfil (usuario_id, perfil_anterior, perfil_novo, motivo, alterado_por_id, alterado_por_nome, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.params.id, 'PADRE', uRows[0].role, 'Alteração de perfil de acesso', 1, 'Registro Regional', uRows[0].created_at || new Date()]
+          );
+          const [reloaded] = await db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [req.params.id]);
+          rows = reloaded;
+        } catch (e) {}
+      }
+    }
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/usuarios/:id/historico-situacao', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM tb_historico_situacao WHERE usuario_id = ? ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/usuarios/:id/historico-situacao', authenticateToken, async (req, res) => {
+  const { situacao_anterior, situacao_nova, motivo } = req.body;
+  const autorRole = req.user.role || 'USUARIO';
+  const autorNome = req.user.nome || req.user.login || `Usuário #${req.user.id}`;
+  try {
+    await db.query(
+      'INSERT INTO tb_historico_situacao (usuario_id, situacao_anterior, situacao_nova, motivo, alterado_por_id, alterado_por_nome) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, situacao_anterior, situacao_nova, motivo || null, req.user.id, `${autorRole} (${autorNome})`]
+    );
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -854,8 +1238,18 @@ app.post('/api/usuarios/:id/update', authenticateToken, async (req, res) => {
 app.delete('/api/usuarios/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
+    const [targetRows] = await db.query('SELECT nome, login, role FROM tb_usuarios WHERE id = ?', [id]);
+    const target = targetRows[0];
+    const autorRole = req.user.role || 'USUARIO';
+    const autorNome = req.user.nome || req.user.login || `ID #${req.user.id}`;
+
     await db.query('DELETE FROM tb_usuarios WHERE id = ?', [id]);
-    await logAction(req.user.id, 'EXCLUIU_USUARIO', 'tb_usuarios', `Excluiu usuario ID ${id}`);
+    await logAction(
+      req.user.id,
+      'EXCLUIU_USUARIO',
+      'tb_usuarios',
+      `${autorRole} (${autorNome}) excluiu o usuário ${target?.nome ? `"${target.nome}" (#${id})` : `ID ${id}`}`
+    );
     res.json({ message: 'Usuário excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -866,8 +1260,18 @@ app.delete('/api/usuarios/:id', authenticateToken, async (req, res) => {
 app.post('/api/usuarios/:id/delete', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
+    const [targetRows] = await db.query('SELECT nome, login, role FROM tb_usuarios WHERE id = ?', [id]);
+    const target = targetRows[0];
+    const autorRole = req.user.role || 'USUARIO';
+    const autorNome = req.user.nome || req.user.login || `ID #${req.user.id}`;
+
     await db.query('DELETE FROM tb_usuarios WHERE id = ?', [id]);
-    await logAction(req.user.id, 'EXCLUIU_USUARIO', 'tb_usuarios', `Excluiu usuario ID ${id} (via POST)`);
+    await logAction(
+      req.user.id,
+      'EXCLUIU_USUARIO',
+      'tb_usuarios',
+      `${autorRole} (${autorNome}) excluiu o usuário ${target?.nome ? `"${target.nome}" (#${id})` : `ID ${id}`}`
+    );
     res.json({ message: 'Usuário excluído com sucesso' });
   } catch (error) {
     res.status(500).json({ message: error.message });
