@@ -244,15 +244,17 @@ async function createNotification(usuarioId, mensagem, tipo = 'INFO', linkPath =
 
 async function logAccess(usuarioId, tipo, req, detalhes) {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const rawIp = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || req?.ip || '0.0.0.0';
+    const ip = String(rawIp).split(',')[0].trim().slice(0, 45);
     await db.query('INSERT INTO tb_logs_acesso (usuario_id, tipo, ip_address, detalhes) VALUES (?, ?, ?, ?)', [usuarioId, tipo, ip, detalhes]);
-  } catch (err) { console.error('Error logging access:', err); }
+  } catch (err) { console.error('Error logging access:', err?.message || err); }
 }
 
 let schemaEnsured = false;
+let schemaEnsuring = false;
 async function ensureOptionalSchema() {
-  if (schemaEnsured) return;
-  schemaEnsured = true;
+  if (schemaEnsured || schemaEnsuring) return;
+  schemaEnsuring = true;
   try {
     // 1. Ensure tb_dados_situacao table exists
     await db.query(`
@@ -365,16 +367,18 @@ async function ensureOptionalSchema() {
     } catch (colErr) {
       console.error('[BACKEND] Could not alter foto_perfil to MEDIUMTEXT:', colErr?.message || colErr);
     }
+    schemaEnsured = true;
   } catch (err) {
     console.error('[BACKEND] Optional schema ensure failed:', err?.message || err);
+  } finally {
+    schemaEnsuring = false;
   }
 }
 
-// Auto ensure schema middleware for incoming requests
-app.use(async (req, res, next) => {
-  ensureOptionalSchema();
-  next();
-});
+// Initial background schema initialization without blocking requests
+setTimeout(() => {
+  ensureOptionalSchema().catch(err => console.error('[BACKEND] Schema init error:', err?.message));
+}, 100);
 
 // Login route
 app.post('/api/login', async (req, res) => {
@@ -382,21 +386,26 @@ app.post('/api/login', async (req, res) => {
   console.log(`[LOGIN] ${new Date().toISOString()} - Attempt for: ${email}`);
 
   try {
-    const [rows] = await db.query('SELECT * FROM tb_usuarios WHERE login = ? AND status = ?', [email, 'ATIVO']);
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'E-mail e senha são obrigatórios.' });
+    }
+
+    const [rows] = await db.query('SELECT * FROM tb_usuarios WHERE login = ? AND status = ?', [String(email).trim(), 'ATIVO']);
     
-    if (rows.length === 0) {
+    if (!rows || rows.length === 0) {
       console.log(`[LOGIN] User not found or inactive: ${email}`);
       return res.status(401).json({ success: false, message: 'Usuário não encontrado ou inativo' });
     }
 
     const user = rows[0];
+    const storedHash = user.password_hash || '';
     
-    // For now, accept both hashed and plain text for the provided admin password
+    // Accept both bcrypt hashed and plain text passwords
     let isMatch = false;
-    if (user.password_hash.startsWith('$2')) {
-      isMatch = await bcrypt.compare(password, user.password_hash);
+    if (storedHash.startsWith('$2')) {
+      isMatch = await bcrypt.compare(password, storedHash);
     } else {
-      isMatch = (password === user.password_hash);
+      isMatch = (password === storedHash);
     }
 
     console.log(`[LOGIN] User ID: ${user.id}, Password match: ${isMatch}`);
@@ -414,10 +423,15 @@ app.post('/api/login', async (req, res) => {
 
     await logAccess(user.id, 'LOGIN', req, 'Autenticação bem-sucedida');
 
-    const [houseRow] = await db.query('SELECT casa_id FROM tb_missionario_casas WHERE usuario_id = ? AND (data_fim IS NULL OR data_fim >= CURDATE()) LIMIT 1', [user.id]);
-    const casaId = houseRow.length > 0 ? houseRow[0].casa_id : null;
+    let casaId = null;
+    try {
+      const [houseRow] = await db.query('SELECT casa_id FROM tb_missionario_casas WHERE usuario_id = ? AND (data_fim IS NULL OR data_fim >= CURDATE()) LIMIT 1', [user.id]);
+      casaId = (houseRow && houseRow.length > 0) ? houseRow[0].casa_id : null;
+    } catch (e) {
+      console.error('[LOGIN] House query error (non-fatal):', e?.message || e);
+    }
 
-    res.json({
+    return res.json({
       success: true,
       user: {
         id: user.id,
@@ -434,11 +448,10 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error('[LOGIN ERROR]', error);
-    fs.appendFileSync('debug.log', `${new Date().toISOString()} - Login Error: ${error.stack}\n`);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false, 
       message: 'Erro no servidor durante o login. Por favor, tente novamente mais tarde.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error?.message
     });
   }
 });
@@ -3660,8 +3673,7 @@ const seedAdmin = async () => {
       console.log('✅ Admin user seeded successfully');
     }
   } catch (error) {
-    console.error('❌ Error seeding admin:', error);
-    fs.appendFileSync('debug.log', `${new Date().toISOString()} - Seed Error: ${error.stack}\n`);
+    console.error('❌ Error seeding admin:', error?.message || error);
   }
 };
 
