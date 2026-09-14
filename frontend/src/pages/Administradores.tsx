@@ -92,7 +92,7 @@ const PERMISSIONS_LIST = [
   { id: 'saude', label: '7. Saúde (Visualização)' },
   { id: 'previdenciario_ir', label: '8. Previdenciário/IR (Visualização)' },
   { id: 'conta_bancaria', label: '9. Contas Bancárias (Visualização)' },
-  { id: 'obras_realizadas', label: '10. Formação & Missão (Visualização)' },
+  { id: 'obras_realizadas', label: '10. Obras Realizadas (Visualização)' },
   { id: 'observacoes', label: '11. Observações (Visualização)' },
   { id: 'quadro_pessoal', label: '12. Curriculum Vitae (Visualização)' },
 ];

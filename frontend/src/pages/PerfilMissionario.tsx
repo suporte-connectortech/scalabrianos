@@ -257,7 +257,7 @@ const PERMISSIONS_LIST = [
   { id: 'saude', label: '7. Saúde (Visualização)' },
   { id: 'previdenciario_ir', label: '8. Previdenciário/IR (Visualização)' },
   { id: 'conta_bancaria', label: '9. Contas Bancárias (Visualização)' },
-  { id: 'obras_realizadas', label: '10. Formação & Missão (Visualização)' },
+  { id: 'obras_realizadas', label: '10. Obras Realizadas (Visualização)' },
   { id: 'observacoes', label: '11. Observações (Visualização)' },
   { id: 'quadro_pessoal', label: '12. Curriculum Vitae (Visualização)' },
 ];
@@ -394,6 +394,12 @@ const PerfilMissionario: React.FC = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [observacoesGerais, setObservacoesGerais] = useState<ObservacaoGeral[]>([]);
   const [quadroPessoal, setQuadroPessoal] = useState<QuadroPessoal | null>(null);
+  const [editingFormacao, setEditingFormacao] = useState<number | null>(null);
+  const [editingAtividade, setEditingAtividade] = useState<number | null>(null);
+  const [editingSaude, setEditingSaude] = useState<number | null>(null);
+  const [editingBanco, setEditingBanco] = useState<number | null>(null);
+  const [editingObra, setEditingObra] = useState<number | null>(null);
+  const initializedIdRef = useRef<string | null>(null);
   const [nit, setNit] = useState('');
   const [situacaoData, setSituacaoData] = useState<SituacaoData>({
     data_falecimento: '', cidade_falecimento: '', certidao_obito_path: '', local_sepultamento: '',
@@ -596,10 +602,6 @@ const PerfilMissionario: React.FC = () => {
 
   // Sidebar cascade for Itinerário Formativo
   const [itinSidebarExpanded, setItinSidebarExpanded] = useState(false);
-
-  // Editing state for formação acadêmica and atividade missionária
-  const [editingFormacao, setEditingFormacao] = useState<number | null>(null);
-  const [editingAtividade, setEditingAtividade] = useState<number | null>(null);
 
   // Print utility function for individual sections (Premium & Clean)
   const printSection = (title: string, contentId: string) => {
@@ -830,6 +832,8 @@ const PerfilMissionario: React.FC = () => {
             color: #334155;
             margin-top: 6px;
             line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
           }
 
           /* Status Badges */
@@ -912,7 +916,13 @@ const PerfilMissionario: React.FC = () => {
         navigate('/home');
         return;
       }
-      fetchData(true);
+      const isFirst = initializedIdRef.current !== id;
+      if (isFirst) {
+        initializedIdRef.current = id;
+        fetchData(true);
+      } else {
+        fetchData(false);
+      }
     }
   }, [id, authUser, isAdminGeral, canEdit, isOconomo, isSuperior, isRegional]);
 
@@ -932,18 +942,21 @@ const PerfilMissionario: React.FC = () => {
       ]);
 
       const normSit = normalizeSituacao(mRes.data?.situacao);
-      setMissionario({ ...mRes.data, situacao: normSit });
+      let parsedPerms = mRes.data?.permissoes;
+      if (typeof parsedPerms === 'string') {
+        try { parsedPerms = JSON.parse(parsedPerms); } catch (e) { parsedPerms = {}; }
+      }
+      setMissionario({ ...mRes.data, situacao: normSit, permissoes: parsedPerms || {} });
       setOriginalSituacao(normSit);
       const isSelf = authUser?.id === mRes.data?.id;
 
       if (isInitial) {
-        if (isSelf) {
-          setActiveTab('dados');
-        } else if (normSit !== 'Ativo') {
-          setActiveTab('situacao');
-        } else {
-          setActiveTab('dados');
-        }
+        setActiveTab(prev => {
+          if (prev && prev !== 'dados') return prev;
+          if (isSelf) return 'dados';
+          if (normSit !== 'Ativo') return 'situacao';
+          return 'dados';
+        });
       }
       if (civRes.data) {
         const parts = civRes.data.filiacao ? civRes.data.filiacao.split('/') : [];
@@ -1090,6 +1103,7 @@ const PerfilMissionario: React.FC = () => {
         is_superior: missionario?.is_superior,
         situacao: missionario?.situacao,
         proximos_passos: missionario?.proximos_passos,
+        permissoes: missionario?.permissoes || {},
       });
 
       // Update Situation Details
@@ -1327,8 +1341,11 @@ const PerfilMissionario: React.FC = () => {
       setShowAddForm(null);
       setEditingFormacao(null);
       setEditingAtividade(null);
+      setEditingSaude(null);
+      setEditingBanco(null);
+      setEditingObra(null);
       setTempForm({});
-      fetchData();
+      await fetchData(false);
     } catch { alert('Erro ao salvar registro'); }
     finally { setIsSaving(false); }
   };
@@ -1340,8 +1357,11 @@ const PerfilMissionario: React.FC = () => {
       setShowAddForm(null);
       setEditingFormacao(null);
       setEditingAtividade(null);
+      setEditingSaude(null);
+      setEditingBanco(null);
+      setEditingObra(null);
       setTempForm({});
-      fetchData();
+      await fetchData(false);
     } catch {
       // Fallback if PUT endpoint is not defined on backend, try DELETE + POST
       try {
@@ -1350,8 +1370,11 @@ const PerfilMissionario: React.FC = () => {
         setShowAddForm(null);
         setEditingFormacao(null);
         setEditingAtividade(null);
+        setEditingSaude(null);
+        setEditingBanco(null);
+        setEditingObra(null);
         setTempForm({});
-        fetchData();
+        await fetchData(false);
       } catch {
         alert('Erro ao atualizar registro');
       }
@@ -2779,7 +2802,7 @@ const PerfilMissionario: React.FC = () => {
                                 ))}
                               </div>
                             )}
-                            {a.missao && <div className="item-description" style={{ marginTop: '6px' }}>{a.missao}</div>}
+                            {a.missao && <div className="item-description" style={{ marginTop: '6px', whiteSpace: 'pre-wrap' }}>{a.missao}</div>}
                           </div>
                           <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
                             {canEdit && (
@@ -2853,8 +2876,25 @@ const PerfilMissionario: React.FC = () => {
                           <strong>{s.seguradora || 'Seguradora não informada'}</strong>
                           <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • Carteira: {s.numero_carteira || 'N/A'}</div>
                         </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title="Excluir"><Trash2 size={14} /></button>}
+                        <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                          {canEdit && (
+                            <>
+                              <button
+                                className="btn-action-lite"
+                                onClick={() => {
+                                  setEditingSaude(s.id);
+                                  setTempForm(s);
+                                  setShowAddForm('saude');
+                                }}
+                                title="Editar"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title="Excluir">
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2912,8 +2952,25 @@ const PerfilMissionario: React.FC = () => {
                           <strong>{b.tipo_conta} • {b.titularidade}</strong>
                           <div className="item-subtitle">Ag: {b.agencia} • Conta: {b.numero}</div>
                         </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir"><Trash2 size={14} /></button>}
+                        <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                          {canEdit && (
+                            <>
+                              <button
+                                className="btn-action-lite"
+                                onClick={() => {
+                                  setEditingBanco(b.id);
+                                  setTempForm(b);
+                                  setShowAddForm('banco');
+                                }}
+                                title="Editar"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir">
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2923,19 +2980,19 @@ const PerfilMissionario: React.FC = () => {
               </div>
             )}
 
-            {/* --- 10. FORMAÇÃO & MISSÃO --- */}
+            {/* --- 10. OBRAS REALIZADAS --- */}
             {activeTab === 'formacao_missao' && (
               <div className="tab-panel">
                 <div className="section-card" id="print-obras">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Star size={16} /> 10. Formação & Missão</h3>
+                    <h3 className="section-title"><Star size={16} /> 10. Obras Realizadas</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('10. Formação & Missão', 'print-obras')}>
+                        <button className="btn-action-lite-text" onClick={() => printSection('10. Obras Realizadas', 'print-obras')}>
                           <Printer size={15} /> Imprimir
                         </button>
                       )}
-                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('obras')}><Plus size={14} /> Adicionar</button>}
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => { setEditingObra(null); setTempForm({}); setShowAddForm('obras'); }}><Plus size={14} /> Adicionar</button>}
                     </div>
                   </div>
                   <div className="generic-list">
@@ -2947,10 +3004,27 @@ const PerfilMissionario: React.FC = () => {
                         <div className="item-main-content">
                           <strong>{o.lugar}</strong>
                           <div className="item-subtitle">{o.periodo}</div>
-                          {o.obra && <div className="item-description">{o.obra}</div>}
+                          {o.obra && <div className="item-description" style={{ whiteSpace: 'pre-wrap' }}>{o.obra}</div>}
                         </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('obras-realizadas', o.id)} title="Excluir"><Trash2 size={14} /></button>}
+                        <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                          {canEdit && (
+                            <>
+                              <button
+                                className="btn-action-lite"
+                                onClick={() => {
+                                  setEditingObra(o.id);
+                                  setTempForm(o);
+                                  setShowAddForm('obras');
+                                }}
+                                title="Editar"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('obras-realizadas', o.id)} title="Excluir">
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -3259,8 +3333,8 @@ const PerfilMissionario: React.FC = () => {
               <div className="modal-overlay">
                 <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
                   <h3>
-                    {editingFormacao || editingAtividade ? 'Editar ' : 'Adicionar '}
-                    {showAddForm === 'formacao' ? 'Formação Acadêmica' : showAddForm === 'atividade' ? 'Atividade Missionária' : showAddForm === 'obras' ? 'Formação & Missão' : showAddForm === 'saude' ? 'Registro de Saúde' : showAddForm === 'banco' ? 'Conta Bancária' : showAddForm === 'quadro' ? 'Curriculum Vitae' : 'Observação'}
+                    {editingFormacao || editingAtividade || editingSaude || editingBanco || editingObra ? 'Editar ' : 'Adicionar '}
+                    {showAddForm === 'formacao' ? 'Formação Acadêmica' : showAddForm === 'atividade' ? 'Atividade Missionária' : showAddForm === 'obras' ? 'Obras Realizadas' : showAddForm === 'saude' ? 'Registro de Saúde' : showAddForm === 'banco' ? 'Conta Bancária' : showAddForm === 'quadro' ? 'Curriculum Vitae' : 'Observação'}
                   </h3>
 
                   <div className="form-grid-1" style={{ gap: '15px', marginTop: '15px' }}>
@@ -3478,7 +3552,7 @@ const PerfilMissionario: React.FC = () => {
                   </div>
 
                   <div className="modal-actions" style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button className="btn-back" onClick={() => { setShowAddForm(null); setEditingFormacao(null); setEditingAtividade(null); setTempForm({}); }}>Cancelar</button>
+                    <button className="btn-back" onClick={() => { setShowAddForm(null); setEditingFormacao(null); setEditingAtividade(null); setEditingSaude(null); setEditingBanco(null); setEditingObra(null); setTempForm({}); }}>Cancelar</button>
                     <button
                       className="btn-save-perfil"
                       onClick={() => {
@@ -3507,6 +3581,12 @@ const PerfilMissionario: React.FC = () => {
                           handleGenericUpdate(endpoint, editingFormacao, payload);
                         } else if (showAddForm === 'atividade' && editingAtividade) {
                           handleGenericUpdate(endpoint, editingAtividade, payload);
+                        } else if (showAddForm === 'saude' && editingSaude) {
+                          handleGenericUpdate(endpoint, editingSaude, payload);
+                        } else if (showAddForm === 'banco' && editingBanco) {
+                          handleGenericUpdate(endpoint, editingBanco, payload);
+                        } else if (showAddForm === 'obras' && editingObra) {
+                          handleGenericUpdate(endpoint, editingObra, payload);
                         } else {
                           handleGenericAdd(endpoint, payload);
                         }

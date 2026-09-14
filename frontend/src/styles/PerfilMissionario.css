@@ -1059,6 +1059,13 @@
   background: #f8fafc;
   border-radius: 8px;
   border-left: 3px solid #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.item-description {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .item-actions-premium {

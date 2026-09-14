@@ -371,7 +371,7 @@ const PERMISSIONS_LIST = [
   { id: 'saude', label: '7. Saúde (Visualização)' },
   { id: 'previdenciario_ir', label: '8. Previdenciário/IR (Visualização)' },
   { id: 'conta_bancaria', label: '9. Contas Bancárias (Visualização)' },
-  { id: 'obras_realizadas', label: '10. Formação & Missão (Visualização)' },
+  { id: 'obras_realizadas', label: '10. Obras Realizadas (Visualização)' },
   { id: 'observacoes', label: '11. Observações (Visualização)' },
   { id: 'quadro_pessoal', label: '12. Curriculum Vitae (Visualização)' },
 ];
@@ -412,7 +412,7 @@ const Missionarios: React.FC = () => {
     { num: '7', label: '7. Saúde', icon: <Activity size={14} /> },
     { num: '8', label: '8. Previdenciário / IR', icon: <ShieldCheck size={14} /> },
     { num: '9', label: '9. Contas Bancárias', icon: <DollarSign size={14} /> },
-    { num: '10', label: '10. Formação & Missão', icon: <Star size={14} /> },
+    { num: '10', label: '10. Obras Realizadas', icon: <Star size={14} /> },
     { num: '11', label: '11. Observações', icon: <FileText size={14} /> },
     { num: '12', label: '12. Curriculum Vitae', icon: <Users size={14} /> },
     { num: 'PM', label: 'Presença Missionária', icon: <HomeIcon size={14} /> },
@@ -2116,10 +2116,10 @@ const Missionarios: React.FC = () => {
                 </div>
               )}
 
-              {/* ══ STEP 10 — 10. FORMAÇÃO & MISSÃO ══ */}
+              {/* ══ STEP 10 — 10. OBRAS REALIZADAS ══ */}
               {wizardStep === 10 && (
                 <div className="wizard-step-content">
-                  <div className="wizard-divider">10. Formação & Missão</div>
+                  <div className="wizard-divider">10. Obras Realizadas</div>
                   <div className="form-row-2">
                     <div className="form-group"><label>Período</label><input type="text" value={wizardData.obra_periodo} onChange={e => set('obra_periodo', e.target.value)} placeholder="Ex: 2010-2015" /></div>
                     <div className="form-group"><label>Lugar</label><input type="text" value={wizardData.obra_lugar} onChange={e => set('obra_lugar', e.target.value)} placeholder="Local da obra/livro..." /></div>

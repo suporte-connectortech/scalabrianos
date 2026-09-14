@@ -901,7 +901,11 @@ app.get('/api/usuarios/:id', authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query('SELECT id, nome, login, role, status, situacao, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
-    res.json(rows[0]);
+    let u = rows[0];
+    if (typeof u.permissoes === 'string') {
+      try { u.permissoes = JSON.parse(u.permissoes); } catch (e) { u.permissoes = {}; }
+    }
+    res.json(u);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
