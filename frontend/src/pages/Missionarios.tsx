@@ -2146,26 +2146,20 @@ const Missionarios: React.FC = () => {
               {wizardStep === 12 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">12. Curriculum Vitae</div>
-                  <div className="form-group full">
-                    <label>Função Atual</label>
-                    <input type="text" value={wizardData.quadro_funcao_atual} onChange={e => set('quadro_funcao_atual', e.target.value)} placeholder="Função no quadro de pessoal..." />
-                  </div>
-                  <div className="form-group full">
-                    <label>Competências / Resumo Profissional</label>
-                    <textarea value={wizardData.quadro_competencias} onChange={e => set('quadro_competencias', e.target.value)} placeholder="Resumo de competências..." style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px', minHeight: '80px' }} />
-                  </div>
-                  <div className="wizard-divider" style={{ marginTop: '14px' }}>Currículo Vitae (CV)</div>
-                  <div className="doc-add-row" style={{ alignItems: 'center' }}>
+                  <p className="wizard-hint">
+                    Anexe o arquivo oficial do Curriculum Vitae do missionário (PDF, Imagens ou Documentos).
+                  </p>
+                  <div className="doc-add-row" style={{ alignItems: 'center', marginTop: '1rem' }}>
                     <button type="button" className="btn-add-doc" onClick={() => quadroFileRef.current?.click()}>
                       <Plus size={16} /> {quadroCvFile ? 'Substituir CV' : 'Anexar Currículo (CV)'}
                     </button>
-                    <span style={{ fontSize: '13px', color: quadroCvFile ? '#166534' : '#666' }}>
-                      {quadroCvFile ? quadroCvFile.name : 'Nenhum CV selecionado'}
+                    <span style={{ fontSize: '13px', color: quadroCvFile ? '#166534' : '#666', fontWeight: quadroCvFile ? 600 : 400 }}>
+                      {quadroCvFile ? `✓ ${quadroCvFile.name}` : 'Nenhum arquivo de CV selecionado'}
                     </span>
                     <input
                       ref={quadroFileRef}
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       style={{ display: 'none' }}
                       onChange={e => setQuadroCvFile(e.target.files?.[0] || null)}
                     />

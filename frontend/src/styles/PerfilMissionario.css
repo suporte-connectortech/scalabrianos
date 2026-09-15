@@ -1371,3 +1371,258 @@
 .btn-itin-doc.success:hover {
   background: #dcfce7;
 }
+
+/* ─── 12. Curriculum Vitae Dedicated UI ────────────────────── */
+.cv-container-premium {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.cv-file-header-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.cv-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cv-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cv-file-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cv-filename {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.cv-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cv-status-badge {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.cv-type-badge {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.cv-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cv-btn-view, .cv-btn-print, .cv-btn-replace, .cv-btn-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.cv-btn-view {
+  background: #032b57;
+  color: #ffffff;
+  border: none;
+}
+.cv-btn-view:hover {
+  background: #021e3d;
+}
+
+.cv-btn-print {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+.cv-btn-print:hover {
+  background: #e2e8f0;
+}
+
+.cv-btn-replace {
+  background: #ffffff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+.cv-btn-replace:hover {
+  background: #eff6ff;
+}
+
+.cv-btn-delete {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.cv-btn-delete:hover {
+  background: #fef2f2;
+}
+
+.cv-preview-frame-container {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  min-height: 550px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.cv-iframe-preview {
+  width: 100%;
+  height: 700px;
+  border: none;
+}
+
+.cv-image-preview-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: #f8fafc;
+}
+
+.cv-image-preview {
+  max-width: 100%;
+  max-height: 800px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cv-doc-preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+  color: #64748b;
+  text-align: center;
+}
+
+.cv-btn-view-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #032b57;
+  color: #ffffff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.cv-btn-view-large:hover {
+  background: #021e3d;
+}
+
+.cv-empty-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.cv-empty-upload-zone:hover {
+  border-color: #032b57;
+  background: #f0f7ff;
+}
+
+.cv-upload-illustration {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #032b57;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.cv-empty-upload-zone h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.cv-empty-upload-zone p {
+  margin: 0 0 20px 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.btn-upload-cv-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #032b57;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload-cv-cta:hover {
+  background: #021e3d;
+  transform: translateY(-1px);
+}

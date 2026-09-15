@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Save, Loader2,
   Calendar, FileText, Download, TrendingUp, TrendingDown, Plus
@@ -96,6 +96,16 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
   const [obsReceita, setObsReceita] = useState('');
   const [obsDespesa, setObsDespesa] = useState('');
   const [entryLogs, setEntryLogs] = useState<EntryLog[]>([]);
+
+  const sortedEntryLogs = useMemo(() => {
+    return [...entryLogs].sort((a, b) => {
+      // 1. Receitas ('CREDITO') first, Despesas ('DEBITO') second
+      if (a.tipo === 'CREDITO' && b.tipo !== 'CREDITO') return -1;
+      if (a.tipo !== 'CREDITO' && b.tipo === 'CREDITO') return 1;
+      // 2. Within same type, order by date/time (most recent first)
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+  }, [entryLogs]);
 
   useEffect(() => {
     if (user?.casa_id && !selectedCasa) {
@@ -926,7 +936,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                               </tr>
                             </thead>
                             <tbody>
-                              {entryLogs.map((entry, idx) => (
+                              {sortedEntryLogs.map((entry, idx) => (
                                 <tr key={entry.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f5f3ff', borderBottom: '1px solid #e0e7ff' }}>
                                   <td style={{ padding: '10px 14px' }}>
                                     <span style={{

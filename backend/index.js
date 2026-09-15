@@ -326,6 +326,9 @@ async function ensureOptionalSchema() {
           { name: 'data_referencia_casa', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN data_referencia_casa DATE" },
           { name: 'tipo', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN tipo ENUM('CR', 'CI', 'M', 'P', 'PV', 'CS') DEFAULT 'CR'" },
           { name: 'pm_code', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN pm_code VARCHAR(100) DEFAULT NULL" },
+          { name: 'cidade', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN cidade VARCHAR(255) DEFAULT NULL" },
+          { name: 'pais', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN pais VARCHAR(100) DEFAULT NULL" },
+          { name: 'cep', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN cep VARCHAR(20) DEFAULT NULL" },
         ]
       },
       {
@@ -1421,7 +1424,7 @@ app.post('/api/utils/validar-cnpj', authenticateToken, (req, res) => {
 });
 
 app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
 
@@ -1433,12 +1436,18 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
     const [hasDataRef] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_referencia_casa'");
     const [hasTipo] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'tipo'");
     const [hasPmCode] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pm_code'");
+    const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
+    const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
+    const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
     if (hasDataRef.length > 0) { cols.push('data_referencia_casa'); params.push(dRef); }
     if (hasTipo.length > 0) { cols.push('tipo'); params.push(tipo || null); }
     if (hasPmCode.length > 0) { cols.push('pm_code'); params.push(pm_code || null); }
+    if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
+    if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
+    if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
 
     const placeholders = cols.map(() => '?').join(',');
     const sql = `INSERT INTO tb_casas_religiosas (${cols.join(',')}) VALUES (${placeholders})`;
@@ -1452,7 +1461,7 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -1467,6 +1476,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const [hasPmCode] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pm_code'");
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
+    const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1475,6 +1485,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     if (hasPmCode.length > 0) { cols.push('pm_code'); params.push(pm_code || null); }
     if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
     if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
+    if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -1490,7 +1501,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
 
 // Alias for POST to avoid 403 Forbidden on PUT in some production servers
 app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -1505,6 +1516,7 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     const [hasPmCode] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pm_code'");
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
+    const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1513,6 +1525,7 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     if (hasPmCode.length > 0) { cols.push('pm_code'); params.push(pm_code || null); }
     if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
     if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
+    if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -1532,9 +1545,11 @@ app.get('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const [rows] = await db.query('SELECT * FROM tb_casas_religiosas WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Casa não encontrada' });
 
-    // Get missionaries currently in this house
+    // Get missionaries currently in this house with their role / responsibility details
+    const [hasMcSuperior] = await db.query("SHOW COLUMNS FROM tb_missionario_casas LIKE 'is_superior'");
     const [missionarios] = await db.query(`
-      SELECT u.id, u.nome, u.login, u.situacao, mc.funcao
+      SELECT u.id, u.nome, u.login, u.situacao, u.role, u.is_oconomo, u.is_superior as u_is_superior,
+             mc.funcao ${hasMcSuperior.length > 0 ? ', mc.is_superior as mc_is_superior' : ''}
       FROM tb_usuarios u
       JOIN tb_missionario_casas mc ON u.id = mc.usuario_id
       WHERE mc.casa_id = ? AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE())
@@ -1542,21 +1557,80 @@ app.get('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     `, [req.params.id]);
 
     const house = rows[0];
-    // Strip funcao from the list sent to frontend (keep missionarios clean)
-    house.missionarios = missionarios.map(({ funcao, ...m }) => m);
 
-    // Resolve Pároco and Vigário from the funcao field (can be comma-separated list)
-    const findResponsavel = (role) => {
-      const found = missionarios.find(m => {
-        if (!m.funcao) return false;
-        const funcoes = m.funcao.split(',').map(f => f.trim());
-        return funcoes.includes(role);
+    // Dynamic extraction of all leadership / responsibility roles
+    const responsaveisMap = new Map();
+
+    missionarios.forEach(m => {
+      const isSuperior = (m.mc_is_superior === 1 || m.u_is_superior === 1 || (m.funcao && m.funcao.toLowerCase().includes('superior')));
+      const isEconomo = (m.is_oconomo === 1 || m.role === 'ECONOMO_LOCAL' || (m.funcao && (m.funcao.toLowerCase().includes('ecônomo') || m.funcao.toLowerCase().includes('economo'))));
+
+      if (isSuperior) {
+        if (!responsaveisMap.has('Superior Local')) responsaveisMap.set('Superior Local', new Set());
+        responsaveisMap.get('Superior Local').add(m.nome);
+      }
+      if (isEconomo) {
+        if (!responsaveisMap.has('Ecônomo Local')) responsaveisMap.set('Ecônomo Local', new Set());
+        responsaveisMap.get('Ecônomo Local').add(m.nome);
+      }
+
+      if (m.funcao) {
+        const parts = m.funcao.split(/[,;\/]+/).map(f => f.trim()).filter(Boolean);
+        parts.forEach(f => {
+          const lower = f.toLowerCase();
+          if (lower.includes('superior')) {
+            if (!responsaveisMap.has('Superior Local')) responsaveisMap.set('Superior Local', new Set());
+            responsaveisMap.get('Superior Local').add(m.nome);
+          } else if (lower.includes('ecônomo') || lower.includes('economo')) {
+            if (!responsaveisMap.has('Ecônomo Local')) responsaveisMap.set('Ecônomo Local', new Set());
+            responsaveisMap.get('Ecônomo Local').add(m.nome);
+          } else if (lower.includes('pároco') || lower.includes('paroco')) {
+            if (!responsaveisMap.has('Pároco')) responsaveisMap.set('Pároco', new Set());
+            responsaveisMap.get('Pároco').add(m.nome);
+          } else if (lower.includes('vigário') || lower.includes('vigario')) {
+            if (!responsaveisMap.has('Vigário Paroquial')) responsaveisMap.set('Vigário Paroquial', new Set());
+            responsaveisMap.get('Vigário Paroquial').add(m.nome);
+          } else if (lower.includes('diretor') || lower.includes('reitor') || lower.includes('coordenador') || lower.includes('formador') || lower.includes('promotor')) {
+            const title = f.charAt(0).toUpperCase() + f.slice(1);
+            if (!responsaveisMap.has(title)) responsaveisMap.set(title, new Set());
+            responsaveisMap.get(title).add(m.nome);
+          }
+        });
+      }
+    });
+
+    if (house.paroco && house.paroco.trim()) {
+      if (!responsaveisMap.has('Pároco')) responsaveisMap.set('Pároco', new Set());
+      responsaveisMap.get('Pároco').add(house.paroco.trim());
+    }
+    if (house.vigario_paroquial && house.vigario_paroquial.trim()) {
+      if (!responsaveisMap.has('Vigário Paroquial')) responsaveisMap.set('Vigário Paroquial', new Set());
+      responsaveisMap.get('Vigário Paroquial').add(house.vigario_paroquial.trim());
+    }
+
+    const responsaveis = [];
+    responsaveisMap.forEach((names, cargo) => {
+      responsaveis.push({
+        cargo,
+        nomes: Array.from(names),
+        nome: Array.from(names).join(', ')
       });
-      return found ? found.nome : null;
-    };
+    });
 
-    house.paroco = house.paroco || findResponsavel('Pároco');
-    house.vigario_paroquial = house.vigario_paroquial || findResponsavel('Vigário');
+    house.responsaveis = responsaveis;
+    house.missionarios = missionarios.map(m => {
+      const isSuperior = (m.mc_is_superior === 1 || m.u_is_superior === 1 || (m.funcao && m.funcao.toLowerCase().includes('superior')));
+      const isEconomo = (m.is_oconomo === 1 || m.role === 'ECONOMO_LOCAL' || (m.funcao && (m.funcao.toLowerCase().includes('ecônomo') || m.funcao.toLowerCase().includes('economo'))));
+      return {
+        id: m.id,
+        nome: m.nome,
+        login: m.login,
+        situacao: m.situacao,
+        funcao: m.funcao || '',
+        is_superior: !!isSuperior,
+        is_oconomo: !!isEconomo
+      };
+    });
 
     res.json(house);
   } catch (error) {
@@ -2270,8 +2344,17 @@ app.post('/api/usuarios/:id/quadro-pessoal', authenticateToken, async (req, res)
     await db.query('DELETE FROM tb_quadro_pessoal WHERE usuario_id = ?', [req.params.id]);
     await db.query(
       'INSERT INTO tb_quadro_pessoal (usuario_id, funcao_atual, competencias, cv_path) VALUES (?, ?, ?, ?)',
-      [req.params.id, funcao_atual, competencias, cv_path]
+      [req.params.id, funcao_atual || '', competencias || '', cv_path || '']
     );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/usuarios/:id/quadro-pessoal', authenticateToken, async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_quadro_pessoal WHERE usuario_id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -561,6 +561,54 @@
     text-align: center;
 }
 
+.data-table th.pm-cell, .data-table td.pm-cell {
+    text-align: center;
+    white-space: nowrap !important;
+    min-width: 90px !important;
+    width: 90px;
+}
+
+.pm-code {
+    white-space: nowrap !important;
+    display: inline-block;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #0f172a;
+    padding: 3px 8px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    letter-spacing: 0.5px;
+}
+
+.cidade-cell {
+    font-weight: 500;
+    color: #1e293b;
+    white-space: nowrap;
+}
+
+.btn-print-report {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 1.25rem;
+    border: 1px solid #032b57;
+    background: #032b57;
+    color: white;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-print-report:hover {
+    background-color: #021e3d;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(3, 43, 87, 0.2);
+}
+
 .data-table td {
     padding: 1rem;
     border-bottom: 1px solid #f1f5f9;
@@ -644,4 +692,164 @@
         flex-direction: column;
         gap: 0.5rem;
     }
+
+    .profile-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1.25rem !important;
+    }
+
+    .casa-detail-header {
+        padding: 1rem !important;
+    }
+
+    .casa-detail-title {
+        font-size: 1.25rem !important;
+    }
+}
+
+/* ── Perfil da Casa Religiosa ─────────────────────────── */
+.profile-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.casa-detail-header {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.casa-detail-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.btn-back-casa {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #032b57;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-back-casa:hover {
+    background: #e2e8f0;
+    color: #011d3d;
+    transform: translateX(-2px);
+}
+
+.casa-detail-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.casa-detail-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #032b57;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.casa-detail-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #032b57;
+    line-height: 1.25;
+}
+
+.casa-detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.casa-tipo-pill {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.responsavel-card-item {
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    gap: 3px;
+}
+
+.responsavel-role {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #032b57;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.responsavel-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.sem-responsaveis-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.sem-responsaveis-box svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #032b57;
+}
+
+.role-badge-table {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #dbeafe;
 }

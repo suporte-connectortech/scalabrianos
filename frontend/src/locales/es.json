@@ -240,7 +240,7 @@
       }
     },
     "financeiro": {
-      "title": "Gestión Financiera General",
+      "title": "Prestación de Cuentas",
       "summary": {
         "balance": "Saldo Consolidado",
         "incomes": "Total Entradas (Crédito)",

@@ -4,7 +4,7 @@ import {
   User, MapPin, BookOpen, Home as HomeIcon, Loader2, AlertCircle,
   Save, Trash2, Plus, Star, FileText, Download, ShieldCheck, Eye,
   Activity, ChevronLeft, DollarSign, GraduationCap, Upload, Lock,
-  Users, CheckCircle, Printer, ChevronDown, ChevronRight, Edit
+  CheckCircle, Printer, ChevronDown, ChevronRight, Edit
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -207,6 +207,8 @@ interface CasaHistorico {
 interface Casa { id: number; nome: string; }
 
 interface QuadroPessoal {
+  id?: number;
+  usuario_id?: number;
   funcao_atual?: string;
   competencias?: string;
   cv_path?: string;
@@ -394,6 +396,93 @@ const PerfilMissionario: React.FC = () => {
   const [contatos, setContatos] = useState<Contato[]>([]);
   const [observacoesGerais, setObservacoesGerais] = useState<ObservacaoGeral[]>([]);
   const [quadroPessoal, setQuadroPessoal] = useState<QuadroPessoal | null>(null);
+  const cvFileInputRef = useRef<HTMLInputElement>(null);
+  const [cvUploadLoading, setCvUploadLoading] = useState(false);
+
+  const handleCvUploadDirect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    setCvUploadLoading(true);
+    try {
+      const res = await api.post(`/upload-anexo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const filePath = res.data.arquivo_path || res.data.url;
+
+      await api.post(`/usuarios/${id}/quadro-pessoal`, {
+        funcao_atual: quadroPessoal?.funcao_atual || '',
+        competencias: quadroPessoal?.competencias || '',
+        cv_path: filePath
+      });
+
+      setQuadroPessoal({
+        id: quadroPessoal?.id || 0,
+        usuario_id: Number(id),
+        funcao_atual: quadroPessoal?.funcao_atual || '',
+        competencias: quadroPessoal?.competencias || '',
+        cv_path: filePath
+      });
+
+      alert('Curriculum Vitae anexado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao anexar CV:', err);
+      alert('Erro ao anexar Curriculum Vitae.');
+    } finally {
+      setCvUploadLoading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleDeleteCv = async () => {
+    if (!window.confirm('Tem certeza de que deseja remover o arquivo do Curriculum Vitae?')) return;
+    setCvUploadLoading(true);
+    try {
+      await api.delete(`/usuarios/${id}/quadro-pessoal`);
+      setQuadroPessoal(null);
+      alert('Curriculum Vitae removido com sucesso!');
+    } catch (err) {
+      console.error('Erro ao remover CV:', err);
+      alert('Erro ao remover Curriculum Vitae.');
+    } finally {
+      setCvUploadLoading(false);
+    }
+  };
+
+  const handlePrintCvFile = (cvPath: string) => {
+    if (!cvPath) {
+      alert('Nenhum arquivo de currículo anexado para impressão.');
+      return;
+    }
+    const fileUrl = getFileUrl(cvPath);
+    if (!fileUrl) return;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = fileUrl;
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        window.open(fileUrl, '_blank');
+      }
+    };
+
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch {}
+    }, 60000);
+  };
   const [editingFormacao, setEditingFormacao] = useState<number | null>(null);
   const [editingAtividade, setEditingAtividade] = useState<number | null>(null);
   const [editingSaude, setEditingSaude] = useState<number | null>(null);
@@ -1438,7 +1527,7 @@ const PerfilMissionario: React.FC = () => {
     { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
     { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
     { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
-    { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
+    { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <FileText size={16} />, perm: 'quadro_pessoal' },
     { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
     { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
     { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
@@ -3072,49 +3161,165 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-quadro">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><ShieldCheck size={16} /> 12. Curriculum Vitae</h3>
+                    <h3 className="section-title"><FileText size={18} /> 12. Curriculum Vitae</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('12. Curriculum Vitae', 'print-quadro')}>
-                          <Printer size={15} /> Imprimir
-                        </button>
+                      {quadroPessoal?.cv_path && (
+                        <>
+                          <a
+                            href={getFileUrl(quadroPessoal.cv_path) || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-action-lite-text"
+                            style={{ textDecoration: 'none' }}
+                            title="Abrir arquivo em nova aba"
+                          >
+                            <Eye size={15} /> Visualizar Arquivo
+                          </a>
+                          <button
+                            className="btn-action-lite-text"
+                            onClick={() => handlePrintCvFile(quadroPessoal.cv_path || '')}
+                            title="Imprimir arquivo anexado"
+                          >
+                            <Printer size={15} /> Imprimir CV
+                          </button>
+                        </>
                       )}
                       {canEdit && (
-                        <button className="btn-action-lite-text" onClick={() => {
-                          setTempForm({
-                            funcao_atual: quadroPessoal?.funcao_atual || '',
-                            competencias: quadroPessoal?.competencias || '',
-                            cv_path: quadroPessoal?.cv_path || ''
-                          });
-                          setShowAddForm('quadro');
-                        }}>
-                          <Plus size={14} /> {quadroPessoal ? 'Editar' : 'Adicionar'}
+                        <button
+                          className="btn-action-lite-text"
+                          onClick={() => cvFileInputRef.current?.click()}
+                          disabled={cvUploadLoading}
+                        >
+                          {cvUploadLoading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
+                          {quadroPessoal?.cv_path ? 'Substituir CV' : 'Anexar CV'}
                         </button>
                       )}
                     </div>
                   </div>
-                  {quadroPessoal ? (
-                    <div className="list-item-card-premium">
-                      <div className="item-icon-container" style={{ background: '#eff6ff', color: '#1d4ed8', padding: '10px', borderRadius: '10px' }}>
-                        <Users size={20} />
-                      </div>
-                      <div className="item-main-content">
-                        <strong>Função Atual: {quadroPessoal.funcao_atual}</strong>
-                        <div className="item-description" style={{ marginTop: '10px' }}>
-                          <strong>Competências/Resumo:</strong>
-                          <p>{quadroPessoal.competencias}</p>
+
+                  <input
+                    ref={cvFileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    onChange={handleCvUploadDirect}
+                  />
+
+                  {quadroPessoal?.cv_path ? (
+                    <div className="cv-container-premium">
+                      <div className="cv-file-header-card">
+                        <div className="cv-icon-box">
+                          <FileText size={30} />
+                        </div>
+                        <div className="cv-file-info">
+                          <h4>Curriculum Vitae do Missionário</h4>
+                          <p className="cv-filename">
+                            {quadroPessoal.cv_path.split('/').pop() || 'Curriculum_Vitae.pdf'}
+                          </p>
+                          <div className="cv-badges">
+                            <span className="cv-status-badge">✓ Arquivo Anexado</span>
+                            <span className="cv-type-badge">
+                              {(quadroPessoal.cv_path.split('.').pop() || 'PDF').toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="cv-actions-group">
+                          <a
+                            href={getFileUrl(quadroPessoal.cv_path) || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="cv-btn-view"
+                            title="Abrir em nova aba"
+                          >
+                            <Eye size={15} /> Visualizar
+                          </a>
+                          <button
+                            className="cv-btn-print"
+                            onClick={() => handlePrintCvFile(quadroPessoal.cv_path || '')}
+                            title="Imprimir documento"
+                          >
+                            <Printer size={15} /> Imprimir
+                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                className="cv-btn-replace"
+                                onClick={() => cvFileInputRef.current?.click()}
+                                title="Substituir por outro arquivo"
+                              >
+                                <Upload size={15} /> Substituir
+                              </button>
+                              <button
+                                className="cv-btn-delete"
+                                onClick={handleDeleteCv}
+                                title="Excluir arquivo"
+                              >
+                                <Trash2 size={15} /> Excluir
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="item-actions-premium">
-                        {quadroPessoal.cv_path && (
-                          <a href={getFileUrl(quadroPessoal.cv_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Ver CV">
-                            <Eye size={14} />
-                          </a>
+
+                      {/* Embedded Visualizer */}
+                      <div className="cv-preview-frame-container">
+                        {quadroPessoal.cv_path.toLowerCase().endsWith('.pdf') ? (
+                          <iframe
+                            src={`${getFileUrl(quadroPessoal.cv_path) || ''}#toolbar=1`}
+                            title="Visualização do Curriculum Vitae"
+                            className="cv-iframe-preview"
+                          />
+                        ) : /\.(jpe?g|png|webp|gif)$/i.test(quadroPessoal.cv_path) ? (
+                          <div className="cv-image-preview-wrapper">
+                            <img
+                              src={getFileUrl(quadroPessoal.cv_path) || ''}
+                              alt="Curriculum Vitae"
+                              className="cv-image-preview"
+                            />
+                          </div>
+                        ) : (
+                          <div className="cv-doc-preview-placeholder">
+                            <FileText size={48} />
+                            <p>Documento anexado no formato <strong>{quadroPessoal.cv_path.split('.').pop()?.toUpperCase()}</strong>.</p>
+                            <a
+                              href={getFileUrl(quadroPessoal.cv_path) || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="cv-btn-view-large"
+                            >
+                              <Eye size={18} /> Abrir e Visualizar Arquivo
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <p className="empty-msg">Nenhuma informação de currículo registrada.</p>
+                    <div 
+                      className="cv-empty-upload-zone" 
+                      onClick={() => canEdit && cvFileInputRef.current?.click()}
+                    >
+                      <div className="cv-upload-illustration">
+                        <Upload size={36} />
+                      </div>
+                      <h4>Nenhum Curriculum Vitae Anexado</h4>
+                      <p>
+                        {canEdit 
+                          ? 'Clique aqui para anexar o arquivo do Curriculum Vitae (PDF, Imagens ou Documentos).'
+                          : 'Nenhum arquivo de currículo foi disponibilizado para este missionário.'}
+                      </p>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="btn-upload-cv-cta"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cvFileInputRef.current?.click();
+                          }}
+                        >
+                          <Plus size={16} /> Anexar Arquivo do CV
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

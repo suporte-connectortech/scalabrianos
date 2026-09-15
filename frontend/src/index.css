@@ -94,8 +94,9 @@ select {
   outline: none;
 }
 
-/* Standardized Cross-Browser Date and Time Inputs */
+/* Standardized Cross-Browser Date, Month and Time Inputs */
 input[type="date"],
+input[type="month"],
 input[type="time"],
 input[type="datetime-local"] {
   -webkit-appearance: none;
@@ -113,6 +114,7 @@ input[type="datetime-local"] {
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
@@ -122,19 +124,43 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-/* Buttons */
+/* Buttons and Firefox Focus Normalization */
 button {
   cursor: pointer;
   border: none;
   outline: none;
   user-select: none;
   -webkit-user-select: none;
+  -moz-user-select: none;
   touch-action: manipulation;
+}
+
+button::-moz-focus-inner,
+input::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
+/* Table Cross-Browser Reset */
+table {
+  border-collapse: collapse;
+  text-indent: 0;
+  border-color: inherit;
+}
+
+/* ── Cross-Browser Print Normalization ────────────────────── */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }
 
 /* ── Cross-Browser Scrollbar Normalization ────────────────── */
