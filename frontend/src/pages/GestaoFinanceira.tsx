@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import api from '../api';
 import { isHiddenTestUser } from '../utils/userFilter';
 import { useAuth } from '../context/AuthContext';
+import MonthPicker from '../components/Common/MonthPicker';
 import '../styles/Relatorios.css';
 import '../styles/FinanceiroSpreadsheet.css';
 
@@ -282,7 +283,7 @@ const GestaoFinanceira: React.FC = () => {
         <div className="filters-row">
           <div className="filter-field">
             <label>Mês de Referência</label>
-            <input type="month" value={selectedMes} onChange={e => setSelectedMes(e.target.value)} />
+            <MonthPicker value={selectedMes} onChange={setSelectedMes} />
           </div>
           <div className="filter-field">
             <label>Casa Religiosa</label>

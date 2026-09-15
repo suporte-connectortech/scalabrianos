@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { FileText, Calendar, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import MonthPicker from '../components/Common/MonthPicker';
 import '../styles/FinanceiroSpreadsheet.css';
 
 interface ExtratoMes {
@@ -214,21 +215,10 @@ const ExtratosMensais: React.FC = () => {
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Calendar size={14} color="#64748b" /> Buscar por Mês/Ano:
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input 
-                  type="month" 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
+                <MonthPicker 
                   value={filterMes} 
-                  onChange={e => setFilterMes(e.target.value)} 
-                  style={{ 
-                    padding: '8px 12px', 
-                    borderRadius: '8px', 
-                    border: '1px solid #cbd5e1', 
-                    fontSize: '14px', 
-                    color: '#1e293b',
-                    outline: 'none',
-                    background: '#fff',
-                    fontWeight: 600
-                  }} 
+                  onChange={setFilterMes} 
                 />
                 {filterMes && (
                   <button 

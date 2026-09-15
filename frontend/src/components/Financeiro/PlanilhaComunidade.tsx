@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import api, { getFileUrl } from '../../api';
+import MonthPicker from '../Common/MonthPicker';
 
 interface Categoria {
   id: number;
@@ -432,7 +433,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
           <div className="filters-grid-premium" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
             <div className="filter-item">
               <label><Calendar size={14} /> {t('planilha.month_year', 'Mês/Ano')}</label>
-              <input type="month" value={selectedMes} onChange={e => setSelectedMes(e.target.value)} />
+              <MonthPicker value={selectedMes} onChange={setSelectedMes} />
             </div>
             <div className="filter-item">
               <label>{t('planilha.community', 'Comunidade Religiosa')}</label>

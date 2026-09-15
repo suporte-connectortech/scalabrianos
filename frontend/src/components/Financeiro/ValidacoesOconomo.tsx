@@ -4,6 +4,7 @@ import api from '../../api';
 import { Clock, FileText, ArrowRight, Calendar, Search, Home } from 'lucide-react';
 import PlanilhaMensal from './PlanilhaMensal';
 import PlanilhaComunidade from './PlanilhaComunidade';
+import MonthPicker from '../Common/MonthPicker';
 import '../../styles/Relatorios.css';
 
 interface Categoria {
@@ -240,15 +241,13 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
             </div>
           )}
 
-          <div style={{ width: '200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ width: '220px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Calendar size={14} /> Mês de Referência
             </label>
-            <input 
-              type="month" 
+            <MonthPicker
               value={filtroMes}
-              onChange={e => setFiltroMes(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', height: '38px', background: 'white', fontWeight: 600 }}
+              onChange={setFiltroMes}
             />
           </div>
         </div>
