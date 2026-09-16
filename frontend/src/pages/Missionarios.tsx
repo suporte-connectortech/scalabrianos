@@ -31,7 +31,15 @@ interface Missionario {
   pais_nascimento?: string;
 }
 
-interface Casa { id: number; nome: string; }
+interface Casa {
+  id: number;
+  nome: string;
+  tipo?: string;
+  pm_code?: string;
+  pais?: string;
+  cidade?: string;
+  regional?: string;
+}
 
 interface DocEntry {
   uid: string;         // temp local id
@@ -494,14 +502,20 @@ const Missionarios: React.FC = () => {
 
   const fetchCasas = async () => {
     try {
-      const res = await api.get('/casas');
+      const res = await api.post('/casas-religiosas/get');
       setCasasDisponiveis(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error('Erro ao carregar casas:', err);
+      try {
+        const fallback = await api.get('/casas-religiosas');
+        setCasasDisponiveis(Array.isArray(fallback.data) ? fallback.data : []);
+      } catch (e) {
+        console.error('Erro ao carregar casas:', e);
+      }
     }
   };
 
   const openWizard = () => {
+    fetchCasas();
     setWizardData(initialWizard);
     setCertidaoObitoFile(null);
     setEgressoIncardinadoFile(null);
@@ -2194,9 +2208,24 @@ const Missionarios: React.FC = () => {
                       </div>
                       <div className="form-group">
                         <label>Selecione a Casa</label>
-                        <select value={novaCasa.casa_id} onChange={e => setNovaCasa(p => ({ ...p, casa_id: e.target.value }))}>
+                        <select
+                          value={novaCasa.casa_id}
+                          onChange={e => {
+                            const val = e.target.value;
+                            const sel = (Array.isArray(casasDisponiveis) ? casasDisponiveis : []).find(c => String(c.id) === String(val));
+                            setNovaCasa(p => ({
+                              ...p,
+                              casa_id: val,
+                              tipo: sel?.tipo ? sel.tipo : p.tipo,
+                              pm: sel?.pm_code ? sel.pm_code : p.pm,
+                              pais: sel?.pais ? sel.pais : (p.pais || 'Brasil'),
+                            }));
+                          }}
+                        >
                           <option value="">Selecione...</option>
-                          {(Array.isArray(casasDisponiveis) ? casasDisponiveis : []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                          {(Array.isArray(casasDisponiveis) ? [...casasDisponiveis].sort((a, b) => (a.nome || '').localeCompare(b.nome || '')) : []).map(c => (
+                            <option key={c.id} value={c.id}>{c.nome}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="form-group">

@@ -13,6 +13,53 @@ require('dotenv').config();
 
 const os = require('os');
 
+// Helper to sanitize dates (convert empty string to null)
+const sanitizeDate = (date) => (date === '' || date === undefined || date === null) ? null : (typeof date === 'string' ? date.split('T')[0] : date);
+const sanitizeString = (str) => (str === '' || str === undefined || str === null) ? null : str;
+
+// Sanitize file names: normalize Unicode (NFC), remove NFD-decomposed diacritics,
+// replace spaces with underscores, strip any non-ASCII-safe characters.
+const sanitizeFilename = (filename) => {
+  if (!filename) return 'documento';
+  let safe = filename
+    .normalize('NFC')
+    .replace(/[àáâãäå]/gi, 'a')
+    .replace(/[èéêë]/gi, 'e')
+    .replace(/[ìíîï]/gi, 'i')
+    .replace(/[òóôõö]/gi, 'o')
+    .replace(/[ùúûü]/gi, 'u')
+    .replace(/[ñ]/gi, 'n')
+    .replace(/[ç]/gi, 'c')
+    .replace(/[ýÿ]/gi, 'y')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/[\s]+/g, '_')
+    .replace(/[^a-zA-Z0-9._\-]/g, '')
+    .trim();
+  if (!safe) safe = 'documento';
+  return safe;
+};
+
+// MIME type resolver
+const getMimeType = (filename, defaultMime = 'application/octet-stream') => {
+  const ext = path.extname(filename || '').toLowerCase();
+  const map = {
+    '.pdf': 'application/pdf',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  };
+  return map[ext] || defaultMime;
+};
+
 // Helper to get a writable uploads directory (handles read-only filesystems like Vercel/Lambda)
 const getUploadsDir = () => {
   const localDir = path.join(__dirname, 'uploads', 'documentos');
@@ -32,6 +79,30 @@ const getUploadsDir = () => {
     return tmpDir;
   }
 };
+
+// Permanent database storage helper (Stores binary in MySQL to survive ephemeral serverless/Vercel containers)
+async function saveUploadedFileToDb(filename, fileBuffer, mimeType, originalName) {
+  if (!filename || !fileBuffer || fileBuffer.length === 0) return;
+  try {
+    const safeMime = mimeType || getMimeType(filename, 'application/octet-stream');
+    const safeOriginal = sanitizeFilename(originalName || filename);
+    const size = fileBuffer.length;
+
+    await db.query(`
+      INSERT INTO tb_arquivos_storage (filename, mime_type, tamanho, conteudo, original_name)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+        mime_type = VALUES(mime_type),
+        tamanho = VALUES(tamanho),
+        conteudo = VALUES(conteudo),
+        original_name = VALUES(original_name)
+    `, [filename, safeMime, size, fileBuffer, safeOriginal]);
+    
+    console.log(`[STORAGE] File ${filename} (${size} bytes) successfully saved to database`);
+  } catch (err) {
+    console.error(`[STORAGE_ERROR] Failed to save ${filename} to database:`, err?.message || err);
+  }
+}
 
 // Multer configuration for document uploads
 const storage = multer.diskStorage({
@@ -96,11 +167,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Robust file streamer for uploaded files (supporting all /api/uploads, /uploads, /documentos prefixes and direct file requests)
-const serveUploadedFile = (req, res, next) => {
-  let reqPath = req.path || '';
+// Robust file streamer for uploaded files (supporting all /api/uploads, /uploads, /documentos prefixes and direct file requests with MySQL fallback)
+const serveUploadedFile = async (req, res, next) => {
+  let reqPath = req.originalUrl || req.path || '';
   try {
-    reqPath = decodeURIComponent(reqPath);
+    reqPath = decodeURIComponent(reqPath.split('?')[0]);
   } catch (e) {}
 
   if (reqPath.startsWith('/api/uploads')) {
@@ -121,7 +192,20 @@ const serveUploadedFile = (req, res, next) => {
     return next();
   }
 
-  // Candidate directories where uploads might be stored across different production environments
+  const setServeHeaders = (mimeType, originalName) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    if (mimeType) {
+      res.setHeader('Content-Type', mimeType);
+    }
+    const safeDispName = sanitizeFilename(originalName || filename);
+    res.setHeader('Content-Disposition', `inline; filename="${safeDispName}"`);
+  };
+
+  // 1. Try local disk first (fast path)
   const candidateDirs = [
     process.env.UPLOADS_DIR,
     path.join(__dirname, 'uploads'),
@@ -138,40 +222,73 @@ const serveUploadedFile = (req, res, next) => {
     path.join(os.tmpdir(), 'scalabrianos', 'uploads', 'documentos')
   ].filter(Boolean);
 
-  const setServeHeaders = () => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  };
-
   for (const baseDir of candidateDirs) {
-    // 1. Try direct relative sub-path (e.g. baseDir + '/documentos/doc_123.pdf')
     const fullPath1 = path.join(baseDir, safePath);
     if (fs.existsSync(fullPath1)) {
       try {
         if (fs.statSync(fullPath1).isFile()) {
-          setServeHeaders();
+          setServeHeaders(getMimeType(filename));
           return res.sendFile(path.resolve(fullPath1));
         }
       } catch (e) {}
     }
 
-    // 2. Try direct filename (e.g. baseDir + '/doc_123.pdf')
     const fullPath2 = path.join(baseDir, filename);
     if (fs.existsSync(fullPath2)) {
       try {
         if (fs.statSync(fullPath2).isFile()) {
-          setServeHeaders();
+          setServeHeaders(getMimeType(filename));
           return res.sendFile(path.resolve(fullPath2));
         }
       } catch (e) {}
     }
   }
 
-  // If not found in any folder, log diagnostic and return explicit error message
-  console.warn(`[UPLOAD_404] Document not found: "${safePath}" (filename: "${filename}") in searched directories`);
+  // 2. Database lookup in tb_arquivos_storage (100% persistent across ephemeral Vercel/Lambda serverless containers)
+  try {
+    const [rows] = await db.query(
+      'SELECT mime_type, conteudo, original_name FROM tb_arquivos_storage WHERE filename = ? LIMIT 1',
+      [filename]
+    );
+
+    if (rows && rows.length > 0 && rows[0].conteudo) {
+      const doc = rows[0];
+      const mime = doc.mime_type || getMimeType(filename);
+      setServeHeaders(mime, doc.original_name);
+      
+      // Also cache to local /tmp in background
+      try {
+        const cachePath = path.join(getUploadsDir(), filename);
+        if (!fs.existsSync(cachePath)) {
+          fs.writeFileSync(cachePath, doc.conteudo);
+        }
+      } catch (e) {}
+
+      return res.end(doc.conteudo);
+    }
+  } catch (dbErr) {
+    console.warn(`[STORAGE_DB_WARN] Could not query tb_arquivos_storage:`, dbErr?.message);
+  }
+
+  // 3. Fallback database lookup in tb_documentos (arquivo_conteudo)
+  try {
+    const [docRows] = await db.query(
+      'SELECT arquivo_nome, tipo_arquivo, arquivo_conteudo FROM tb_documentos WHERE (arquivo_path LIKE ? OR arquivo_nome = ?) AND arquivo_conteudo IS NOT NULL LIMIT 1',
+      [`%${filename}%`, filename]
+    );
+
+    if (docRows && docRows.length > 0 && docRows[0].arquivo_conteudo) {
+      const d = docRows[0];
+      const mime = getMimeType(d.arquivo_nome || filename);
+      setServeHeaders(mime, d.arquivo_nome);
+      return res.end(docRows[0].arquivo_conteudo);
+    }
+  } catch (docErr) {
+    console.warn(`[STORAGE_DOC_WARN] Fallback check in tb_documentos failed:`, docErr?.message);
+  }
+
+  // 4. If not found in any folder or DB, log diagnostic and return explicit error message
+  console.warn(`[UPLOAD_404] Document not found: "${safePath}" (filename: "${filename}") on disk and database`);
   return res.status(404).json({
     error: 'Documento não encontrado no servidor',
     filename: filename,
@@ -256,6 +373,50 @@ async function ensureOptionalSchema() {
   if (schemaEnsured || schemaEnsuring) return;
   schemaEnsuring = true;
   try {
+    // 0. Ensure persistent binary storage table exists in MySQL (Survives ephemeral serverless containers)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_arquivos_storage (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL UNIQUE,
+        mime_type VARCHAR(100) NOT NULL,
+        tamanho INT DEFAULT 0,
+        conteudo LONGBLOB NOT NULL,
+        original_name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_filename (filename)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(err => console.error('[BACKEND] Error creating tb_arquivos_storage:', err?.message));
+
+    // Ensure tb_documentos has arquivo_conteudo LONGBLOB column
+    await db.query(`ALTER TABLE tb_documentos ADD COLUMN arquivo_conteudo LONGBLOB`).catch(() => {});
+
+    // Sync any local files to DB storage if not already there
+    try {
+      const localFolders = [
+        path.join(__dirname, 'uploads', 'documentos'),
+        path.join(__dirname, 'uploads'),
+        path.join(__dirname, '..', 'uploads', 'documentos'),
+        path.join(__dirname, '..', 'uploads'),
+      ];
+      for (const folder of localFolders) {
+        if (fs.existsSync(folder)) {
+          const files = fs.readdirSync(folder);
+          for (const f of files) {
+            const fPath = path.join(folder, f);
+            if (fs.statSync(fPath).isFile() && !f.startsWith('.')) {
+              const [exists] = await db.query('SELECT id FROM tb_arquivos_storage WHERE filename = ?', [f]).catch(() => [[]]);
+              if (!exists || exists.length === 0) {
+                const buf = fs.readFileSync(fPath);
+                await saveUploadedFileToDb(f, buf, getMimeType(f), f);
+              }
+            }
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.warn('[STORAGE_SYNC_WARN]', syncErr?.message);
+    }
+
     // 1. Ensure tb_dados_situacao table exists
     await db.query(`
       CREATE TABLE IF NOT EXISTS tb_dados_situacao (
@@ -671,39 +832,6 @@ app.get('/api/debug/fix-documentos-charset', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-// Helper to sanitize dates (convert empty string to null)
-const sanitizeDate = (date) => (date === '' || date === undefined || date === null) ? null : (typeof date === 'string' ? date.split('T')[0] : date);
-const sanitizeString = (str) => (str === '' || str === undefined || str === null) ? null : str;
-
-// Sanitize file names: normalize Unicode (NFC), remove NFD-decomposed diacritics,
-// replace spaces with underscores, strip any non-ASCII-safe characters.
-// This prevents ER_TRUNCATED_WRONG_VALUE_FOR_FIELD with macOS NFD filenames.
-const sanitizeFilename = (filename) => {
-  if (!filename) return 'documento';
-  // Normalize to NFC first, then try to decompose and strip combining marks (NFD -> strip Mn category)
-  let safe = filename
-    .normalize('NFC')          // canonical composition (handles macOS NFD)
-    // Transliterate common accented chars to ASCII equivalents
-    .replace(/[àáâãäå]/gi, 'a')
-    .replace(/[èéêë]/gi, 'e')
-    .replace(/[ìíîï]/gi, 'i')
-    .replace(/[òóôõö]/gi, 'o')
-    .replace(/[ùúûü]/gi, 'u')
-    .replace(/[ñ]/gi, 'n')
-    .replace(/[ç]/gi, 'c')
-    .replace(/[ýÿ]/gi, 'y')
-    // Remove remaining non-ASCII characters
-    .replace(/[^\x00-\x7F]/g, '')
-    // Replace spaces and problematic chars with underscore
-    .replace(/[\s]+/g, '_')
-    // Remove chars not allowed in filenames
-    .replace(/[^a-zA-Z0-9._\-]/g, '')
-    .trim();
-  // Ensure it still has the extension
-  if (!safe) safe = 'documento';
-  return safe;
-};
 
 // Ensure uploads directory exists
 const uploadsDataDir = path.join(__dirname, 'uploads', 'documentos');
@@ -1386,21 +1514,22 @@ app.post('/api/usuarios/:id/delete', authenticateToken, async (req, res) => {
 
 
 // Religious Houses
-app.get('/api/casas-religiosas', authenticateToken, async (req, res) => {
+app.get(['/api/casas-religiosas', '/api/casas'], authenticateToken, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tb_casas_religiosas');
+    const [rows] = await db.query('SELECT * FROM tb_casas_religiosas ORDER BY nome ASC');
     res.json(rows);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.post('/api/casas-religiosas/get', authenticateToken, async (req, res) => {
+app.post(['/api/casas-religiosas/get', '/api/casas/get'], authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT c.*, 
       (SELECT COUNT(*) FROM tb_missionario_casas mc JOIN tb_usuarios u ON u.id = mc.usuario_id WHERE mc.casa_id = c.id AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE()) AND ${HIDDEN_USERS_ALIAS_SQL('u')}) as missionarios_count
       FROM tb_casas_religiosas c
+      ORDER BY c.nome ASC
     `);
     res.json(rows);
   } catch (error) {
@@ -1881,6 +2010,11 @@ app.post('/api/usuarios/:id/dados-religiosos/upload-sacramento', authenticateTok
   if (!allowed.includes(campo)) return res.status(400).json({ message: 'Campo inválido.' });
   if (!req.file) return res.status(400).json({ message: 'Arquivo não enviado.' });
   try {
+    const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+    const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+    if (fileBuffer) {
+      await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+    }
     const filePath = `/uploads/documentos/${req.file.filename}`;
     const [rows] = await db.query('SELECT id FROM tb_dados_religiosos WHERE usuario_id = ?', [req.params.id]);
     if (rows.length > 0) {
@@ -2507,8 +2641,13 @@ app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) 
       return res.status(400).json({ message: 'Campo inválido' });
     }
 
-    const filePath = `/uploads/documentos/${req.file.filename}`;
     try {
+      const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+      const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+      if (fileBuffer) {
+        await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+      }
+      const filePath = `/uploads/documentos/${req.file.filename}`;
       const [existing] = await db.query('SELECT id FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
       if (existing.length > 0) {
         await db.query(`UPDATE tb_dados_situacao SET \`${campo}\` = ? WHERE usuario_id = ?`, [filePath, req.params.id]);
@@ -3214,7 +3353,7 @@ app.get('/api/usuarios/:id/documentos', authenticateToken, async (req, res) => {
   }
 });
 
-// Dedicated Attachment Upload (Does NOT insert into tb_documentos)
+// Dedicated Attachment Upload (Does NOT insert into tb_documentos, saves permanently to DB storage)
 app.post(['/api/upload-anexo', '/api/usuarios/:id/upload-anexo'], authenticateToken, (req, res, next) => {
   upload.single('arquivo')(req, res, (err) => {
     if (err) {
@@ -3223,17 +3362,27 @@ app.post(['/api/upload-anexo', '/api/usuarios/:id/upload-anexo'], authenticateTo
     }
     next();
   });
-}, (req, res) => {
+}, async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Arquivo não enviado.' });
-  const filePath = `/uploads/documentos/${req.file.filename}`;
-  const BASE_URL = process.env.BASE_URL || '';
-  res.json({
-    success: true,
-    arquivo_path: filePath,
-    url: `${BASE_URL}${filePath}`,
-    filename: req.file.filename,
-    original_name: sanitizeFilename(req.file.originalname)
-  });
+  try {
+    const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+    const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+    if (fileBuffer) {
+      await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+    }
+    const filePath = `/uploads/documentos/${req.file.filename}`;
+    const BASE_URL = process.env.BASE_URL || '';
+    res.json({
+      success: true,
+      arquivo_path: filePath,
+      url: `${BASE_URL}${filePath}`,
+      filename: req.file.filename,
+      original_name: sanitizeFilename(req.file.originalname)
+    });
+  } catch (error) {
+    console.error('Error saving attachment:', error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 app.post('/api/usuarios/:id/documentos', authenticateToken, (req, res, next) => {
@@ -3252,11 +3401,16 @@ app.post('/api/usuarios/:id/documentos', authenticateToken, (req, res, next) => 
   // Sanitize filename to handle macOS NFD unicode / special chars that break MySQL latin1 columns
   const safeFilename = sanitizeFilename(req.file.originalname);
   try {
+    const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+    const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+    if (fileBuffer) {
+      await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+    }
     const filePath = `/uploads/documentos/${req.file.filename}`;
     const BASE_URL = process.env.BASE_URL || '';
     const [result] = await db.query(
-      'INSERT INTO tb_documentos (usuario_id, descricao, arquivo_path, arquivo_nome, tipo_arquivo) VALUES (?, ?, ?, ?, ?)',
-      [req.params.id, sanitizeString(descricao) || 'Documento', filePath, safeFilename, ext]
+      'INSERT INTO tb_documentos (usuario_id, descricao, arquivo_path, arquivo_nome, tipo_arquivo, arquivo_conteudo) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, sanitizeString(descricao) || 'Documento', filePath, safeFilename, ext, fileBuffer]
     );
     await logAction(req.user.id, 'UPLOAD_DOCUMENTO', 'tb_documentos', `Documento "${descricao}" enviado para usuario ${req.params.id}`);
     res.json({
@@ -3279,6 +3433,10 @@ app.delete('/api/usuarios/:id/documentos/:doc_id', authenticateToken, async (req
   try {
     const [rows] = await db.query('SELECT * FROM tb_documentos WHERE id = ? AND usuario_id = ?', [req.params.doc_id, req.params.id]);
     if (rows.length > 0) {
+      const filename = path.basename(rows[0].arquivo_path || '');
+      if (filename) {
+        await db.query('DELETE FROM tb_arquivos_storage WHERE filename = ?', [filename]).catch(() => {});
+      }
       const fullPath = path.join(__dirname, rows[0].arquivo_path);
       if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
     }
