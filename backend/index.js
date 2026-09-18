@@ -1042,6 +1042,96 @@ app.get('/api/usuarios/:id', authenticateToken, async (req, res) => {
   }
 });
 
+const handleGetPerfilCompleto = async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const [
+      userRows,
+      civRows,
+      endRows,
+      relRows,
+      casasRows,
+      histRows,
+      nacRows,
+      docRows,
+      itinRows,
+      formRows,
+      ativRows,
+      obrasRows,
+      saudeRows,
+      bancoRows,
+      obsRows,
+      quadroRows,
+      contRows,
+      sitRows,
+      hSitRows,
+      hPerfRows
+    ] = await Promise.all([
+      db.query('SELECT id, nome, login, role, status, situacao, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [userId]),
+      db.query('SELECT * FROM tb_dados_civis WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_enderecos_contatos WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_dados_religiosos WHERE usuario_id = ?', [userId]),
+      db.query('SELECT id, nome, tipo, pm_code, pais, cidade, regional, endereco FROM tb_casas_religiosas'),
+      db.query(`
+        SELECT h.*, c.nome as casa_nome 
+        FROM tb_missionario_casas h 
+        JOIN tb_casas_religiosas c ON h.casa_id = c.id 
+        WHERE h.usuario_id = ? 
+        ORDER BY h.data_inicio DESC
+      `, [userId]).catch(() => [[]]),
+      db.query('SELECT nacionalidade FROM tb_nacionalidades WHERE usuario_id = ?', [userId]),
+      db.query('SELECT id, usuario_id, descricao, arquivo_path, arquivo_nome, tipo_arquivo, data_upload FROM tb_documentos WHERE usuario_id = ? ORDER BY id DESC', [userId]),
+      db.query('SELECT * FROM tb_itinerario_formativo WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_formacao_academica WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_atividade_missionaria WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_obras_realizadas WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_saude WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_observacoes_gerais WHERE usuario_id = ? ORDER BY created_at DESC', [userId]),
+      db.query('SELECT * FROM tb_quadro_pessoal WHERE usuario_id = ? LIMIT 1', [userId]),
+      db.query('SELECT parentesco, nome, endereco, telefone, email FROM tb_contatos WHERE usuario_id = ? ORDER BY id ASC', [userId]),
+      db.query('SELECT * FROM tb_dados_situacao WHERE usuario_id = ?', [userId]),
+      db.query('SELECT * FROM tb_historico_situacao WHERE usuario_id = ? ORDER BY created_at DESC', [userId]).catch(() => [[]]),
+      db.query('SELECT * FROM tb_historico_perfil WHERE usuario_id = ? ORDER BY created_at DESC', [userId]).catch(() => [[]])
+    ]);
+
+    if (userRows[0].length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
+    let u = userRows[0][0];
+    if (typeof u.permissoes === 'string') {
+      try { u.permissoes = JSON.parse(u.permissoes); } catch (e) { u.permissoes = {}; }
+    }
+
+    res.json({
+      missionario: u,
+      dadosCivis: civRows[0][0] || null,
+      enderecoContato: endRows[0][0] || null,
+      dadosReligiosos: relRows[0][0] || null,
+      casasDisponiveis: casasRows[0] || [],
+      casasHistorico: histRows[0] || [],
+      nacionalidades: nacRows[0] || [],
+      documentos: docRows[0] || [],
+      itinerario: itinRows[0] || [],
+      formacaoAcademica: formRows[0] || [],
+      atividadesMissionarias: ativRows[0] || [],
+      obrasRealizadas: obrasRows[0] || [],
+      saudeRecords: saudeRows[0] || [],
+      contasBancarias: bancoRows[0] || [],
+      observacoesGerais: obsRows[0] || [],
+      quadroPessoal: quadroRows[0][0] || null,
+      contatos: contRows[0] || [],
+      situacaoData: sitRows[0][0] || null,
+      historicoSituacao: hSitRows[0] || [],
+      historicoPerfil: hPerfRows[0] || []
+    });
+  } catch (error) {
+    console.error('Error fetching perfil-completo:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+app.get('/api/usuarios/:id/perfil-completo', authenticateToken, handleGetPerfilCompleto);
+app.post('/api/usuarios/:id/perfil-completo/get', authenticateToken, handleGetPerfilCompleto);
+
 app.post('/api/usuarios/get', authenticateToken, handleGetUsuarios);
 
 app.post('/api/usuarios', authenticateToken, async (req, res) => {

@@ -19,9 +19,9 @@ function getOrCreatePool() {
     database: clean(process.env.DB_NAME),
     waitForConnections: true,
     connectionLimit: connectionLimit,
-    maxIdle: 1,
-    idleTimeout: 8000,
-    connectTimeout: 10000,
+    maxIdle: 0,
+    idleTimeout: 1000,
+    connectTimeout: 15000,
     queueLimit: 0,
     enableKeepAlive: false
   });
@@ -33,7 +33,7 @@ function getOrCreatePool() {
 const rawPool = getOrCreatePool();
 
 // Retry helper for handling transient HostGator connection limit peaks
-const executeWithRetry = async (fn, maxRetries = 3) => {
+const executeWithRetry = async (fn, maxRetries = 5) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
@@ -51,7 +51,7 @@ const executeWithRetry = async (fn, maxRetries = 3) => {
         errCode === 'ETIMEDOUT';
 
       if (isConnectionLimitError && attempt < maxRetries) {
-        const delay = attempt * 400 + Math.floor(Math.random() * 200);
+        const delay = attempt * 500 + Math.floor(Math.random() * 300);
         console.warn(`[DB_RETRY] Temporary connection limit reached (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
@@ -64,7 +64,7 @@ const executeWithRetry = async (fn, maxRetries = 3) => {
 const dbProxy = {
   query: (...args) => executeWithRetry(() => rawPool.query(...args)),
   execute: (...args) => executeWithRetry(() => rawPool.execute(...args)),
-  getConnection: () => rawPool.getConnection(),
+  getConnection: () => executeWithRetry(() => rawPool.getConnection()),
   end: () => rawPool.end()
 };
 

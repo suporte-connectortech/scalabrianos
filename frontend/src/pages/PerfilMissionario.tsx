@@ -1019,26 +1019,70 @@ const PerfilMissionario: React.FC = () => {
   const fetchData = async (isInitial = false) => {
     if (isInitial) setIsLoading(true);
     try {
-      const [mRes, civRes, endRes, relRes, casasRes, histRes, nacRes, docRes, itinRes] = await Promise.all([
-        api.get(`/usuarios/${id}`),
-        api.get(`/usuarios/${id}/dados-civis`),
-        api.get(`/usuarios/${id}/endereco-contato`),
-        api.get(`/usuarios/${id}/dados-religiosos`),
-        api.post(`/casas-religiosas/get`),
-        api.get(`/usuarios/${id}/casas-historico`),
-        api.get(`/usuarios/${id}/nacionalidades`),
-        api.get(`/usuarios/${id}/documentos`),
-        api.get(`/usuarios/${id}/itinerario`),
-      ]);
-
-      const normSit = normalizeSituacao(mRes.data?.situacao);
-      let parsedPerms = mRes.data?.permissoes;
-      if (typeof parsedPerms === 'string') {
-        try { parsedPerms = JSON.parse(parsedPerms); } catch (e) { parsedPerms = {}; }
+      let data: any = null;
+      try {
+        const fullRes = await api.get(`/usuarios/${id}/perfil-completo`);
+        data = fullRes.data;
+      } catch {
+        // Fallback to individual requests if needed
+        const [mRes, civRes, endRes, relRes, casasRes, histRes, nacRes, docRes, itinRes] = await Promise.all([
+          api.get(`/usuarios/${id}`),
+          api.get(`/usuarios/${id}/dados-civis`),
+          api.get(`/usuarios/${id}/endereco-contato`),
+          api.get(`/usuarios/${id}/dados-religiosos`),
+          api.post(`/casas-religiosas/get`),
+          api.get(`/usuarios/${id}/casas-historico`),
+          api.get(`/usuarios/${id}/nacionalidades`),
+          api.get(`/usuarios/${id}/documentos`),
+          api.get(`/usuarios/${id}/itinerario`),
+        ]);
+        const [fRes, aRes, oRes, sRes, bRes, obsRes, qRes, contRes, sitRes, hSitRes, hPerfRes] = await Promise.all([
+          api.get(`/usuarios/${id}/formacao-academica`),
+          api.get(`/usuarios/${id}/atividade-missionaria`),
+          api.get(`/usuarios/${id}/obras-realizadas`),
+          api.get(`/usuarios/${id}/saude`),
+          api.get(`/usuarios/${id}/contas-bancarias`),
+          api.get(`/usuarios/${id}/observacoes-gerais`),
+          api.get(`/usuarios/${id}/quadro-pessoal`),
+          api.get(`/usuarios/${id}/contatos`),
+          api.get(`/usuarios/${id}/situacao`),
+          api.get(`/usuarios/${id}/historico-situacao`).catch(() => ({ data: [] })),
+          api.get(`/usuarios/${id}/historico-perfil`).catch(() => ({ data: [] })),
+        ]);
+        data = {
+          missionario: mRes.data,
+          dadosCivis: civRes.data,
+          enderecoContato: endRes.data,
+          dadosReligiosos: relRes.data,
+          casasDisponiveis: casasRes.data,
+          casasHistorico: histRes.data,
+          nacionalidades: nacRes.data,
+          documentos: docRes.data,
+          itinerario: itinRes.data,
+          formacaoAcademica: fRes.data,
+          atividadesMissionarias: aRes.data,
+          obrasRealizadas: oRes.data,
+          saudeRecords: sRes.data,
+          contasBancarias: bRes.data,
+          observacoesGerais: obsRes.data,
+          quadroPessoal: qRes.data,
+          contatos: contRes.data,
+          situacaoData: sitRes.data,
+          historicoSituacao: hSitRes.data,
+          historicoPerfil: hPerfRes.data,
+        };
       }
-      setMissionario({ ...mRes.data, situacao: normSit, permissoes: parsedPerms || {} });
+
+      if (!data || !data.missionario) return;
+
+      const normSit = normalizeSituacao(data.missionario?.situacao);
+      let parsedPerms = data.missionario?.permissoes;
+      if (typeof parsedPerms === 'string') {
+        try { parsedPerms = JSON.parse(parsedPerms); } catch { parsedPerms = {}; }
+      }
+      setMissionario({ ...data.missionario, situacao: normSit, permissoes: parsedPerms || {} });
       setOriginalSituacao(normSit);
-      const isSelf = authUser?.id === mRes.data?.id;
+      const isSelf = authUser?.id === data.missionario?.id;
 
       if (isInitial) {
         setActiveTab(prev => {
@@ -1048,80 +1092,66 @@ const PerfilMissionario: React.FC = () => {
           return 'dados';
         });
       }
-      if (civRes.data) {
-        const parts = civRes.data.filiacao ? civRes.data.filiacao.split('/') : [];
+      if (data.dadosCivis) {
+        const parts = data.dadosCivis.filiacao ? data.dadosCivis.filiacao.split('/') : [];
         setCivilData({
-          ...civRes.data,
+          ...data.dadosCivis,
           nome_pai: parts[0] ? parts[0].trim() : '',
           nome_mae: parts[1] ? parts[1].trim() : '',
-          data_nascimento: civRes.data.data_nascimento ? civRes.data.data_nascimento.split('T')[0] : ''
+          data_nascimento: data.dadosCivis.data_nascimento ? data.dadosCivis.data_nascimento.split('T')[0] : ''
         });
       }
-      if (endRes.data) setEnderecoData(endRes.data);
-      if (relRes.data) setReligiososData({
-        ...relRes.data,
-        primeiros_votos_data: relRes.data.primeiros_votos_data ? relRes.data.primeiros_votos_data.split('T')[0] : '',
-        votos_perpetuos_data: relRes.data.votos_perpetuos_data ? relRes.data.votos_perpetuos_data.split('T')[0] : '',
-        diaconato_data: relRes.data.diaconato_data ? relRes.data.diaconato_data.split('T')[0] : '',
-        presbiterato_data: relRes.data.presbiterato_data ? relRes.data.presbiterato_data.split('T')[0] : '',
-        data_batismo: relRes.data.data_batismo ? relRes.data.data_batismo.split('T')[0] : '',
-        data_primeira_comunhao: relRes.data.data_primeira_comunhao ? relRes.data.data_primeira_comunhao.split('T')[0] : '',
-        data_crisma: relRes.data.data_crisma ? relRes.data.data_crisma.split('T')[0] : '',
-        doc_batismo: relRes.data.doc_batismo || '',
-        doc_primeira_comunhao: relRes.data.doc_primeira_comunhao || '',
-        doc_crisma: relRes.data.doc_crisma || '',
+      if (data.enderecoContato) setEnderecoData(data.enderecoContato);
+      if (data.dadosReligiosos) setReligiososData({
+        ...data.dadosReligiosos,
+        primeiros_votos_data: data.dadosReligiosos.primeiros_votos_data ? data.dadosReligiosos.primeiros_votos_data.split('T')[0] : '',
+        votos_perpetuos_data: data.dadosReligiosos.votos_perpetuos_data ? data.dadosReligiosos.votos_perpetuos_data.split('T')[0] : '',
+        diaconato_data: data.dadosReligiosos.diaconato_data ? data.dadosReligiosos.diaconato_data.split('T')[0] : '',
+        presbiterato_data: data.dadosReligiosos.presbiterato_data ? data.dadosReligiosos.presbiterato_data.split('T')[0] : '',
+        data_batismo: data.dadosReligiosos.data_batismo ? data.dadosReligiosos.data_batismo.split('T')[0] : '',
+        data_primeira_comunhao: data.dadosReligiosos.data_primeira_comunhao ? data.dadosReligiosos.data_primeira_comunhao.split('T')[0] : '',
+        data_crisma: data.dadosReligiosos.data_crisma ? data.dadosReligiosos.data_crisma.split('T')[0] : '',
+        doc_batismo: data.dadosReligiosos.doc_batismo || '',
+        doc_primeira_comunhao: data.dadosReligiosos.doc_primeira_comunhao || '',
+        doc_crisma: data.dadosReligiosos.doc_crisma || '',
       });
-      setCasasDisponiveis(Array.isArray(casasRes.data) ? casasRes.data : []);
-      setCasasHistorico(Array.isArray(histRes.data) ? histRes.data.map((h: any) => ({ ...h, funcao: h.funcao ? h.funcao.split(',').map((s: string) => s.trim()) : [] })) : []);
-      const rawNacs = nacRes.data;
-      const loadedNacs: string[] = Array.isArray(rawNacs) ? rawNacs : (Array.isArray(rawNacs?.nacionalidades) ? rawNacs.nacionalidades : []);
+      setCasasDisponiveis(Array.isArray(data.casasDisponiveis) ? data.casasDisponiveis : []);
+      setCasasHistorico(Array.isArray(data.casasHistorico) ? data.casasHistorico.map((h: any) => ({ ...h, funcao: h.funcao ? (typeof h.funcao === 'string' ? h.funcao.split(',').map((s: string) => s.trim()) : h.funcao) : [] })) : []);
+      const rawNacs = data.nacionalidades;
+      const loadedNacs: string[] = Array.isArray(rawNacs) ? rawNacs.map((n: any) => typeof n === 'string' ? n : (n?.nacionalidade || '')) : (Array.isArray(rawNacs?.nacionalidades) ? rawNacs.nacionalidades : []);
       setNacionalidades(loadedNacs.length > 0 ? loadedNacs : ['']);
-      setDocumentos(Array.isArray(docRes.data) ? docRes.data : []);
-      setItinerarioStages(Array.isArray(itinRes.data) ? itinRes.data : []);
-      setNit(civRes.data?.nit || '');
+      setDocumentos(Array.isArray(data.documentos) ? data.documentos : []);
+      setItinerarioStages(Array.isArray(data.itinerario) ? data.itinerario : []);
+      setNit(data.dadosCivis?.nit || '');
 
-      // Load new sections and history
-      const [fRes, aRes, oRes, sRes, bRes, obsRes, qRes, contRes, sitRes, hSitRes, hPerfRes] = await Promise.all([
-        api.get(`/usuarios/${id}/formacao-academica`),
-        api.get(`/usuarios/${id}/atividade-missionaria`),
-        api.get(`/usuarios/${id}/obras-realizadas`),
-        api.get(`/usuarios/${id}/saude`),
-        api.get(`/usuarios/${id}/contas-bancarias`),
-        api.get(`/usuarios/${id}/observacoes-gerais`),
-        api.get(`/usuarios/${id}/quadro-pessoal`),
-        api.get(`/usuarios/${id}/contatos`),
-        api.get(`/usuarios/${id}/situacao`),
-        api.get(`/usuarios/${id}/historico-situacao`).catch(() => ({ data: [] })),
-        api.get(`/usuarios/${id}/historico-perfil`).catch(() => ({ data: [] })),
-      ]);
-      setFormacaoAcademica(Array.isArray(fRes.data) ? fRes.data : []);
-      setAtividadesMissionarias(Array.isArray(aRes.data) ? aRes.data : []);
-      setObrasRealizadas(Array.isArray(oRes.data) ? oRes.data : []);
-      setSaudeRecords(Array.isArray(sRes.data) ? sRes.data : []);
-      setContasBancarias(Array.isArray(bRes.data) ? bRes.data : []);
-      setObservacoesGerais(Array.isArray(obsRes.data) ? obsRes.data : []);
-      setQuadroPessoal(Array.isArray(qRes.data) ? qRes.data[0] : (qRes.data || null));
-      setContatos(Array.isArray(contRes.data) ? contRes.data : []);
-      setHistoricoSituacao(Array.isArray(hSitRes.data) ? hSitRes.data : []);
-      setHistoricoPerfil(Array.isArray(hPerfRes.data) ? hPerfRes.data : []);
+      setFormacaoAcademica(Array.isArray(data.formacaoAcademica) ? data.formacaoAcademica : []);
+      setAtividadesMissionarias(Array.isArray(data.atividadesMissionarias) ? data.atividadesMissionarias : []);
+      setObrasRealizadas(Array.isArray(data.obrasRealizadas) ? data.obrasRealizadas : []);
+      setSaudeRecords(Array.isArray(data.saudeRecords) ? data.saudeRecords : []);
+      setContasBancarias(Array.isArray(data.contasBancarias) ? data.contasBancarias : []);
+      setObservacoesGerais(Array.isArray(data.observacoesGerais) ? data.observacoesGerais : []);
+      setQuadroPessoal(Array.isArray(data.quadroPessoal) ? data.quadroPessoal[0] : (data.quadroPessoal || null));
+      setContatos(Array.isArray(data.contatos) ? data.contatos : []);
+      setHistoricoSituacao(Array.isArray(data.historicoSituacao) ? data.historicoSituacao : []);
+      setHistoricoPerfil(Array.isArray(data.historicoPerfil) ? data.historicoPerfil : []);
 
-      if (sitRes.data) {
+      if (data.situacaoData) {
         setSituacaoData(prev => ({
           ...prev,
-          ...sitRes.data,
-          data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : '',
-          cidade_falecimento: sitRes.data.cidade_falecimento || '',
-          certidao_obito_path: sitRes.data.certidao_obito_path || '',
-          local_sepultamento: sitRes.data.local_sepultamento || '',
-          egresso_incardinado_path: sitRes.data.egresso_incardinado_path || '',
-          egresso_desistencia_path: sitRes.data.egresso_desistencia_path || '',
-          egresso_laicizado_path: sitRes.data.egresso_laicizado_path || '',
-          egresso_transf_sacerdotes_path: sitRes.data.egresso_transf_sacerdotes_path || '',
-          egresso_transf_para_regiao_path: sitRes.data.egresso_transf_para_regiao_path || '',
-          egresso_transf_da_regiao_path: sitRes.data.egresso_transf_da_regiao_path || '',
-          exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : '',
-          exclaustrado_processo: sitRes.data.exclaustrado_processo || '',
-          exclaustrado_doc_path: sitRes.data.exclaustrado_doc_path || '',
+          ...data.situacaoData,
+          data_falecimento: data.situacaoData.data_falecimento ? data.situacaoData.data_falecimento.split('T')[0] : '',
+          cidade_falecimento: data.situacaoData.cidade_falecimento || '',
+          certidao_obito_path: data.situacaoData.certidao_obito_path || '',
+          local_sepultamento: data.situacaoData.local_sepultamento || '',
+          egresso_incardinado_path: data.situacaoData.egresso_incardinado_path || '',
+          egresso_desistencia_path: data.situacaoData.egresso_desistencia_path || '',
+          egresso_laicizado_path: data.situacaoData.egresso_laicizado_path || '',
+          egresso_transf_sacerdotes_path: data.situacaoData.egresso_transf_sacerdotes_path || '',
+          egresso_transf_para_regiao_path: data.situacaoData.egresso_transf_para_regiao_path || '',
+          egresso_transf_da_regiao_path: data.situacaoData.egresso_transf_da_regiao_path || '',
+          exclaustrado_data: data.situacaoData.exclaustrado_data ? data.situacaoData.exclaustrado_data.split('T')[0] : '',
+          exclaustrado_processo: data.situacaoData.exclaustrado_processo || '',
+          exclaustrado_doc_path: data.situacaoData.exclaustrado_doc_path || '',
         }));
       }
 
