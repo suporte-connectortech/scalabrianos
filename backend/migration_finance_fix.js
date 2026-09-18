@@ -172,7 +172,6 @@ async function migrate() {
       ['43.06', 'Taxas bancárias', 'DEBITO', 'PERFIL_2'],
       ['44.01', 'Doações e caridade', 'DEBITO', 'PERFIL_2'],
       ['41.9', 'Outras despesas', 'DEBITO', 'PERFIL_2'],
-      ['35.1', 'Remessas para a Direção Regional', 'DEBITO', 'PERFIL_2'],
 
       // Planejamento
       ['1', 'Receitas Mensais - Atividade', 'CREDITO', 'PLANEJAMENTO'],

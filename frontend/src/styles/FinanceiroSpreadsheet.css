@@ -262,12 +262,16 @@
 /* View Mode Tabs */
 .view-mode-tabs {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 20px;
     padding: 4px;
     background: #f1f5f9;
     border-radius: 10px;
     width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .mode-btn {
@@ -280,6 +284,9 @@
     color: #64748b;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: manipulation;
 }
 
 .mode-btn.active {
@@ -301,6 +308,7 @@
     gap: 6px;
     cursor: pointer;
     transition: background 0.2s;
+    touch-action: manipulation;
 }
 
 .btn-export-small:hover:not(:disabled) {
@@ -337,6 +345,10 @@
 }
 
 @media (max-width: 768px) {
+    .view-mode-tabs {
+        width: 100%;
+        padding: 4px;
+    }
     .spreedsheet-container {
         padding: 14px !important;
         border-radius: 12px;
@@ -354,5 +366,19 @@
     }
     .spreedsheet-header h3 {
         font-size: 1.15rem;
+    }
+    .spreadsheet-summary {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 16px !important;
+        padding: 16px !important;
+    }
+    .spreadsheet-summary > div {
+        flex-direction: column;
+        width: 100%;
+    }
+    .spreadsheet-summary .btn-save {
+        width: 100%;
+        justify-content: center;
     }
 }

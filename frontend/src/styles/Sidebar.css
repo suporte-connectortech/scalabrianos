@@ -1,11 +1,13 @@
 .sidebar {
     width: 260px;
     height: 100vh;
+    height: 100dvh;
     background-color: var(--sidebar-bg);
     color: var(--sidebar-text);
     display: flex;
     flex-direction: column;
     padding: 1rem 0;
+    padding-bottom: calc(1rem + var(--safe-area-bottom));
     position: fixed;
     left: 0;
     top: 0;
@@ -24,9 +26,11 @@
 
 .sidebar-items {
     flex: 1;
-    margin-top: 70px;
+    margin-top: 100px;
     padding: 1rem 0.5rem;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .sidebar-item {
@@ -89,7 +93,7 @@
 .sidebar-footer {
     border-top: 1px solid var(--border-color);
     padding: 1rem 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
 }
 
 .logout:hover {
@@ -97,19 +101,68 @@
     color: #be123c;
 }
 
+.sidebar-mobile-header {
+    display: none;
+}
+
 @media (max-width: 768px) {
     .sidebar {
+        z-index: 1000;
         transform: translateX(-100%);
-        transition: transform 0.3s ease-in-out;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+        padding-top: 0;
     }
-    /* When Sidebar is open on mobile, MainLayout passes a class, wait, MainLayout has .main-content.expanded. But Sidebar itself needs a class. In LayoutContext we have isSidebarOpen. */
-    /* Wait, the sidebar itself is rendered. We can add a class .open to .sidebar if isSidebarOpen is true on mobile. */
     .sidebar.open {
         transform: translateX(0);
     }
     .sidebar.closed {
         transform: translateX(-100%);
+    }
+
+    .sidebar-mobile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        padding-top: calc(0.75rem + var(--safe-area-top, 0px));
+        border-bottom: 1px solid var(--border-color);
+        background-color: var(--sidebar-bg);
+        height: 70px;
+        box-sizing: border-box;
+    }
+
+    .sidebar-mobile-logo {
+        display: flex;
+        align-items: center;
+    }
+
+    .sidebar-header-logo {
+        height: 44px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    .sidebar-close-btn {
+        background: none;
+        border: none;
+        color: var(--primary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.4rem;
+        border-radius: 8px;
+        transition: background-color 0.2s;
+    }
+
+    .sidebar-close-btn:hover {
+        background-color: var(--primary-light);
+    }
+
+    .sidebar-items {
+        margin-top: 0 !important;
+        padding: 0.75rem 0.5rem;
     }
     .sidebar-overlay {
         display: block;
@@ -118,7 +171,10 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 89;
+        background-color: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        z-index: 999;
+        animation: fadeIn 0.2s ease-out;
     }
 }

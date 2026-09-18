@@ -208,9 +208,9 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
   return (
     <div className="validacoes-container">
       {/* Search Filters Section */}
-      <div className="filters-card" style={{ marginBottom: '20px', padding: '20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ flex: 1, minWidth: '250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div className="filters-card" style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: '1 1 220px', minWidth: 'min(100%, 200px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Search size={14} /> Buscar por Nome
             </label>
@@ -224,7 +224,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
           </div>
 
           {isRegional && (
-            <div style={{ width: '250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ flex: '1 1 200px', minWidth: 'min(100%, 180px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Home size={14} /> Casa Religiosa
               </label>
@@ -241,7 +241,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
             </div>
           )}
 
-          <div style={{ width: '220px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ flex: '1 1 180px', minWidth: 'min(100%, 160px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Calendar size={14} /> Mês de Referência
             </label>
@@ -264,7 +264,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
             {paginatedItems.map(item => (
               <div key={`${item.tipo_planilha}-${item.id}`} style={{
                 background: 'white',

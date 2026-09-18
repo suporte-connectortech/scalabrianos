@@ -132,6 +132,10 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
     setEditValues(newVals);
   };
 
+  const isCategoryAllowed = (c: Categoria) => 
+    c.codigo !== '35.1' && 
+    !c.nome.toLowerCase().includes('remessas para a direção regional');
+
   const loadPlanilha = async () => {
     setIsLoading(true);
     try {
@@ -143,7 +147,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
         setPlanilha(res.data);
         const vals: Record<number, number> = {};
         const logs: EntryLog[] = [];
-        res.data.itens.forEach((it: any, idx: number) => {
+        (res.data.itens || []).forEach((it: any, idx: number) => {
           const val = parseFloat(it.valor);
           if (val > 0) {
             vals[it.categoria_id] = (vals[it.categoria_id] || 0) + val;
@@ -161,6 +165,30 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
             }
           }
         });
+
+        // Auto-import Saldo Anterior (Casa) from previous month if not already present in Casa draft
+        const saldoAnteriorCat = categorias.find(c => 
+          c.perfil === 'PERFIL_2' && 
+          c.tipo === 'CREDITO' && 
+          (c.codigo === '11.11' || c.nome.toLowerCase().includes('saldo anterior')) &&
+          c.nome.toLowerCase().includes('saldo anterior')
+        );
+
+        const saldoCalc = parseFloat(res.data.saldo_anterior_calculado) || 0;
+        const isLockedStatus = res.data.status === 'APROVADO' || res.data.status === 'ENVIADO_REGIONAL';
+        if (saldoAnteriorCat && (!vals[saldoAnteriorCat.id] || vals[saldoAnteriorCat.id] === 0) && saldoCalc !== 0 && !isLockedStatus) {
+          vals[saldoAnteriorCat.id] = saldoCalc;
+          logs.unshift({
+            id: `auto-saldo-anterior-casa-${Date.now()}`,
+            tipo: 'CREDITO',
+            categoriaId: saldoAnteriorCat.id,
+            categoriaNome: saldoAnteriorCat.nome,
+            valor: saldoCalc,
+            obs: 'Saldo remanescente do mês anterior (Casa)',
+            timestamp: new Date()
+          });
+        }
+
         setEditValues(vals);
         setEntryLogs(logs);
         setNumMissas(res.data.num_missas_superior || 0);
@@ -204,7 +232,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
   const calculateTotals = () => {
     let cre = 0;
     let deb = 0;
-    categorias.filter(c => c.perfil === 'PERFIL_2').forEach(cat => {
+    categorias.filter(c => c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).forEach(cat => {
       const houseVal = editValues[cat.id] || 0;
       const missVal = missionarySums[cat.id] || 0;
       const val = houseVal + missVal;
@@ -374,49 +402,65 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
     rows.push([]);
 
     // Headers
-    rows.push(['CÓDIGO', 'RECEITAS', 'VALOR (R$)', '', 'CÓDIGO', 'DESPESAS', 'VALOR (R$)']);
+    rows.push(['CÓDIGO', 'RECEITAS', 'CASA (R$)', 'MISSIO. (R$)', 'TOTAL (R$)', '', 'CÓDIGO', 'DESPESAS', 'CASA (R$)', 'MISSIO. (R$)', 'TOTAL (R$)']);
 
-    const receitas = categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2');
-    const despesas = categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2');
+    const receitas = categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c));
+    const despesas = categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c));
     const maxLength = Math.max(receitas.length, despesas.length + 2); // +2 for totals/missas
 
     for (let i = 0; i < maxLength; i++) {
       const rec = receitas[i];
       const dep = despesas[i];
 
+      const recHouse = rec ? (editValues[rec.id] || 0) : 0;
+      const recMiss = rec ? (missionarySums[rec.id] || 0) : 0;
+      const recTot = recHouse + recMiss;
+
+      const depHouse = dep ? (editValues[dep.id] || 0) : 0;
+      const depMiss = dep ? (missionarySums[dep.id] || 0) : 0;
+      const depTot = depHouse + depMiss;
+
       const row = [
         rec ? String(rec.codigo || '') : '',
         rec ? String(rec.nome || '') : '',
-        rec ? ((editValues[rec.id] || 0) + (missionarySums[rec.id] || 0)) : '',
+        rec ? recHouse : '',
+        rec ? recMiss : '',
+        rec ? recTot : '',
         '',
         dep ? String(dep.codigo || '') : '',
         dep ? String(dep.nome || '') : '',
-        dep ? ((editValues[dep.id] || 0) + (missionarySums[dep.id] || 0)) : ''
+        dep ? depHouse : '',
+        dep ? depMiss : '',
+        dep ? depTot : ''
       ];
 
       // Add extra rows for totals/missas at the end of despesas column
       if (i === despesas.length) {
-        row[4] = '50';
-        row[5] = 'SUPERÁVIT / DÉFICIT';
-        row[6] = totals.saldo;
+        row[6] = '50';
+        row[7] = 'SUPERÁVIT / DÉFICIT';
+        row[8] = '';
+        row[9] = '';
+        row[10] = totals.saldo;
       } else if (i === despesas.length + 1) {
-        row[4] = '70';
-        row[5] = 'MISSAS CELEBRADAS';
-        row[6] = numMissas;
+        row[6] = '70';
+        row[7] = 'MISSAS CELEBRADAS';
+        row[8] = '';
+        row[9] = '';
+        row[10] = numMissas;
       }
 
       rows.push(row);
     }
 
     rows.push([]);
-    rows.push(['', 'TOTAL RECEITAS:', totals.credito, '', '', 'TOTAL DESPESAS:', totals.debito]);
-    rows.push(['', '', '', '', '', 'SALDO:', totals.saldo]);
+    rows.push(['', 'TOTAL RECEITAS:', '', '', totals.credito, '', '', 'TOTAL DESPESAS:', '', '', totals.debito]);
+    rows.push(['', '', '', '', '', '', '', 'SALDO:', '', '', totals.saldo]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
 
     // Set column widths
     ws['!cols'] = [
-      { wch: 10 }, { wch: 30 }, { wch: 15 }, { wch: 5 }, { wch: 10 }, { wch: 30 }, { wch: 15 }
+      { wch: 10 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 5 }, { wch: 10 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }
     ];
 
     const wb = XLSX.utils.book_new();
@@ -430,7 +474,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
     <div className="planilha-mensal-content">
       {!initialCasa && (
         <div className="filters-card">
-          <div className="filters-grid-premium" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+          <div className="filters-grid-premium">
             <div className="filter-item">
               <label><Calendar size={14} /> {t('planilha.month_year', 'Mês/Ano')}</label>
               <MonthPicker value={selectedMes} onChange={setSelectedMes} />
@@ -515,7 +559,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       onChange={e => setTempReceitaCat(e.target.value)}
                     >
                       <option value="">Selecione a categoria...</option>
-                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2').map(c => (
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
@@ -557,7 +601,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       onChange={e => setTempDespesaCat(e.target.value)}
                     >
                       <option value="">Selecione a categoria...</option>
-                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2').map(c => (
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
@@ -609,7 +653,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
-                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2').map(cat => {
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(cat => {
                         const houseVal = editValues[cat.id] || 0;
                         const missVal = missionarySums[cat.id] || 0;
                         const totalVal = houseVal + missVal;
@@ -670,7 +714,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
-                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2').map(cat => {
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(cat => {
                         const houseVal = editValues[cat.id] || 0;
                         const missVal = missionarySums[cat.id] || 0;
                         const totalVal = houseVal + missVal;

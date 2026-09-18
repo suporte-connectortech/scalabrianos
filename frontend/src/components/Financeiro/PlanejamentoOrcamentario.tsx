@@ -76,7 +76,7 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
   return (
     <div className="planilha-mensal-content">
       <div className="filters-card">
-        <div className="filters-grid-premium" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="filters-grid-premium">
           <div className="filter-item">
             <label><Calendar size={14} /> Ano do Planejamento</label>
             <select value={selectedAno} onChange={e => setSelectedAno(e.target.value)}>

@@ -1898,7 +1898,7 @@ app.post('/api/casas-religiosas/:id/delete', authenticateToken, async (req, res)
 app.get('/api/categorias-financas', authenticateToken, async (req, res) => {
   const { perfil } = req.query;
   try {
-    let query = 'SELECT * FROM tb_categorias_financas WHERE 1=1';
+    let query = "SELECT * FROM tb_categorias_financas WHERE (codigo != '35.1' OR codigo IS NULL) AND (nome NOT LIKE '%Remessas para a Direção Regional%' OR nome IS NULL)";
     const params = [];
 
     if (perfil) {
@@ -2801,16 +2801,58 @@ app.get('/api/financas-casa/casa/:casa_id', authenticateToken, async (req, res) 
   }
 });
 
+// Helper to calculate previous reference month (YYYY-MM -> YYYY-MM minus 1 month)
+const getPreviousReferenceMonth = (mes) => {
+  if (!mes || typeof mes !== 'string') return '';
+  const parts = mes.split('-');
+  if (parts.length < 2) return '';
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  if (isNaN(year) || isNaN(month)) return '';
+  const prevDate = new Date(year, month - 2, 1);
+  const py = prevDate.getFullYear();
+  const pm = String(prevDate.getMonth() + 1).padStart(2, '0');
+  return `${py}-${pm}`;
+};
+
 // --- Monthly Financial Spreadsheets (Planilhas Mensais) ---
 
 app.get('/api/financas-mensais/usuario/:usuario_id/mes/:mes', authenticateToken, async (req, res) => {
   const { usuario_id, mes } = req.params;
   try {
+    // 1. Calculate previous month's remaining balance
+    const mesAnterior = getPreviousReferenceMonth(mes);
+    let saldoAnteriorCalculado = 0;
+    if (mesAnterior) {
+      const [prevRows] = await db.query(
+        'SELECT total_credito, total_debito, (total_credito - total_debito) as saldo_remanescente FROM tb_financas_mensais WHERE usuario_id = ? AND mes_referencia = ?',
+        [usuario_id, mesAnterior]
+      );
+      if (prevRows.length > 0) {
+        saldoAnteriorCalculado = parseFloat(prevRows[0].saldo_remanescente) || 0;
+      }
+    }
+
     const [rows] = await db.query('SELECT * FROM tb_financas_mensais WHERE usuario_id = ? AND mes_referencia = ?', [usuario_id, mes]);
-    if (rows.length === 0) return res.json(null);
+    if (rows.length === 0) {
+      return res.json({
+        id: null,
+        usuario_id: parseInt(usuario_id),
+        mes_referencia: mes,
+        status: 'PENDENTE',
+        total_credito: 0,
+        total_debito: 0,
+        num_missas_superior: 0,
+        anexo_path: null,
+        obs_receita: '',
+        obs_despesa: '',
+        itens: [],
+        saldo_anterior_calculado: saldoAnteriorCalculado
+      });
+    }
     
     const [itens] = await db.query('SELECT * FROM tb_financas_mensais_itens WHERE planilha_id = ?', [rows[0].id]);
-    res.json({ ...rows[0], itens });
+    res.json({ ...rows[0], itens, saldo_anterior_calculado: saldoAnteriorCalculado });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -3038,16 +3080,19 @@ app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req,
   try {
     // 1. Get validated missionary items for this house and month
     const [missionaryItens] = await db.query(`
-      SELECT it.categoria_id, it.valor, cat.codigo, cat.tipo
+      SELECT it.categoria_id, it.valor, cat.codigo, cat.nome, cat.tipo
       FROM tb_financas_mensais_itens it
       JOIN tb_financas_mensais p ON it.planilha_id = p.id
       JOIN tb_categorias_financas cat ON it.categoria_id = cat.id
       WHERE p.casa_id = ? AND p.mes_referencia = ? AND p.status = 'VALIDADO'
     `, [casa_id, mes]);
 
-    // 2. Fetch all categories of PERFIL_2
+    // 2. Fetch all categories of PERFIL_2 excluding 35.1
     const [perfil2Cats] = await db.query(`
-      SELECT id, codigo, tipo FROM tb_categorias_financas WHERE perfil = 'PERFIL_2'
+      SELECT id, codigo, nome, tipo FROM tb_categorias_financas 
+      WHERE perfil = 'PERFIL_2' 
+      AND (codigo != '35.1' OR codigo IS NULL) 
+      AND (nome NOT LIKE '%Remessas para a Direção Regional%' OR nome IS NULL)
     `);
 
     // Helper to normalize codes for safe matching (e.g. 42.02 and 42.2)
@@ -3061,7 +3106,7 @@ app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req,
                  .join('.');
     };
 
-    // 3. Map missionary items (PERFIL_1) to community categories (PERFIL_2) by matching code and type
+    // 3. Map missionary items (PERFIL_1) to community categories (PERFIL_2) by matching code and type/semantic name
     const missionarySums = {};
     perfil2Cats.forEach(cat => {
       missionarySums[cat.id] = 0;
@@ -3069,13 +3114,43 @@ app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req,
 
     missionaryItens.forEach(it => {
       const normItCode = normalizeCode(it.codigo);
-      const p2cat = perfil2Cats.find(c => normalizeCode(c.codigo) === normItCode && c.tipo === it.tipo);
+      let p2cat = null;
+      
+      // Precision match for 11.11 (distinguishing Saldo anterior, Recebido and Entregue)
+      if (normItCode === '11.11') {
+        const itNome = (it.nome || '').toLowerCase();
+        if (itNome.includes('saldo anterior')) {
+          p2cat = perfil2Cats.find(c => normalizeCode(c.codigo) === '11.11' && c.tipo === 'CREDITO' && (c.nome || '').toLowerCase().includes('saldo anterior'));
+        } else if (itNome.includes('recebido')) {
+          p2cat = perfil2Cats.find(c => normalizeCode(c.codigo) === '11.11' && c.tipo === 'CREDITO' && (c.nome || '').toLowerCase().includes('recebido'));
+        } else if (it.tipo === 'DEBITO') {
+          p2cat = perfil2Cats.find(c => normalizeCode(c.codigo) === '11.11' && c.tipo === 'DEBITO');
+        }
+      }
+      
+      if (!p2cat) {
+        p2cat = perfil2Cats.find(c => normalizeCode(c.codigo) === normItCode && c.tipo === it.tipo);
+      }
+
       if (p2cat) {
         missionarySums[p2cat.id] += parseFloat(it.valor);
       }
     });
 
-    // 4. Fetch consolidated house data
+    // 4. Calculate previous month's remaining balance for this house (tb_financas_consolidado)
+    const mesAnterior = getPreviousReferenceMonth(mes);
+    let saldoAnteriorCasaCalculado = 0;
+    if (mesAnterior) {
+      const [prevCasaRows] = await db.query(
+        'SELECT total_credito, total_debito, (total_credito - total_debito) as saldo_remanescente FROM tb_financas_consolidado WHERE casa_id = ? AND mes_referencia = ? ORDER BY id DESC LIMIT 1',
+        [casa_id, mesAnterior]
+      );
+      if (prevCasaRows.length > 0) {
+        saldoAnteriorCasaCalculado = parseFloat(prevCasaRows[0].saldo_remanescente) || 0;
+      }
+    }
+
+    // 5. Fetch consolidated house data
     const targetUid = req.query.usuario_id;
     let queryConsolidado = 'SELECT * FROM tb_financas_consolidado WHERE casa_id = ? AND mes_referencia = ?';
     let paramsConsolidado = [casa_id, mes];
@@ -3097,7 +3172,8 @@ app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req,
         num_missas_superior: 0,
         anexo_path: null,
         itens: [],
-        missionarySums
+        missionarySums,
+        saldo_anterior_calculado: saldoAnteriorCasaCalculado
       });
     }
 
@@ -3106,7 +3182,7 @@ app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req,
       [rows[0].id]
     );
 
-    res.json({ ...rows[0], itens, missionarySums });
+    res.json({ ...rows[0], itens, missionarySums, saldo_anterior_calculado: saldoAnteriorCasaCalculado });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

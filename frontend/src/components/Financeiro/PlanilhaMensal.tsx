@@ -221,6 +221,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     }
   }, [selectedMes, user, viewMode, selectedCasa, externalUsuarioId, categorias]);
 
+  const isCategoryAllowed = (c: Categoria) => 
+    c.codigo !== '35.1' && 
+    !c.nome.toLowerCase().includes('remessas para a direção regional') && 
+    !blacklist.includes(c.nome);
+
   const loadPlanilha = async (targetUserId?: number) => {
     const uid = targetUserId || externalUsuarioId || user?.id;
     if (!uid) return;
@@ -231,7 +236,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
         setPlanilha(res.data);
         const vals: Record<number, number> = {};
         const logs: EntryLog[] = [];
-        res.data.itens.forEach((it: any, idx: number) => {
+        (res.data.itens || []).forEach((it: any, idx: number) => {
           const val = parseFloat(it.valor);
           if (val > 0) {
             vals[it.categoria_id] = (vals[it.categoria_id] || 0) + val;
@@ -249,6 +254,29 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             }
           }
         });
+
+        // Auto-import Saldo Anterior from previous month if not already present or if new draft
+        const saldoAnteriorCat = categorias.find(c => 
+          c.perfil === 'PERFIL_1' && 
+          c.tipo === 'CREDITO' && 
+          (c.codigo === '11.11' || c.nome.toLowerCase().includes('saldo anterior')) &&
+          c.nome.toLowerCase().includes('saldo anterior')
+        );
+
+        const saldoCalc = parseFloat(res.data.saldo_anterior_calculado) || 0;
+        if (saldoAnteriorCat && (!vals[saldoAnteriorCat.id] || vals[saldoAnteriorCat.id] === 0) && saldoCalc !== 0 && res.data.status !== 'VALIDADO') {
+          vals[saldoAnteriorCat.id] = saldoCalc;
+          logs.unshift({
+            id: `auto-saldo-anterior-${Date.now()}`,
+            tipo: 'CREDITO',
+            categoriaId: saldoAnteriorCat.id,
+            categoriaNome: saldoAnteriorCat.nome,
+            valor: saldoCalc,
+            obs: 'Saldo remanescente do mês anterior (automático)',
+            timestamp: new Date()
+          });
+        }
+
         setEditValues(vals);
         setEntryLogs(logs);
         setNumMissas(res.data.num_missas_superior || 0);
@@ -494,8 +522,8 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     // Headers
     rows.push(['CÓDIGO', 'CATEGORIA', 'RECEITA (R$)', '', 'CÓDIGO', 'CATEGORIA', 'DESPESA (R$)']);
 
-    const receitas = categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1');
-    const despesas = categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1');
+    const receitas = categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c));
+    const despesas = categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c));
     const maxLength = Math.max(receitas.length, despesas.length + 2); // +2 for totals/missas
 
     for (let i = 0; i < maxLength; i++) {
@@ -545,7 +573,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   return (
     <div className="planilha-mensal-content">
       <div className="filters-card" style={{ marginBottom: '20px', display: 'block' }}>
-        <div className="filters-grid-premium" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div className="filters-grid-premium">
           <div className="filter-item">
             <label><Calendar size={14} /> {t('planilha.month_year', 'Mês/Ano')}</label>
             <MonthPicker value={selectedMes} onChange={setSelectedMes} />
@@ -739,7 +767,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       onChange={e => { setTempReceitaCat(e.target.value); setTempReceitaVal(''); setObsReceita(''); }}
                     >
                       <option value="">Selecione a categoria...</option>
-                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
@@ -781,7 +809,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       onChange={e => { setTempDespesaCat(e.target.value); setTempDespesaVal(''); setObsDespesa(''); }}
                     >
                       <option value="">Selecione a categoria...</option>
-                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(c => (
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
@@ -848,7 +876,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
-                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
+                      {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(cat => (
                         <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
                           <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
                           <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
@@ -890,7 +918,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
-                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
+                      {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(cat => (
                         <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
                           <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
                           <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   Settings, LogOut, Home as HomeIcon, ChevronDown, ChevronRight,
-  Users, Lock, ClipboardList, DollarSign, ShieldCheck, Globe
+  Users, Lock, ClipboardList, DollarSign, ShieldCheck, Globe, X
 } from 'lucide-react';
 import { useLayout } from '../../context/LayoutContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { getFileUrl } from '../../api';
+import logo from '../../assets/logo_vertical.png';
 import '../../styles/Sidebar.css';
 
 interface SubItem {
@@ -103,6 +104,9 @@ const Sidebar: React.FC = () => {
                 toggleSection(item.label);
               } else if (item.path) {
                 navigate(item.path);
+                if (window.innerWidth <= 768 && isSidebarOpen) {
+                  toggleSidebar();
+                }
               }
             }}
           >
@@ -127,9 +131,18 @@ const Sidebar: React.FC = () => {
   return (
     <>
       <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+        <div className="sidebar-mobile-header">
+          <div className="sidebar-mobile-logo">
+            <img src={logo} alt="Scalabrianos Logo" className="sidebar-header-logo" />
+          </div>
+          <button className="sidebar-close-btn" onClick={toggleSidebar} aria-label="Fechar menu">
+            <X size={22} />
+          </button>
+        </div>
+
         <div className="sidebar-items">
-        {renderMenuItems(menuItems)}
-      </div>
+          {renderMenuItems(menuItems)}
+        </div>
 
       <div className="sidebar-footer">
         <div className={`sidebar-item ${location.pathname === '/meu-perfil' ? 'active' : ''}`} onClick={() => navigate('/meu-perfil')}>

@@ -15,4 +15,10 @@
     --accent: #013375;
     --border-color: #E2E8F0;
     --page-max-width: 1300px;
+
+    /* Mobile Safe Area Insets (iPhone Notch & Dynamic Island) */
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
 }

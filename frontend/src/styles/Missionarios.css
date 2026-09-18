@@ -342,7 +342,11 @@
     min-width: 0 !important;
     max-width: 96vw !important;
     max-height: 95vh;
+    max-height: 95dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     border-radius: 14px;
+    box-sizing: border-box;
   }
 
   .wizard-body {

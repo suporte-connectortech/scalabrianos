@@ -11,29 +11,37 @@
 .stat-card.balance .stat-icon { background: #dbeafe; color: #2563eb; }
 
 .filters-grid-premium {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex !important;
+  flex-wrap: wrap !important;
   gap: 14px !important;
   align-items: flex-end !important;
   width: 100%;
-  flex: 1;
 }
 
-@media (max-width: 1200px) {
-  .filters-grid-premium { grid-template-columns: repeat(2, 1fr) !important; }
-}
-
-@media (max-width: 600px) {
-  .filters-grid-premium { grid-template-columns: 1fr !important; }
+@media (max-width: 768px) {
+  .filters-grid-premium { 
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
 }
 
 .filter-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
-  width: 100%;
+  min-width: 200px;
+  max-width: 320px;
+  flex: 0 1 280px;
   box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .filter-item {
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
 }
 
 .filter-item label {
