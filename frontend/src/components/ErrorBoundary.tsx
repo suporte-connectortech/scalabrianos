@@ -39,17 +39,21 @@ class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          padding: '2rem',
-          background: '#f8fafc',
-          color: '#1e293b',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
-        }}>
+        <div
+          className="notranslate"
+          translate="no"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            padding: '2rem',
+            background: '#f8fafc',
+            color: '#1e293b',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+          }}
+        >
           <div style={{
             background: '#ffffff',
             maxWidth: '540px',
@@ -116,7 +120,7 @@ class ErrorBoundary extends Component<Props, State> {
                   cursor: 'pointer'
                 }}
               >
-                <RefreshCw size={16} /> Recarregar Página
+                <RefreshCw size={16} /> <span>Recarregar Página</span>
               </button>
 
               <button
@@ -135,7 +139,7 @@ class ErrorBoundary extends Component<Props, State> {
                   cursor: 'pointer'
                 }}
               >
-                <Home size={16} /> Voltar ao Início
+                <Home size={16} /> <span>Voltar ao Início</span>
               </button>
             </div>
           </div>

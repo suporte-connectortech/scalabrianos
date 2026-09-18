@@ -1154,7 +1154,7 @@ const Missionarios: React.FC = () => {
                             className="btn-add-doc"
                             onClick={() => document.getElementById('certidao-obito-file')?.click()}
                           >
-                            <Upload size={15} /> {certidaoObitoFile ? 'Substituir Certidão' : 'Anexar Certidão de Óbito'}
+                            <Upload size={15} /> <span>{certidaoObitoFile ? 'Substituir Certidão' : 'Anexar Certidão de Óbito'}</span>
                           </button>
                           <span style={{ fontSize: '0.85rem', color: certidaoObitoFile ? '#166534' : '#64748b', fontWeight: certidaoObitoFile ? 600 : 400 }}>
                             {certidaoObitoFile ? `Arquivo: ${certidaoObitoFile.name}` : 'Nenhum arquivo anexado'}
@@ -1214,7 +1214,7 @@ const Missionarios: React.FC = () => {
                                 style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                                 onClick={() => document.getElementById(item.id)?.click()}
                               >
-                                <Upload size={14} /> {item.file ? 'Substituir Documento' : 'Anexar Documento'}
+                                <Upload size={14} /> <span>{item.file ? 'Substituir Documento' : 'Anexar Documento'}</span>
                               </button>
                               <span style={{ fontSize: '0.8rem', color: item.file ? '#166534' : '#64748b' }}>
                                 {item.file ? item.file.name : 'Nenhum documento anexado'}
@@ -1276,7 +1276,7 @@ const Missionarios: React.FC = () => {
                             className="btn-add-doc"
                             onClick={() => document.getElementById('exclaustrado-doc-file')?.click()}
                           >
-                            <Upload size={15} /> {exclaustradoDocFile ? 'Substituir Documento' : 'Anexar Documento'}
+                            <Upload size={15} /> <span>{exclaustradoDocFile ? 'Substituir Documento' : 'Anexar Documento'}</span>
                           </button>
                           <span style={{ fontSize: '0.85rem', color: exclaustradoDocFile ? '#166534' : '#64748b' }}>
                             {exclaustradoDocFile ? exclaustradoDocFile.name : 'Nenhum documento anexado'}
@@ -1986,7 +1986,7 @@ const Missionarios: React.FC = () => {
                   <div className="wizard-divider" style={{ marginTop: '14px' }}>Documento Comprobatório / Diploma (opcional)</div>
                   <div className="doc-add-row" style={{ alignItems: 'center' }}>
                     <button type="button" className="btn-add-doc" onClick={() => formacaoFileRef.current?.click()}>
-                      <Plus size={16} /> {formacaoDocFile ? 'Substituir Documento' : 'Anexar PDF / Imagem'}
+                      <Plus size={16} /> <span>{formacaoDocFile ? 'Substituir Documento' : 'Anexar PDF / Imagem'}</span>
                     </button>
                     <span style={{ fontSize: '13px', color: formacaoDocFile ? '#166534' : '#666' }}>
                       {formacaoDocFile ? formacaoDocFile.name : 'Nenhum arquivo selecionado'}
@@ -2085,7 +2085,7 @@ const Missionarios: React.FC = () => {
                   <div className="wizard-divider" style={{ marginTop: '14px' }}>Documento de Saúde (opcional)</div>
                   <div className="doc-add-row" style={{ alignItems: 'center' }}>
                     <button type="button" className="btn-add-doc" onClick={() => saudeFileRef.current?.click()}>
-                      <Plus size={16} /> {saudeDocFile ? 'Substituir Documento' : 'Anexar PDF / Imagem'}
+                      <Plus size={16} /> <span>{saudeDocFile ? 'Substituir Documento' : 'Anexar PDF / Imagem'}</span>
                     </button>
                     <span style={{ fontSize: '13px', color: saudeDocFile ? '#166534' : '#666' }}>
                       {saudeDocFile ? saudeDocFile.name : 'Nenhum arquivo selecionado'}
@@ -2165,7 +2165,7 @@ const Missionarios: React.FC = () => {
                   </p>
                   <div className="doc-add-row" style={{ alignItems: 'center', marginTop: '1rem' }}>
                     <button type="button" className="btn-add-doc" onClick={() => quadroFileRef.current?.click()}>
-                      <Plus size={16} /> {quadroCvFile ? 'Substituir CV' : 'Anexar Currículo (CV)'}
+                      <Plus size={16} /> <span>{quadroCvFile ? 'Substituir CV' : 'Anexar Currículo (CV)'}</span>
                     </button>
                     <span style={{ fontSize: '13px', color: quadroCvFile ? '#166534' : '#666', fontWeight: quadroCvFile ? 600 : 400 }}>
                       {quadroCvFile ? `✓ ${quadroCvFile.name}` : 'Nenhum arquivo de CV selecionado'}

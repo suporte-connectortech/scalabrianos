@@ -25,4 +25,17 @@ i18n
     },
   });
 
+// Keep html lang attribute in sync with active language
+const syncHtmlLang = (lng: string) => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = lng.startsWith('es') ? 'es' : 'pt-BR';
+  }
+};
+
+i18n.on('languageChanged', (lng) => {
+  syncHtmlLang(lng);
+});
+
+syncHtmlLang(i18n.language || 'pt');
+
 export default i18n;

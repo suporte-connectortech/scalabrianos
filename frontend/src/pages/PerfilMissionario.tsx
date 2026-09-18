@@ -170,6 +170,7 @@ interface SaudeRecord {
   seguradora?: string;
   sus_card?: string;
   numero_carteira?: string;
+  doc_path?: string;
 }
 
 interface ContaBancaria {
@@ -1758,7 +1759,7 @@ const PerfilMissionario: React.FC = () => {
                       <h3 className="section-title"><Star size={16} /> 0. Situação do Missionário</h3>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('0. Situação', 'print-situacao')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
                     </div>
@@ -1975,7 +1976,7 @@ const PerfilMissionario: React.FC = () => {
                     <h3 className="section-title"><User size={16} /> {t('profile.sections.civil')}</h3>
                     {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('1. Dados Civis', 'print-dados-civis')}>
-                        <Printer size={15} /> Imprimir
+                        <Printer size={15} /> <span>Imprimir</span>
                       </button>
                     )}
                   </div>
@@ -2278,12 +2279,12 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('2. Contatos', 'print-contatos')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
                       {canEdit && contatos.length < 3 && (
                         <button className="btn-action-lite-text" onClick={() => setContatos([...contatos, { parentesco: '', nome: '', endereco: '', telefone: '', email: '' }])}>
-                          <Plus size={16} /> Adicionar Contato
+                          <Plus size={16} /> <span>Adicionar Contato</span>
                         </button>
                       )}
                     </div>
@@ -2552,7 +2553,7 @@ const PerfilMissionario: React.FC = () => {
                     <h3 className="section-title"><BookOpen size={16} /> {t('profile.sections.religious')}</h3>
                     {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('3. Dados Religiosos', 'print-dados-religiosos')}>
-                        <Printer size={15} /> Imprimir
+                        <Printer size={15} /> <span>Imprimir</span>
                       </button>
                     )}
                   </div>
@@ -2765,12 +2766,12 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('5. Formação Acadêmica', 'print-formacao')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingFormacao(null); setTempForm({}); setShowAddForm('formacao'); }}>
-                          <Plus size={14} /> Adicionar
+                          <Plus size={14} /> <span>Adicionar</span>
                         </button>
                       )}
                     </div>
@@ -2856,12 +2857,12 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('6. Atividade Missionária', 'print-atividade')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingAtividade(null); setTempForm({}); setShowAddForm('atividade'); }}>
-                          <Plus size={14} /> Adicionar
+                          <Plus size={14} /> <span>Adicionar</span>
                         </button>
                       )}
                     </div>
@@ -2945,12 +2946,12 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('7. Saúde', 'print-saude')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => setShowAddForm('saude')}>
-                          <Plus size={14} /> Adicionar Registro
+                          <Plus size={14} /> <span>Adicionar Registro</span>
                         </button>
                       )}
                     </div>
@@ -2966,6 +2967,18 @@ const PerfilMissionario: React.FC = () => {
                           <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • Carteira: {s.numero_carteira || 'N/A'}</div>
                         </div>
                         <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                          {s.doc_path && (
+                            <a
+                              href={getFileUrl(s.doc_path) || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn-action-lite"
+                              title="Visualizar Carteirinha / Documento"
+                              style={{ color: '#013375', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <FileText size={14} />
+                            </a>
+                          )}
                           {canEdit && (
                             <>
                               <button
@@ -3025,10 +3038,10 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('9. Contas Bancárias', 'print-banco')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
-                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> Adicionar</button>}
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> <span>Adicionar</span></button>}
                     </div>
                   </div>
                   <div className="generic-list">
@@ -3078,10 +3091,10 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
                         <button className="btn-action-lite-text" onClick={() => printSection('10. Obras Realizadas', 'print-obras')}>
-                          <Printer size={15} /> Imprimir
+                          <Printer size={15} /> <span>Imprimir</span>
                         </button>
                       )}
-                      {canEdit && <button className="btn-action-lite-text" onClick={() => { setEditingObra(null); setTempForm({}); setShowAddForm('obras'); }}><Plus size={14} /> Adicionar</button>}
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => { setEditingObra(null); setTempForm({}); setShowAddForm('obras'); }}><Plus size={14} /> <span>Adicionar</span></button>}
                     </div>
                   </div>
                   <div className="generic-list">
@@ -3729,6 +3742,56 @@ const PerfilMissionario: React.FC = () => {
                         <div className="form-group"><label>CNS (Cartão SUS)</label><input type="text" value={tempForm.sus_card || ''} onChange={e => setTempForm({ ...tempForm, sus_card: e.target.value })} /></div>
                         <div className="form-group"><label>Seguradora</label><input type="text" value={tempForm.seguradora || ''} onChange={e => setTempForm({ ...tempForm, seguradora: e.target.value })} /></div>
                         <div className="form-group"><label>Nº Carteira</label><input type="text" value={tempForm.numero_carteira || ''} onChange={e => setTempForm({ ...tempForm, numero_carteira: e.target.value })} /></div>
+                        <div className="form-group">
+                          <label>Anexar Carteirinha / Documento (PDF ou Imagem)</label>
+                          {tempForm.doc_path ? (
+                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <FileText size={18} style={{ color: '#013375' }} />
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                                    Anexo Carregado
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                  <a
+                                    href={getFileUrl(tempForm.doc_path) || '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                                  >
+                                    <Eye size={14} /> <span>Visualizar</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTempForm({ ...tempForm, doc_path: undefined })}
+                                    style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    title="Remover anexo para reenviar"
+                                  >
+                                    <Trash2 size={14} /> <span>Excluir Anexo</span>
+                                  </button>
+                                </div>
+                              </div>
+                              {/\.(jpe?g|png|webp)$/i.test(tempForm.doc_path) && (
+                                <div style={{ marginTop: '10px' }}>
+                                  <img
+                                    src={getFileUrl(tempForm.doc_path) || ''}
+                                    alt="Preview"
+                                    style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="file-input-wrapper" style={{ marginTop: '6px' }}>
+                              <input
+                                type="file"
+                                onChange={e => uploadGenericDoc(e, 'saude')}
+                                accept=".pdf,.jpg,.jpeg,.png"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                     {showAddForm === 'banco' && (
