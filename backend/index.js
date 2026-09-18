@@ -539,10 +539,15 @@ async function ensureOptionalSchema() {
   }
 }
 
-// Initial background schema initialization without blocking requests
-setTimeout(() => {
-  ensureOptionalSchema().catch(err => console.error('[BACKEND] Schema init error:', err?.message));
-}, 100);
+app.get('/api/admin/ensure-schema', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'ADMIN_GERAL') return res.status(403).json({ message: 'Acesso negado' });
+  try {
+    await ensureOptionalSchema();
+    res.json({ success: true, message: 'Schema verificado com sucesso' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // Login route
 app.post('/api/login', async (req, res) => {
@@ -4018,9 +4023,6 @@ if (require.main === module) {
     await ensureOptionalSchema();
     await seedAdmin();
   });
-} else {
-  // Ensure schema on serverless cold start if needed
-  ensureOptionalSchema().catch(err => console.error('Schema init error:', err));
 }
 
 // Serve static frontend dist files and handle SPA fallback for non-API GET requests
