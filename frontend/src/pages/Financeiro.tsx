@@ -116,20 +116,20 @@ const Financeiro: React.FC = () => {
                   className={`mode-btn ${activeTab === 'validacoes_pendentes' ? 'active' : ''}`}
                   onClick={() => setActiveTab('validacoes_pendentes')}
                 >
-                  Validações Pendentes
+                  {t('financeiro.pending_validations', 'Validações Pendentes')}
                 </button>
                 <button
                   className={`mode-btn ${activeTab === 'historico_aprovacoes' ? 'active' : ''}`}
                   onClick={() => setActiveTab('historico_aprovacoes')}
                 >
-                  Histórico Missionários
+                  {t('financeiro.missionary_history', 'Histórico Missionários')}
                 </button>
                 {(user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && (
                   <button
                     className={`mode-btn ${activeTab === 'historico_casa' ? 'active' : ''}`}
                     onClick={() => setActiveTab('historico_casa')}
                   >
-                    Histórico Casa Religiosa
+                    {t('financeiro.house_history', 'Histórico Casa Religiosa')}
                   </button>
                 )}
               </>
@@ -146,7 +146,7 @@ const Financeiro: React.FC = () => {
                   className={`mode-btn ${activeTab === 'anual' ? 'active' : ''}`}
                   onClick={() => setActiveTab('anual')}
                 >
-                  Anual
+                  {t('financeiro.annual', 'Anual')}
                 </button>
               </>
             )}
@@ -171,13 +171,11 @@ const Financeiro: React.FC = () => {
               <span style={{ fontSize: '16px' }}>{activeTab === 'individual' ? '👤' : '🏠'}</span>
               {activeTab === 'individual' ? (
                 <span>
-                  <strong>Prestação de Contas — Missionário:</strong> sua planilha individual mensal.
-                  Após preencher, finalize e envie para conferência.
+                  <strong>{t('financeiro.hint_individual_title', 'Prestação de Contas — Missionário:')}</strong> {t('financeiro.hint_individual', 'sua planilha individual mensal. Após preencher, finalize e envie para conferência.')}
                 </span>
               ) : (
                 <span>
-                  <strong>Planilha da Comunidade/Casa Religiosa:</strong> consolida os valores individuais
-                  dos missionários com os da casa. Preencha e encaminhe para aprovação do <strong>Ecônomo Regional (SEDE)</strong>.
+                  <strong>{t('financeiro.hint_comunidade_title', 'Planilha da Comunidade/Casa Religiosa:')}</strong> {t('financeiro.hint_comunidade', 'consolida os valores individuais dos missionários com os da casa. Preencha e encaminhe para aprovação do Ecônomo Regional (SEDE).')}
                 </span>
               )}
             </div>

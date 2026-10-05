@@ -144,8 +144,8 @@ const ItinerarioFormativo: React.FC = () => {
           <div className="title-with-badge">
             <Milestone size={24} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ margin: 0 }}>Visão Geral dos Seminaristas</h2>
-              <span style={{ fontSize: '13px', color: '#64748b' }}>Monitoramento de progresso e pendências</span>
+              <h2 style={{ margin: 0 }}>{t('itinerary.overview_title', 'Visão Geral dos Religiosos')}</h2>
+              <span style={{ fontSize: '13px', color: '#64748b' }}>{t('itinerary.overview_subtitle', 'Monitoramento de progresso e pendências')}</span>
             </div>
           </div>
         </div>

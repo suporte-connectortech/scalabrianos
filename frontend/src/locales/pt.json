@@ -4,6 +4,12 @@
       "title": "Portal Scalabrinianos",
       "logout": "Sair"
     },
+    "currency": {
+      "select_title": "Moeda de Exibição (BRL / EUR)",
+      "brl": "Real (R$)",
+      "eur": "Euro (€)",
+      "rate_info": "Taxa de Câmbio: 1 EUR = {{rate}} BRL"
+    },
     "notifications": {
       "title": "Notificações",
       "mark_all": "Marcar todas como lidas",
@@ -13,11 +19,13 @@
       "home": "Home",
       "admin": "Gestão da Plataforma",
       "profiles": "Acesso - Permissões",
-      "missionaries": "Missionários / Seminaristas",
+      "missionaries": "Missionários / Religiosos",
       "system_logs": "Logs do Sistema",
       "access_logs": "Logs de Acesso",
       "houses": "Presença Missionária",
       "finance": "Prestação de Contas",
+      "monthly_statements": "Extratos Mensais",
+      "my_profile": "Meu Perfil",
       "map": "Mapa RNSMM",
       "logout": "Sair"
     },
@@ -31,13 +39,21 @@
         "paroquias": "Paróquias / Igrejas",
         "pastoral": "Pastoral / Vocacional",
         "idosos": "Casas de Idosos",
-        "seminaristas": "Religiosos / Seminaristas"
+        "seminaristas": "Religiosos"
       },
-      "recent_activity": "Atividades Recentes"
+      "recent_activity": "Atividades Recentes",
+      "quick_access": {
+        "title": "Acesso Rápido",
+        "validate_profiles": "Validar Perfis",
+        "new_reports": "Novos Relatórios",
+        "pendencies": "Pendências"
+      }
     },
     "missionaries": {
-      "title": "Cadastro de Missionários",
-      "new_btn": "+ Novo Missionário",
+      "title": "Missionários / Religiosos",
+      "title_overview": "Missionários/Religiosos Cadastrados",
+      "new_btn": "Novo Cadastro",
+      "new_btn_clean": "Novo Cadastro",
       "loading": "Carregando missionários...",
       "error_loading": "Erro ao carregar missionários",
       "empty": "Nenhum missionário encontrado",
@@ -46,13 +62,29 @@
         "ativo": "Ativo",
         "falecido": "Falecido",
         "egresso": "Egresso",
-        "exclaustrado": "Exclaustrado"
+        "exclaustrado": "Exclaustrado",
+        "afastado": "Afastado",
+        "em_atividade": "Em Atividade"
       },
       "filters": {
         "name": "BUSCAR POR NOME",
+        "name_label": "NOME",
+        "search_name_placeholder": "Buscar por nome...",
         "situation": "SITUAÇÃO",
-        "all": "Todos",
-        "filter_btn": "Filtrar"
+        "situation_label": "SITUAÇÃO",
+        "house": "PRESENÇA MISSIONÁRIA",
+        "house_label": "PRESENÇA MISSIONÁRIA",
+        "filter_house_placeholder": "Filtrar por casa...",
+        "city": "CIDADE",
+        "city_label": "CIDADE",
+        "filter_city_placeholder": "Filtrar por cidade...",
+        "country": "PAÍS",
+        "country_label": "PAÍS",
+        "filter_country_placeholder": "Filtrar por país...",
+        "status_label": "STATUS",
+        "all": "Todas as Situações",
+        "filter_btn": "Filtrar",
+        "clear_btn": "Limpar"
       },
       "table": {
         "id": "ID",
@@ -70,7 +102,7 @@
         "view_details": "Ver Detalhes"
       },
       "wizard": {
-        "title": "Novo Missionário",
+        "title": "Novo Cadastro",
         "steps": {
           "civil": "1. Dados Civis",
           "address": "2. Contatos",
@@ -83,8 +115,8 @@
           "birth_date": "Data de Nascimento",
           "situation": "Situação",
           "parents": "Nome Pai / Nome Mãe",
-          "birth_place_natural": "Nascimento",
-          "birth_place_city": "Nascimento",
+          "birth_place_natural": "Naturalidade",
+          "birth_place_city": "Cidade de Nascimento",
           "country": "País",
           "diocese": "Diocese",
           "nationalities": "Nacionalidades",
@@ -129,7 +161,7 @@
           "bind_btn": "Vincular Presença",
           "empty": "Nenhuma presença vinculada ainda.",
           "since": "desde",
-          "max_perm_hint": ""
+          "max_perm_hint": "O tempo de permanência recomendado por casa é de 5 anos."
         },
         "access": {
           "title": "Credenciais de Acesso",
@@ -158,6 +190,7 @@
       "superior_badge": "Superior Local",
       "missionary_role": "Missionário",
       "tabs": {
+        "situation": "0. Situação",
         "personal": "1. Dados Civis",
         "contact": "2. Contatos",
         "religious": "3. Dados Religiosos",
@@ -233,8 +266,43 @@
         "add_item": "Adicionar"
       }
     },
+    "my_profile": {
+      "info_title": "Informações do seu perfil",
+      "address_title": "Endereços",
+      "security_title": "Segurança",
+      "not_informed": "Não informado",
+      "login_password": "Login e senha",
+      "change_photo": "Trocar Foto",
+      "delete_photo": "Excluir Foto",
+      "adjust_photo": "Ajustar Foto",
+      "confirm_upload": "Confirmar e Enviar",
+      "modal_edit_info": "Editar Informações",
+      "modal_edit_address": "Endereço e Contato",
+      "modal_edit_security": "Segurança",
+      "full_name": "Nome Completo",
+      "email_login": "Email (Login)",
+      "street": "Logradouro / Rua",
+      "neighborhood": "Bairro",
+      "cep": "CEP / Código Postal",
+      "city_state": "Cidade / Estado",
+      "phone": "Celular / WhatsApp",
+      "new_password": "Nova Senha",
+      "confirm_new_password": "Confirmar Nova Senha",
+      "passwords_dont_match": "As senhas não coincidem",
+      "password_min_length": "A senha deve ter pelo menos 6 caracteres",
+      "password_updated": "Senha atualizada com sucesso!",
+      "error_save": "Erro ao salvar os dados"
+    },
     "financeiro": {
       "title": "Prestação de Contas",
+      "pending_validations": "Validações Pendentes",
+      "missionary_history": "Histórico Missionários",
+      "house_history": "Histórico Casa Religiosa",
+      "annual": "Anual",
+      "hint_individual_title": "Prestação de Contas — Missionário:",
+      "hint_individual": "sua planilha individual mensal. Após preencher, finalize e envie para conferência.",
+      "hint_comunidade_title": "Planilha da Comunidade/Casa Religiosa:",
+      "hint_comunidade": "consolida os valores individuais dos missionários com os da casa. Preencha e encaminhe para aprovação do Ecônomo Regional (SEDE).",
       "summary": {
         "balance": "Saldo Consolidado",
         "incomes": "Total Entradas (Crédito)",
@@ -270,6 +338,38 @@
         "new_entry": "Novo Lançamento"
       }
     },
+    "extratos": {
+      "title": "Extratos Mensais",
+      "subtitle_user": "Histórico consolidado das suas prestações de contas validadas.",
+      "subtitle_admin": "Histórico consolidado das prestações de contas validadas.",
+      "tab_missionary": "Extratos dos Missionários",
+      "tab_community": "Extratos da Casa Religiosa",
+      "no_statements": "Nenhum extrato validado",
+      "no_statements_desc": "Não há prestações de contas validadas correspondentes para visualização do extrato.",
+      "filter_month": "Buscar por Mês/Ano:",
+      "filter_house": "Filtrar por Casa:",
+      "all_houses": "Todas as Casas",
+      "table": {
+        "month": "Mês Referência",
+        "house": "Casa Religiosa",
+        "missionary": "Missionário",
+        "validation_date": "Data Validação",
+        "incomes": "Receitas",
+        "expenses": "Despesas",
+        "balance": "Saldo",
+        "actions": "Ações",
+        "view_details": "Ver Detalhes"
+      },
+      "details_modal": {
+        "title": "Detalhes da Prestação",
+        "incomes_title": "Receitas (Entradas)",
+        "expenses_title": "Despesas (Saídas)",
+        "total_incomes": "Total Receitas",
+        "total_expenses": "Total Despesas",
+        "net_balance": "Saldo Líquido",
+        "close": "Fechar Detalhes"
+      }
+    },
     "casas": {
       "title": "Presença Missionária",
       "error_loading": "Erro ao carregar presença missionária",
@@ -292,13 +392,19 @@
       "search_name": "Buscar por nome...",
       "search_city": "Buscar por cidade/endereço...",
       "search_country": "Buscar por país/regional...",
+      "filter_name_placeholder": "Filtrar por nome...",
+      "filter_city_placeholder": "Filtrar por cidade...",
+      "filter_country_placeholder": "Filtrar por país...",
       "status_all": "Todos os status",
       "status_active": "Ativo",
       "status_inactive": "Inativo",
-      "clear_filters": "Limpar Filtros",
+      "clear_filters": "Limpar",
+      "filter_btn": "Filtrar",
       "loading": "Carregando presença missionária...",
       "missionaries_count": "Missionários vinculados",
-      "no_houses_found": "Nenhuma presença missionária encontrada."
+      "no_houses_found": "Nenhuma presença missionária encontrada.",
+      "print_report": "Imprimir Relatório",
+      "export_excel": "Exportar Excel"
     },
     "reports": {
       "title": "Dashboard Analítico Financeiro",
@@ -315,6 +421,7 @@
     },
     "itinerary": {
       "title": "4. Itinerário Formativo",
+      "overview_title": "Visão Geral dos Religiosos",
       "sections": {
         "stages": "Etapas de Formação",
         "academic": "Formação Acadêmica Adicional"
@@ -327,21 +434,60 @@
     },
     "admins": {
       "title": "Gestão da Plataforma",
+      "profiles_title": "Acesso - Permissões",
       "new_btn": "+ Novo Cadastro",
       "modal_new": "Novo Administrador",
-      "modal_edit": "Editar Administrador",
+      "modal_edit": "Editar Perfil / Permissões",
       "filters": {
         "search": "BUSCAR POR NOME / LOGIN",
         "role": "PERFIL / CARGO"
       },
       "roles": {
         "admin_geral": "Registro Regional",
+        "administrador": "Administrador",
         "colaborador": "Missionário",
-        "intermitente": "Missionário"
+        "intermitente": "Missionário",
+        "superior_regional": "Superior Regional",
+        "secretario_regional": "Secretário Regional",
+        "economo_regional": "Ecônomo Regional",
+        "secretariado_missao": "Secretariado da Missão",
+        "secretariado_vida_religiosa": "Secretariado da Vida Religiosa",
+        "secretariado_formacao": "Secretariado da Formação",
+        "superior_local": "Superior Local",
+        "economo_local": "Ecônomo Local",
+        "padre": "Missionário",
+        "missionario": "Missionário",
+        "registro_regional": "Registro Regional",
+        "cadastro_inicial": "Cadastro Inicial"
       }
+    },
+    "roles": {
+      "admin_geral": "Registro Regional",
+      "administrador": "Administrador",
+      "colaborador": "Missionário",
+      "intermitente": "Missionário",
+      "superior_regional": "Superior Regional",
+      "secretario_regional": "Secretário Regional",
+      "economo_regional": "Ecônomo Regional",
+      "secretariado_missao": "Secretariado da Missão",
+      "secretariado_vida_religiosa": "Secretariado da Vida Religiosa",
+      "secretariado_formacao": "Secretariado da Formação",
+      "superior_local": "Superior Local",
+      "economo_local": "Ecônomo Local",
+      "padre": "Missionário",
+      "missionario": "Missionário",
+      "registro_regional": "Registro Regional",
+      "cadastro_inicial": "Cadastro Inicial"
+    },
+    "status": {
+      "ativo": "Ativo",
+      "inativo": "Inativo",
+      "bloqueado": "Bloqueado",
+      "pendente": "Pendente"
     },
     "logs": {
       "title": "Logs de Acesso",
+      "system_title": "Logs do Sistema",
       "stats": {
         "total": "Total de Eventos",
         "success": "Logins (Sucesso)",
@@ -354,6 +500,7 @@
         "datetime": "Data/Hora",
         "type": "Tipo",
         "details": "Detalhes",
+        "entity": "Entidade",
         "ip": "IP"
       },
       "empty": "Nenhum log de acesso registrado ainda."
@@ -379,8 +526,13 @@
       "loading": "Carregando...",
       "error": "Ocorreu um erro",
       "save": "Salvar",
+      "save_changes": "Salvar Alterações",
       "cancel": "Cancelar",
       "back": "Voltar",
+      "close": "Fechar",
+      "delete": "Excluir",
+      "edit": "Editar",
+      "confirm_delete": "Deseja realmente excluir este registro?",
       "yes": "Sim",
       "no": "Não",
       "retry": "Tentar novamente"
@@ -390,6 +542,23 @@
       "comunidade_title": "Prestação de Contas MENSAL - Casa Religiosa",
       "instruction_individual": "Preencha os valores para cada categoria abaixo.",
       "instruction_comunidade": "Preenchimento pelo ecônomo ou superior local.",
+      "month_year": "MÊS/ANO",
+      "community_label": "COMUNIDADE RELIGIOSA",
+      "actions_label": "AÇÕES",
+      "receita_single": "RECEITA",
+      "despesa_single": "DESPESA",
+      "select_category": "Selecione a categoria...",
+      "obs_receita_placeholder": "Observação da receita...",
+      "obs_despesa_placeholder": "Observação da despesa...",
+      "add_receita": "Adicionar Receita",
+      "add_despesa": "Adicionar Despesa",
+      "col_code": "CÓD.",
+      "col_desc": "DESCRIÇÃO",
+      "col_val": "VALOR",
+      "col_house": "CASA",
+      "col_missio": "MISSIO.",
+      "col_total": "TOTAL",
+      "missas_count": "Missas Celebradas (nº)",
       "save_draft": "Salvar Rascunho",
       "save_comunidade": "Salvar Prestação",
       "finalize_self": "Finalizar Minha Planilha",
@@ -399,8 +568,8 @@
       "status_validated": "Planilha Validada",
       "receitas": "RECEITAS",
       "despesas": "DESPESAS",
-      "total_receitas": "Total Receitas",
-      "total_despesas": "Total Despesas",
+      "total_receitas": "TOTAL RECEITAS",
+      "total_despesas": "TOTAL DESPESAS",
       "saldo_mes": "Saldo do Mês",
       "excedente": "Excedente retido (=30-40)",
       "missas_individual": "S. Missas celebradas \"ad mentem Superioris\": n.º",
@@ -412,10 +581,80 @@
       "select_house": "Selecione uma casa religiosa.",
       "consolidado_title": "Gestão de Fechamento Mensal",
       "consolidado_desc": "Aprovação geral da casa para o mês selecionado.",
-      "reviewing": "Revisando"
+      "reviewing": "Revisando",
+      "entries_report": "Relatório de Lançamentos",
+      "financial_statement": "Demonstrativo Financeiro",
+      "individual_entries": "Lançamentos Individuais",
+      "inserted_via_fields": "inseridos via campos de Receita / Despesa",
+      "validate_btn": "Validar Planilha",
+      "return_for_review_btn": "Devolver para Revisão",
+      "economo_review_notes": "Notas de Revisão do Ecônomo",
+      "return_reason_required": "Por favor, adicione um comentário explicando o motivo da devolução."
+    },
+    "gestao_financeira": {
+      "title": "Registros Financeiros",
+      "export_excel": "Exportar Excel",
+      "month_ref": "Mês de Referência",
+      "house": "Casa Religiosa",
+      "missionary": "Missionário",
+      "search_missionary_placeholder": "Pesquisar missionário...",
+      "select_house": "Selecione...",
+      "house_closing": "Fechamento Mensal da Casa",
+      "notes_economo": "Notas do Ecônomo (opcional):",
+      "notes_economo_placeholder": "Observações do ecônomo...",
+      "send_to_superior": "Enviar para o Superior",
+      "notes_superior": "Notas do Superior (opcional):",
+      "notes_superior_placeholder": "Observações do superior...",
+      "approve_consolidado": "Aprovar Consolidado",
+      "return_to_economo": "Devolver para o Ecônomo",
+      "notes_economo_label": "Notas do Ecônomo:",
+      "notes_superior_label": "Notas do Superior:",
+      "total_credits": "Total Créditos",
+      "total_debits": "Total Débitos",
+      "month_balance": "Saldo do Mês",
+      "loading": "Carregando...",
+      "select_house_prompt": "Selecione uma casa religiosa e um mês para ver os dados.",
+      "no_spreadsheets": "Nenhuma planilha encontrada para este mês nesta casa.",
+      "col_missionary": "Missionário",
+      "col_status": "Status",
+      "col_credits": "Créditos",
+      "col_debits": "Débitos",
+      "col_balance": "Saldo",
+      "col_actions": "Ações",
+      "total_general": "TOTAL GERAL",
+      "details_title": "Detalhes Financeiros",
+      "credits": "Créditos",
+      "debits": "Débitos",
+      "total": "Total",
+      "notes": "Observações:",
+      "close": "Fechar",
+      "validate": "Validar",
+      "return_for_adjustment": "Devolver para Ajuste",
+      "view_details": "Ver Detalhes"
+    },
+    "situations": {
+      "ativo": "Ativo",
+      "falecido": "Falecido",
+      "egresso": "Egresso",
+      "exclaustrado": "Exclaustrado",
+      "afastado": "Afastado",
+      "em_atividade": "Em Atividade",
+      "formacao": "Em Formação"
+    },
+    "status": {
+      "ativo": "Ativo",
+      "inativo": "Inativo",
+      "bloqueado": "Bloqueado",
+      "pendente": "Pendente",
+      "validado": "Validado",
+      "devolvido": "Devolvido",
+      "pendente_economo": "Pendente Ecônomo",
+      "pendente_superior": "Pendente Superior",
+      "aprovado": "Aprovado",
+      "devolvido_superior": "Devolvido ao Ecônomo"
     },
     "profiles_page": {
-      "title": "Gestão de Perfis",
+      "title": "Acesso - Permissões",
       "new_btn": "+ Novo Perfil",
       "filters": {
         "search": "BUSCAR POR NOME",
@@ -449,10 +688,10 @@
         "inativo": "INATIVO"
       },
       "roles": {
-        "admin_geral": "Administrador Geral",
+        "admin_geral": "Registro Regional",
         "administrador": "Administrador",
-        "colaborador": "Colaborador",
-        "intermitente": "Intermitente"
+        "colaborador": "Missionário",
+        "intermitente": "Missionário"
       }
     }
   }

@@ -65,7 +65,7 @@ const Sidebar: React.FC = () => {
   if (!isInactiveMissionary) {
     menuItems.push({ icon: <DollarSign size={20} />, label: t('menu.finance'), path: '/financeiro' });
     if (user?.role !== 'REGISTRO_REGIONAL' && user?.role !== 'ADMIN_GERAL') {
-      menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
+      menuItems.push({ icon: <ClipboardList size={20} />, label: t('menu.monthly_statements', 'Extratos Mensais'), path: '/extratos-mensais' });
     }
     menuItems.push({ icon: <Globe size={20} />, label: t('menu.map'), path: '/mapa' });
   }
@@ -135,7 +135,7 @@ const Sidebar: React.FC = () => {
           <div className="sidebar-mobile-logo">
             <img src={logo} alt="Scalabrianos Logo" className="sidebar-header-logo" />
           </div>
-          <button className="sidebar-close-btn" onClick={toggleSidebar} aria-label="Fechar menu">
+          <button className="sidebar-close-btn" onClick={toggleSidebar} aria-label={t('common.close', 'Fechar')}>
             <X size={22} />
           </button>
         </div>
@@ -155,7 +155,7 @@ const Sidebar: React.FC = () => {
                </div>
             )}
           </span>
-          <span className="item-label">Meu Perfil</span>
+          <span className="item-label">{t('menu.my_profile', 'Meu Perfil')}</span>
         </div>
         <div className="sidebar-item logout" onClick={() => navigate('/login')}>
           <span className="item-icon"><LogOut size={20} /></span>

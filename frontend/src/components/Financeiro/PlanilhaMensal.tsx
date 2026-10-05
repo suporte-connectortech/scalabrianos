@@ -6,6 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useCurrency } from '../../context/CurrencyContext';
 import api, { getFileUrl } from '../../api';
 import MonthPicker from '../Common/MonthPicker';
 
@@ -96,8 +97,9 @@ const numToDigits = (n: number): string => {
 };
 
 const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId, externalMes, onValidationComplete }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, isAdminGeral } = useAuth();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const blacklist = ['Congregação', 'Saúde/Medicamentos', 'Transporte', 'Vestuário', 'Água', 'Supermercado', 'Aluguel', 'Energia Elétrica', 'Internet'];
   const [selectedMes, setSelectedMes] = useState(externalMes || new Date().toISOString().slice(0, 7));
   useEffect(() => {
@@ -665,12 +667,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             <table>
               <thead>
                 <tr>
-                  <th>Missionário</th>
-                  <th>Status</th>
-                  <th className="right">Crédito</th>
-                  <th className="right">Débito</th>
-                  <th className="right">Saldo</th>
-                  <th className="center">Ações</th>
+                  <th>{t('extratos.table.missionary', 'Missionário')}</th>
+                  <th>{t('missionaries.table.status', 'Status')}</th>
+                  <th className="right">{t('extratos.table.incomes', 'Crédito')}</th>
+                  <th className="right">{t('extratos.table.expenses', 'Débito')}</th>
+                  <th className="right">{t('extratos.table.balance', 'Saldo')}</th>
+                  <th className="center">{t('missionaries.table.actions', 'Ações')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -678,10 +680,10 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <tr key={row.usuario_id}>
                     <td className="bold">{row.usuario_nome}</td>
                     <td><span className={`status-tag ${row.status.toLowerCase()}`}>{row.status}</span></td>
-                    <td className="right val-credit">R$ {parseFloat(row.total_credito.toString()).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                    <td className="right val-debit">R$ {parseFloat(row.total_debito.toString()).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="right val-credit">{formatCurrency(row.total_credito)}</td>
+                    <td className="right val-debit">{formatCurrency(row.total_debito)}</td>
                     <td className={`right bold ${row.total_credito - row.total_debito >= 0 ? 'val-credit' : 'val-debit'}`}>
-                      R$ {(row.total_credito - row.total_debito).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {formatCurrency(row.total_credito - row.total_debito)}
                     </td>
                     <td className="center">
                       <button
@@ -773,7 +775,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     </select>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{currencySymbol}</span>
                         <input
                           type="text"
                           placeholder="0,00"
@@ -815,7 +817,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     </select>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{currencySymbol}</span>
                         <input
                           type="text"
                           placeholder="0,00"
@@ -864,15 +866,15 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               {/* RECEITAS */}
               <div className="spreadsheet-column">
                 <h4 className="column-title credito" style={{ background: '#e2e8f0', color: '#475569' }}>
-                  <TrendingUp size={18} color="#64748b" /> {t('planilha.receitas')} (Visualização)
+                  <TrendingUp size={18} color="#64748b" /> {t('planilha.receitas', 'RECEITAS')}
                 </h4>
                 <div className="spreadsheet-subtable-container">
                   <div className="spreadsheet-subtable">
                     <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
-                        <div style={{ width: '40px' }}>CÓD.</div>
-                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                        <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
+                        <div style={{ width: '40px' }}>{t('planilha.col_code', 'CÓD.')}</div>
+                        <div style={{ flex: 1 }}>{t('planilha.col_desc', 'DESCRIÇÃO')}</div>
+                        <div style={{ width: '110px', textAlign: 'right' }}>{t('planilha.col_val', 'VALOR')} ({currencySymbol})</div>
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
@@ -898,23 +900,23 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   </div>
                 </div>
                 <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155', marginTop: 'auto' }}>
-                  <span>{t('planilha.total_receitas')}</span>
-                  <strong style={{ fontSize: '15px' }}>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                  <span>{t('planilha.total_receitas', 'TOTAL RECEITAS')}</span>
+                  <strong style={{ fontSize: '15px' }}>{formatCurrency(totals.credito)}</strong>
                 </div>
               </div>
 
               {/* DESPESAS */}
               <div className="spreadsheet-column">
                 <h4 className="column-title debito" style={{ background: '#e2e8f0', color: '#475569' }}>
-                  <TrendingDown size={18} color="#64748b" /> {t('planilha.despesas')} (Visualização)
+                  <TrendingDown size={18} color="#64748b" /> {t('planilha.despesas', 'DESPESAS')}
                 </h4>
                 <div className="spreadsheet-subtable-container">
                   <div className="spreadsheet-subtable">
                     <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
-                        <div style={{ width: '40px' }}>CÓD.</div>
-                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                        <div style={{ width: '110px', textAlign: 'right' }}>VALOR (R$)</div>
+                        <div style={{ width: '40px' }}>{t('planilha.col_code', 'CÓD.')}</div>
+                        <div style={{ flex: 1 }}>{t('planilha.col_desc', 'DESCRIÇÃO')}</div>
+                        <div style={{ width: '110px', textAlign: 'right' }}>{t('planilha.col_val', 'VALOR')} ({currencySymbol})</div>
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
@@ -940,15 +942,15 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   </div>
                 </div>
                 <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155', marginTop: 'auto' }}>
-                  <span>{t('planilha.total_despesas')}</span>
-                  <strong style={{ fontSize: '15px' }}>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                  <span>{t('planilha.total_despesas', 'TOTAL DESPESAS')}</span>
+                  <strong style={{ fontSize: '15px' }}>{formatCurrency(totals.debito)}</strong>
                 </div>
 
                 <div style={{ padding: '15px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700 }}>70</span>
-                      <label style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>Missas Celebradas (nº)</label>
+                      <label style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>{t('planilha.missas_count', 'Missas Celebradas (nº)')}</label>
                     </div>
                     <input
                       type="number"
@@ -1017,13 +1019,13 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     disabled={isValidating}
                     style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                   >
-                    <CheckCircle size={18} /> Validar Planilha
+                    <CheckCircle size={18} /> {t('planilha.validate_btn', 'Validar Planilha')}
                   </button>
                   <button
                     className="btn-reject"
                     onClick={() => {
                       if (!apontamentos) {
-                        alert('Por favor, adicione um comentário explicando o motivo da devolução.');
+                        alert(t('planilha.return_reason_required', 'Por favor, adicione um comentário explicando o motivo da devolução.'));
                         return;
                       }
                       handleValidar('DEVOLVIDO');
@@ -1031,7 +1033,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     disabled={isValidating}
                     style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                   >
-                    <AlertCircle size={18} /> Devolver para Revisão
+                    <AlertCircle size={18} /> {t('planilha.return_for_review_btn', 'Devolver para Revisão')}
                   </button>
                 </div>
               </div>
@@ -1042,7 +1044,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
           {!canValidate && !isSuperior && planilha?.status === 'DEVOLVIDO' && planilha.apontamentos && (
             <div className="validation-card card-lite" style={{ marginTop: '20px', borderLeft: '4px solid #ef4444' }}>
               <h3 style={{ fontSize: '16px', color: '#ef4444', marginBottom: '10px' }}>
-                <AlertCircle size={18} /> Notas de Revisão do Ecônomo
+                <AlertCircle size={18} /> {t('planilha.economo_review_notes', 'Notas de Revisão do Ecônomo')}
               </h3>
               <p style={{ padding: '12px', background: '#fff1f2', borderRadius: '8px', fontSize: '14px', border: '1px solid #fecaca' }}>
                 {planilha.apontamentos}
@@ -1075,24 +1077,24 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 <FileText size={20} color="#fff" />
               </div>
               <div>
-                <div style={{ color: '#c7d2fe', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Relatório de Lançamentos</div>
-                <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>Demonstrativo Financeiro</div>
+                <div style={{ color: '#c7d2fe', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('planilha.entries_report', 'Relatório de Lançamentos')}</div>
+                <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>{t('planilha.financial_statement', 'Demonstrativo Financeiro')}</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '24px' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Receitas</div>
-                <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_receitas', 'Total Receitas')}</div>
+                <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totals.credito)}</div>
               </div>
               <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
               <div style={{ textAlign: 'center' }}>
-                <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Despesas</div>
-                <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_despesas', 'Total Despesas')}</div>
+                <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totals.debito)}</div>
               </div>
               <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
               <div style={{ textAlign: 'center' }}>
-                <div style={{ color: '#c7d2fe', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Saldo</div>
-                <div style={{ color: totals.saldo >= 0 ? '#a5f3c3' : '#fca5a5', fontSize: '18px', fontWeight: 800 }}>R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div style={{ color: '#c7d2fe', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.saldo_mes', 'Saldo')}</div>
+                <div style={{ color: totals.saldo >= 0 ? '#a5f3c3' : '#fca5a5', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totals.saldo)}</div>
               </div>
             </div>
           </div>
@@ -1104,10 +1106,10 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                 <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#03077f,#453bf2)', borderRadius: '2px' }} />
                 <span style={{ fontWeight: 800, fontSize: '13px', color: '#312e81', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Lançamentos Individuais ({entryLogs.length})
+                  {t('planilha.individual_entries', 'Lançamentos Individuais')} ({entryLogs.length})
                 </span>
                 <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
-                  — inseridos via campos de Receita / Despesa
+                  — {t('planilha.inserted_via_fields', 'inseridos via campos de Receita / Despesa')}
                 </span>
               </div>
               {entryLogs.length > 0 ? (
@@ -1115,12 +1117,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                       <tr style={{ background: 'linear-gradient(90deg,#03077fff,#453bf2ff)' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tipo</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Categoria</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observação</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Data / Hora</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor (R$)</th>
-                        {!isLocked && <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}>Ação</th>}
+                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.type', 'Tipo')}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.category', 'Categoria')}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.description', 'Observação')}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.datetime', 'Data / Hora')}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.value', 'Valor')} ({currencySymbol})</th>
+                        {!isLocked && <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}>{t('missionaries.table.actions', 'Ação')}</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1142,14 +1144,14 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                           </td>
                           <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <span style={{ display: 'inline-block', background: '#ede9fe', color: '#5b21b6', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-                              {entry.timestamp.toLocaleDateString('pt-BR')}
+                              {entry.timestamp.toLocaleDateString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR')}
                             </span>
                             <span style={{ display: 'inline-block', background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, marginLeft: '4px' }}>
-                              {entry.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              {entry.timestamp.toLocaleTimeString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </span>
                           </td>
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: '13px', color: entry.tipo === 'CREDITO' ? '#065f46' : '#991b1b' }}>
-                            {entry.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {formatCurrency(entry.valor, { hideSymbol: true })}
                           </td>
                           {!isLocked && (
                             <td style={{ padding: '10px 10px', textAlign: 'center' }}>
@@ -1215,7 +1217,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                           {Object.entries(receitaMap).map(([nome, val]) => (
                             <tr key={nome} style={{ borderBottom: '1px solid #f0fdf4' }}>
                               <td style={{ padding: '7px 12px', color: '#334155' }}>{nome}</td>
-                              <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#065f46' }}>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#065f46' }}>{formatCurrency(val)}</td>
                             </tr>
                           ))}
                           {Object.keys(receitaMap).length === 0 && (
@@ -1225,7 +1227,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                         <tfoot>
                           <tr style={{ background: '#ecfdf5', borderTop: '2px solid #6ee7b7' }}>
                             <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46' }}>TOTAL</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>R$ {totalRec.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>{formatCurrency(totalRec)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -1247,7 +1249,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                           {Object.entries(despesaMap).map(([nome, val]) => (
                             <tr key={nome} style={{ borderBottom: '1px solid #fef2f2' }}>
                               <td style={{ padding: '7px 12px', color: '#334155' }}>{nome}</td>
-                              <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#991b1b' }}>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#991b1b' }}>{formatCurrency(val)}</td>
                             </tr>
                           ))}
                           {Object.keys(despesaMap).length === 0 && (
@@ -1257,7 +1259,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                         <tfoot>
                           <tr style={{ background: '#fff1f2', borderTop: '2px solid #fca5a5' }}>
                             <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b' }}>TOTAL</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>R$ {totalDep.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>{formatCurrency(totalDep)}</td>
                           </tr>
                         </tfoot>
                       </table>

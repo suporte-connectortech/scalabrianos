@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import logo from '../../assets/logo_vertical.png';
 import NotificationBell from './NotificationBell';
 import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import '../../styles/Header.css';
 
 const Header: React.FC = () => {
@@ -13,6 +14,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { currency, setCurrency } = useCurrency();
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
@@ -32,6 +34,25 @@ const Header: React.FC = () => {
       <div className="header-right">
         <NotificationBell />
 
+        {/* Seletor de Moeda (BRL / EUR) */}
+        <div className="currency-selector" title={t('currency.select_title', 'Moeda de Exibição / Moneda')}>
+          <button
+            className={`currency-btn ${currency === 'BRL' ? 'active' : ''}`}
+            onClick={() => setCurrency('BRL')}
+            title="Real (R$)"
+          >
+            R$
+          </button>
+          <button
+            className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`}
+            onClick={() => setCurrency('EUR')}
+            title="Euro (€)"
+          >
+            €
+          </button>
+        </div>
+
+        {/* Seletor de Idioma (PT / ES) */}
         <div className="language-selector">
           <button
             className={`lang-btn ${i18n.language.startsWith('pt') ? 'active' : ''}`}

@@ -6,6 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useCurrency } from '../../context/CurrencyContext';
 import api, { getFileUrl } from '../../api';
 import MonthPicker from '../Common/MonthPicker';
 
@@ -74,8 +75,9 @@ interface Props {
 }
 
 const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, initialMes, externalUsuarioId, onValidationComplete }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [selectedMes, setSelectedMes] = useState(initialMes || new Date().toISOString().slice(0, 7));
   const [selectedCasa, setSelectedCasa] = useState(initialCasa || '');
   const [planilha, setPlanilha] = useState<PlanilhaData | null>(null);
@@ -476,20 +478,20 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
         <div className="filters-card">
           <div className="filters-grid-premium">
             <div className="filter-item">
-              <label><Calendar size={14} /> {t('planilha.month_year', 'Mês/Ano')}</label>
+              <label><Calendar size={14} /> {t('planilha.month_year', 'MÊS/ANO')}</label>
               <MonthPicker value={selectedMes} onChange={setSelectedMes} />
             </div>
             <div className="filter-item">
-              <label>{t('planilha.community', 'Comunidade Religiosa')}</label>
+              <label>{t('planilha.community_label', 'COMUNIDADE RELIGIOSA')}</label>
               <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)}>
-                <option value="">{t('planilha.select_house')}</option>
+                <option value="">{t('planilha.select_house', 'Selecione uma casa religiosa.')}</option>
                 {casas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </div>
             <div className="filter-item">
-              <label>{t('planilha.actions', 'Ações')}</label>
+              <label>{t('planilha.actions_label', 'AÇÕES')}</label>
               <button className="btn-export-small" onClick={exportToExcel} style={{ width: '100%', height: '40px', justifyContent: 'center' }}>
-                <Download size={16} /> {t('financeiro.actions.export')}
+                <Download size={16} /> {t('financeiro.actions.export', 'Exportar Excel')}
               </button>
             </div>
           </div>
@@ -499,9 +501,9 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
       <div className="spreedsheet-container card-lite" style={{ padding: '30px', marginTop: '20px' }}>
         <div className="spreedsheet-header" style={{ marginBottom: '30px', borderBottom: '2px solid #013375', paddingBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div className="header-info">
-            <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#013375', margin: 0 }}>Prestação de Contas MENSAL - Casa Religiosa</h3>
+            <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#013375', margin: 0 }}>{t('planilha.comunidade_title', 'Prestação de Contas MENSAL - Casa Religiosa')}</h3>
             <div style={{ display: 'flex', gap: '30px', marginTop: '10px', fontSize: '0.95rem', alignItems: 'center' }}>
-              <p style={{ margin: 0, color: '#64748b', fontWeight: 500 }}>Preenchimento pelo ecônomo ou superior local.</p>
+              <p style={{ margin: 0, color: '#64748b', fontWeight: 500 }}>{t('planilha.instruction_comunidade', 'Preenchimento pelo ecônomo ou superior local.')}</p>
               {planilha && (
                 <span className={`status-tag ${(planilha.status || '').toLowerCase()}`} style={{
                   padding: '4px 10px',
@@ -512,7 +514,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   background: planilha.status === 'ENVIADO_REGIONAL' ? '#dbeafe' : planilha.status === 'APROVADO' ? '#d1fae5' : '#fef3c7',
                   color: planilha.status === 'ENVIADO_REGIONAL' ? '#1e40af' : planilha.status === 'APROVADO' ? '#065f46' : '#d97706',
                 }}>
-                  {planilha.status === 'ENVIADO_REGIONAL' ? 'Enviado ao Regional' : planilha.status?.replace('_', ' ') || 'PENDENTE ECÔNOMO'}
+                  {t(`status.${(planilha.status || '').toLowerCase()}`, planilha.status === 'ENVIADO_REGIONAL' ? 'Enviado ao Regional' : planilha.status?.replace('_', ' ') || 'PENDENTE ECÔNOMO')}
                 </span>
               )}
             </div>
@@ -536,7 +538,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
-              <Download size={18} /> Exportar Excel
+              <Download size={18} /> {t('financeiro.actions.export', 'Exportar Excel')}
             </button>
           </div>
         </div>
@@ -551,21 +553,21 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   {/* RECEITA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <span style={{ fontWeight: 800, color: '#166534', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <TrendingUp size={14} /> Receita
+                      <TrendingUp size={14} /> {t('planilha.receita_single', 'RECEITA')}
                     </span>
                     <select
                       style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
                       value={tempReceitaCat}
                       onChange={e => setTempReceitaCat(e.target.value)}
                     >
-                      <option value="">Selecione a categoria...</option>
+                      <option value="">{t('planilha.select_category', 'Selecione a categoria...')}</option>
                       {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{currencySymbol}</span>
                         <input
                           type="text"
                           placeholder="0,00"
@@ -576,7 +578,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       </div>
                       <input
                         type="text"
-                        placeholder="Observação da receita..."
+                        placeholder={t('planilha.obs_receita_placeholder', 'Observação da receita...')}
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsReceita}
                         onChange={e => setObsReceita(e.target.value)}
@@ -586,28 +588,28 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       onClick={() => handleAddItem('CREDITO')}
                       style={{ width: '100%', padding: '12px', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      <Plus size={16} /> Adicionar Receita
+                      <Plus size={16} /> {t('planilha.add_receita', 'Adicionar Receita')}
                     </button>
                   </div>
 
                   {/* DESPESA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <span style={{ fontWeight: 800, color: '#991b1b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <TrendingDown size={14} /> Despesa
+                      <TrendingDown size={14} /> {t('planilha.despesa_single', 'DESPESA')}
                     </span>
                     <select
                       style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
                       value={tempDespesaCat}
                       onChange={e => setTempDespesaCat(e.target.value)}
                     >
-                      <option value="">Selecione a categoria...</option>
+                      <option value="">{t('planilha.select_category', 'Selecione a categoria...')}</option>
                       {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
                     </select>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ position: 'relative', flex: '0 0 120px' }}>
-                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>R$</span>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>{currencySymbol}</span>
                         <input
                           type="text"
                           placeholder="0,00"
@@ -618,7 +620,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       </div>
                       <input
                         type="text"
-                        placeholder="Observação da despesa..."
+                        placeholder={t('planilha.obs_despesa_placeholder', 'Observação da despesa...')}
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsDespesa}
                         onChange={e => setObsDespesa(e.target.value)}
@@ -628,7 +630,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       onClick={() => handleAddItem('DEBITO')}
                       style={{ width: '100%', padding: '12px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      <Plus size={16} /> Adicionar Despesa
+                      <Plus size={16} /> {t('planilha.add_despesa', 'Adicionar Despesa')}
                     </button>
                   </div>
                 </div>
@@ -639,17 +641,17 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
               {/* RECEITAS */}
               <div className="spreadsheet-column">
                 <h4 className="column-title credito">
-                  <TrendingUp size={18} /> {t('planilha.receitas')}
+                  <TrendingUp size={18} /> {t('planilha.receitas', 'RECEITAS')}
                 </h4>
                 <div className="spreadsheet-subtable-container">
                   <div className="spreadsheet-subtable">
                     <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
-                        <div style={{ width: '50px' }}>CÓD.</div>
-                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                        <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
-                        <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
-                        <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                        <div style={{ width: '50px' }}>{t('planilha.col_code', 'CÓD.')}</div>
+                        <div style={{ flex: 1 }}>{t('planilha.col_desc', 'DESCRIÇÃO')}</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>{t('planilha.col_house', 'CASA')} ({currencySymbol})</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>{t('planilha.col_missio', 'MISSIO.')} ({currencySymbol})</div>
+                        <div style={{ width: '95px', textAlign: 'right' }}>{t('planilha.col_total', 'TOTAL')} ({currencySymbol})</div>
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
@@ -678,12 +680,12 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
 
                             {/* Missionários */}
                             <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
-                              {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                              {missVal > 0 ? formatCurrency(missVal) : '—'}
                             </div>
 
                             {/* Total */}
                             <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#166534', fontSize: '11px' }}>
-                              R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {formatCurrency(totalVal)}
                             </div>
                           </div>
                         );
@@ -692,25 +694,25 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   </div>
                 </div>
                 <div style={{ background: '#f0fdf4', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #bcf0da', color: '#166534', marginTop: 'auto' }}>
-                  <span>TOTAL RECEITAS</span>
-                  <span>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>{t('planilha.total_receitas', 'TOTAL RECEITAS')}</span>
+                  <span>{formatCurrency(totals.credito)}</span>
                 </div>
               </div>
 
               {/* DESPESAS */}
               <div className="spreadsheet-column">
                 <h4 className="column-title debito">
-                  <TrendingDown size={18} /> {t('planilha.despesas')}
+                  <TrendingDown size={18} /> {t('planilha.despesas', 'DESPESAS')}
                 </h4>
                 <div className="spreadsheet-subtable-container">
                   <div className="spreadsheet-subtable">
                     <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', padding: '8px 12px', fontSize: '10px', fontWeight: 800, color: '#64748b' }}>
-                        <div style={{ width: '50px' }}>CÓD.</div>
-                        <div style={{ flex: 1 }}>DESCRIÇÃO</div>
-                        <div style={{ width: '90px', textAlign: 'right' }}>CASA (R$)</div>
-                        <div style={{ width: '90px', textAlign: 'right' }}>MISSIO. (R$)</div>
-                        <div style={{ width: '95px', textAlign: 'right' }}>TOTAL (R$)</div>
+                        <div style={{ width: '50px' }}>{t('planilha.col_code', 'CÓD.')}</div>
+                        <div style={{ flex: 1 }}>{t('planilha.col_desc', 'DESCRIÇÃO')}</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>{t('planilha.col_house', 'CASA')} ({currencySymbol})</div>
+                        <div style={{ width: '90px', textAlign: 'right' }}>{t('planilha.col_missio', 'MISSIO.')} ({currencySymbol})</div>
+                        <div style={{ width: '95px', textAlign: 'right' }}>{t('planilha.col_total', 'TOTAL')} ({currencySymbol})</div>
                       </div>
                     </div>
                     <div style={{ padding: '2px 0' }}>
@@ -739,12 +741,12 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
 
                             {/* Missionários */}
                             <div style={{ width: '90px', textAlign: 'right', color: '#64748b', fontWeight: 500, fontSize: '11px', paddingRight: '8px' }}>
-                              {missVal > 0 ? `R$ ${missVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                              {missVal > 0 ? formatCurrency(missVal) : '—'}
                             </div>
 
                             {/* Total */}
                             <div style={{ width: '95px', textAlign: 'right', fontWeight: 700, color: '#991b1b', fontSize: '11px' }}>
-                              R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {formatCurrency(totalVal)}
                             </div>
                           </div>
                         );
@@ -753,19 +755,19 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   </div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #fecaca', color: '#991b1b', marginTop: 'auto' }}>
-                  <span>TOTAL DESPESAS</span>
-                  <span>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>{t('planilha.total_despesas', 'TOTAL DESPESAS')}</span>
+                  <span>{formatCurrency(totals.debito)}</span>
                 </div>
 
                 <div style={{ padding: '15px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>SUPERÁVIT / DÉFICIT (= 30 - 40)</span>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>{t('planilha.superavit_deficit', 'SUPERÁVIT / DÉFICIT')} (= 30 - 40)</span>
                     <strong style={{ fontSize: '16px', color: totals.saldo >= 0 ? '#166534' : '#991b1b' }}>
-                      R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {formatCurrency(totals.saldo)}
                     </strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>Missas celebradas ad mentem Superioris n.º</span>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>{t('planilha.missas_comunidade', 'Missas celebradas ad mentem Superioris n.º')}</span>
                     <input
                       type="number"
                       value={numMissas}
@@ -939,17 +941,17 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                     <div style={{ display: 'flex', gap: '24px' }}>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Receitas</div>
-                        <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>R$ {totalRec.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalRec)}</div>
                       </div>
                       <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Despesas</div>
-                        <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>R$ {totalDep.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalDep)}</div>
                       </div>
                       <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ color: '#c7d2fe', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Saldo</div>
-                        <div style={{ color: totalSaldo >= 0 ? '#a5f3c3' : '#fca5a5', fontSize: '18px', fontWeight: 800 }}>R$ {totalSaldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div style={{ color: totalSaldo >= 0 ? '#a5f3c3' : '#fca5a5', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalSaldo)}</div>
                       </div>
                     </div>
                   </div>
@@ -976,7 +978,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                                 <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Categoria</th>
                                 <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observação</th>
                                 <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Data / Hora</th>
-                                <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor (R$)</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor ({currencySymbol})</th>
                                 <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}></th>
                               </tr>
                             </thead>
@@ -999,14 +1001,14 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                                   </td>
                                   <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     <span style={{ display: 'inline-block', background: '#ede9fe', color: '#5b21b6', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-                                      {entry.timestamp.toLocaleDateString('pt-BR')}
+                                      {entry.timestamp.toLocaleDateString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR')}
                                     </span>
                                     <span style={{ display: 'inline-block', background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, marginLeft: '4px' }}>
-                                      {entry.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                      {entry.timestamp.toLocaleTimeString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                     </span>
                                   </td>
                                   <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 800, fontSize: '13px', color: entry.tipo === 'CREDITO' ? '#065f46' : '#991b1b' }}>
-                                    {entry.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    {formatCurrency(entry.valor, { hideSymbol: true })}
                                   </td>
                                   <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                                     {!isLocked && (
@@ -1056,7 +1058,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                             {Object.entries(receitaMap).map(([nome, val]) => (
                               <tr key={nome} style={{ borderBottom: '1px solid #f0fdf4' }}>
                                 <td style={{ padding: '7px 12px', color: '#334155' }}>{nome}</td>
-                                <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#065f46' }}>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#065f46' }}>{formatCurrency(val)}</td>
                               </tr>
                             ))}
                             {Object.keys(receitaMap).length === 0 && (
@@ -1066,7 +1068,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                           <tfoot style={{ background: '#d1fae5', borderTop: '2px solid #a7f3d0' }}>
                             <tr>
                               <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46', fontSize: '11px' }}>TOTAL</td>
-                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>R$ {totalRec.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>{formatCurrency(totalRec)}</td>
                             </tr>
                           </tfoot>
                         </table>
@@ -1087,7 +1089,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                             {Object.entries(despesaMap).map(([nome, val]) => (
                               <tr key={nome} style={{ borderBottom: '1px solid #fef2f2' }}>
                                 <td style={{ padding: '7px 12px', color: '#334155' }}>{nome}</td>
-                                <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#991b1b' }}>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#991b1b' }}>{formatCurrency(val)}</td>
                               </tr>
                             ))}
                             {Object.keys(despesaMap).length === 0 && (
@@ -1097,7 +1099,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                           <tfoot style={{ background: '#fee2e2', borderTop: '2px solid #fecaca' }}>
                             <tr>
                               <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b', fontSize: '11px' }}>TOTAL</td>
-                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>R$ {totalDep.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>{formatCurrency(totalDep)}</td>
                             </tr>
                           </tfoot>
                         </table>

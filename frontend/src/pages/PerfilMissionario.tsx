@@ -4,7 +4,7 @@ import {
   User, MapPin, BookOpen, Home as HomeIcon, Loader2, AlertCircle,
   Save, Trash2, Plus, Star, FileText, Download, ShieldCheck, Eye,
   Activity, ChevronLeft, DollarSign, GraduationCap, Upload, Lock,
-  CheckCircle, Printer, ChevronDown, ChevronRight, Edit
+  CheckCircle, Printer, ChevronDown, ChevronRight, Edit, Heart, Church
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -384,8 +384,6 @@ const PerfilMissionario: React.FC = () => {
 
   // Itinerary state
   const [itinerarioStages, setItinerarioStages] = useState<ItineraryStage[]>([]);
-  const [isSavingItinerary, setIsSavingItinerary] = useState(false);
-  // const [_itinDocUploading, setItinDocUploading] = useState<number | null>(null);
   const itinFileInputRef = useRef<HTMLInputElement>(null);
   const activeEtapaRef = useRef<string | null>(null);
   // New Sections State
@@ -489,6 +487,8 @@ const PerfilMissionario: React.FC = () => {
   const [editingSaude, setEditingSaude] = useState<number | null>(null);
   const [editingBanco, setEditingBanco] = useState<number | null>(null);
   const [editingObra, setEditingObra] = useState<number | null>(null);
+  const [editingItinEtapa, setEditingItinEtapa] = useState<string | null>(null);
+  const [editingItinLabel, setEditingItinLabel] = useState<string | null>(null);
   const initializedIdRef = useRef<string | null>(null);
   const [nit, setNit] = useState('');
   const [situacaoData, setSituacaoData] = useState<SituacaoData>({
@@ -1328,15 +1328,6 @@ const PerfilMissionario: React.FC = () => {
     } catch { alert('Erro ao remover documento'); }
   };
 
-  const saveItinerary = async () => {
-    setIsSavingItinerary(true);
-    try {
-      await api.post(`/usuarios/${id}/itinerario`, { stages: itinerarioStages });
-      alert('Itinerário atualizado com sucesso!');
-    } catch { alert('Erro ao salvar itinerário'); }
-    finally { setIsSavingItinerary(false); }
-  };
-
   const saveBasicInfo = async () => {
     if (!missionario) return;
     setIsSaving(true);
@@ -1584,68 +1575,158 @@ const PerfilMissionario: React.FC = () => {
     return !!missionario.permissoes?.[tab.perm];
   });
 
-  const shouldShowObservacoes = (etapa?: string) => {
-    if (!etapa) return false;
-    const cleanEtapa = etapa.split('-')[0];
-    return cleanEtapa === '4.1.5' || cleanEtapa === '4.1.7' || cleanEtapa.startsWith('4.2');
+  const openItinEditModal = (subLabel: string, etapaKey: string, stageData?: Partial<ItineraryStage>) => {
+    setEditingItinEtapa(etapaKey);
+    setEditingItinLabel(subLabel);
+    setTempForm({
+      etapa: etapaKey,
+      local: stageData?.local || '',
+      periodo: stageData?.periodo || '',
+      observacoes: stageData?.observacoes || '',
+      doc_path: stageData?.doc_path || '',
+      is_sub_etapa: stageData?.is_sub_etapa || etapaKey.includes('-')
+    });
+    setShowAddForm('itinerario');
   };
 
-  // Helper: renders itinerary stage items for a given sub-section
-  const renderItinSubItems = (subItems: Array<{ label: string; etapaKey: string }>) => (
-    <>
-      <div style={{ marginTop: '16px' }}>
-        {subItems.map(sub => {
-          const matchingStages = itinerarioStages.filter(s => s.etapa === sub.etapaKey || s.etapa.startsWith(sub.etapaKey + '-'));
-          const stagesToRender = matchingStages.length > 0 ? matchingStages : [{ etapa: sub.etapaKey, local: '', periodo: '', doc_path: '', is_sub_etapa: false, observacoes: '' }];
-          return (
-            <div key={sub.etapaKey} style={{ marginBottom: '20px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>{sub.label}</strong>
-                {canEdit && (
-                  <button type="button" className="btn-action-lite-text" style={{ fontSize: '0.8rem', padding: '2px 8px' }}
-                    onClick={() => { const ne = `${sub.etapaKey}-${Date.now()}`; setItinerarioStages([...itinerarioStages, { etapa: ne, local: '', periodo: '', doc_path: '', is_sub_etapa: true, observacoes: '' }]); }}>
-                    <Plus size={14} /> Novo Local/Período
-                  </button>
-                )}
-              </div>
-              {stagesToRender.map((stage, sIdx) => (
-                <div key={stage.etapa + '-' + sIdx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <input type="text" placeholder="Período (ex: 1990-1994)" value={stage.periodo}
-                    onChange={e => { const val = e.target.value; const updated = itinerarioStages.some(s => s.etapa === stage.etapa) ? itinerarioStages.map(s => s.etapa === stage.etapa ? { ...s, periodo: val } : s) : [...itinerarioStages, { ...stage, periodo: val }]; setItinerarioStages(updated); }}
-                    disabled={!canEdit} style={{ flex: '1', minWidth: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
-                  <input type="text" placeholder="Local / Instituição" value={stage.local}
-                    onChange={e => { const val = e.target.value; const updated = itinerarioStages.some(s => s.etapa === stage.etapa) ? itinerarioStages.map(s => s.etapa === stage.etapa ? { ...s, local: val } : s) : [...itinerarioStages, { ...stage, local: val }]; setItinerarioStages(updated); }}
-                    disabled={!canEdit} style={{ flex: '2', minWidth: '220px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
-                  {shouldShowObservacoes(stage.etapa) && (
-                    <input type="text" placeholder="Observações" value={stage.observacoes || ''}
-                      onChange={e => { const val = e.target.value; const updated = itinerarioStages.some(s => s.etapa === stage.etapa) ? itinerarioStages.map(s => s.etapa === stage.etapa ? { ...s, observacoes: val } : s) : [...itinerarioStages, { ...stage, observacoes: val }]; setItinerarioStages(updated); }}
-                      disabled={!canEdit} style={{ flex: '2', minWidth: '220px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
-                  )}
-                  <div className="itin-doc-actions" style={{ display: 'flex', gap: '6px' }}>
-                    {stage.doc_path ? (
-                      <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-itin-doc success"><FileText size={14} /> Ver Doc</a>
+  const handleDeleteItinStage = async (etapaKey: string) => {
+    if (!window.confirm('Deseja realmente remover ou limpar este registro do itinerário?')) return;
+    let updated: ItineraryStage[] = [];
+    if (etapaKey.includes('-')) {
+      updated = itinerarioStages.filter(s => s.etapa !== etapaKey);
+    } else {
+      updated = itinerarioStages.map(s => s.etapa === etapaKey ? { ...s, local: '', periodo: '', observacoes: '', doc_path: '' } : s);
+    }
+    setItinerarioStages(updated);
+    try {
+      await api.post(`/usuarios/${id}/itinerario`, { stages: updated });
+    } catch (e) {
+      console.error('Erro ao salvar itinerario:', e);
+    }
+  };
+
+  // Helper: renders itinerary stage items for a given sub-section as premium cards
+  const renderItinSubItems = (
+    subItems: Array<{ label: string; etapaKey: string }>,
+    iconClass: string = 'icon-itin-seminario',
+    iconComponent: React.ReactNode = <GraduationCap size={20} />
+  ) => (
+    <div className="generic-list" style={{ marginTop: '16px' }}>
+      {subItems.map(sub => {
+        const matchingStages = itinerarioStages.filter(s => s.etapa === sub.etapaKey || s.etapa.startsWith(sub.etapaKey + '-'));
+        const stagesToRender = matchingStages.length > 0 ? matchingStages : [{ etapa: sub.etapaKey, local: '', periodo: '', doc_path: '', is_sub_etapa: false, observacoes: '' }];
+
+        return (
+          <div key={sub.etapaKey} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#013375' }}>{sub.label}</span>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="btn-action-lite-text"
+                  style={{ fontSize: '0.78rem', padding: '2px 8px' }}
+                  onClick={() => openItinEditModal(sub.label, `${sub.etapaKey}-${Date.now()}`, { etapa: `${sub.etapaKey}-${Date.now()}`, is_sub_etapa: true })}
+                >
+                  <Plus size={13} /> Adicionar Local/Período
+                </button>
+              )}
+            </div>
+
+            {stagesToRender.map((stage, sIdx) => {
+              const hasContent = !!(stage.local || stage.periodo || stage.observacoes || stage.doc_path);
+              return (
+                <div key={stage.etapa + '-' + sIdx} className="list-item-card-premium">
+                  <div className={`item-icon-container ${iconClass}`}>
+                    {iconComponent}
+                  </div>
+                  <div className="item-main-content">
+                    {stage.periodo ? (
+                      <>
+                        <strong>{stage.periodo}</strong>
+                        <div className="item-subtitle">
+                          {stage.local || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Local não informado</span>}
+                        </div>
+                      </>
                     ) : (
-                      <button type="button" className="btn-itin-doc" onClick={() => { activeEtapaRef.current = stage.etapa; itinFileInputRef.current?.click(); }} disabled={!canEdit}>
-                        <Plus size={14} /> Anexar
-                      </button>
+                      <>
+                        <strong>{stage.local || sub.label}</strong>
+                        <div className="item-subtitle">
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Período não informado</span>
+                        </div>
+                      </>
                     )}
-                    {canEdit && stage.etapa.includes('-') && (
-                      <button type="button" className="btn-action-lite delete" onClick={() => setItinerarioStages(itinerarioStages.filter(s => s.etapa !== stage.etapa))}><Trash2 size={14} /></button>
+                    {stage.local && stage.periodo && (
+                      <div style={{ marginTop: '4px' }}>
+                        <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, display: 'inline-block' }}>
+                          {sub.label}
+                        </span>
+                      </div>
+                    )}
+                    {stage.observacoes && (
+                      <div className="item-description" style={{ marginTop: '8px', whiteSpace: 'pre-wrap' }}>
+                        <strong>Observação:</strong> {stage.observacoes}
+                      </div>
+                    )}
+                    {stage.doc_path && (
+                      <div style={{ marginTop: '8px' }}>
+                        <a
+                          href={getFileUrl(stage.doc_path) || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-itin-doc success"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 600 }}
+                        >
+                          <FileText size={14} /> Visualizar Documento / Comprovante
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                    {stage.doc_path && (
+                      <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Visualizar Documento">
+                        <Eye size={14} />
+                      </a>
+                    )}
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-action-lite"
+                          onClick={() => openItinEditModal(sub.label, stage.etapa, stage)}
+                          title="Editar"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        {!stage.doc_path && (
+                          <button
+                            type="button"
+                            className="btn-action-lite"
+                            onClick={() => { activeEtapaRef.current = stage.etapa; itinFileInputRef.current?.click(); }}
+                            title="Anexar Documento"
+                          >
+                            <FileText size={14} />
+                          </button>
+                        )}
+                        {(stage.etapa.includes('-') || hasContent) && (
+                          <button
+                            type="button"
+                            className="btn-action-lite delete"
+                            onClick={() => handleDeleteItinStage(stage.etapa)}
+                            title="Excluir / Limpar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-      {canEdit && (
-        <button className="btn-save-perfil" onClick={saveItinerary} disabled={isSavingItinerary} style={{ marginTop: '12px' }}>
-          {isSavingItinerary ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          Salvar Itinerário
-        </button>
-      )}
-    </>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -2095,22 +2176,20 @@ const PerfilMissionario: React.FC = () => {
                       />
                     </div>
 
-                    {/* RNM — até 10 dígitos */}
+                    {/* RNM / RG / CI / DI — Alfanumérico */}
                     <div className="form-group">
                       <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         RG / RNM / CI / DI <FileText size={14} style={{ opacity: 0.5 }} />
                       </label>
                       <input
                         type="text"
-                        inputMode="numeric"
                         value={civilData.rnm}
-                        maxLength={10}
+                        maxLength={30}
                         onChange={e => {
-                          const v = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setCivilData({ ...civilData, rnm: v });
+                          setCivilData({ ...civilData, rnm: e.target.value });
                         }}
                         disabled={!canEdit}
-                        placeholder="000000000"
+                        placeholder="Ex: 12.345.678-9, V123456-X..."
                       />
                     </div>
 
@@ -2638,7 +2717,7 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-41">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 4.1 Seminário</h3>
+                    <h3 className="section-title"><GraduationCap size={16} /> 4.1 Seminário</h3>
                     {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('4.1 Seminário', 'print-itinerario-41')}>
                         <Printer size={15} /> Imprimir
@@ -2653,7 +2732,7 @@ const PerfilMissionario: React.FC = () => {
                     { label: '4.1.5 Noviciado', etapaKey: '4.1.5' },
                     { label: '4.1.6 Teologia', etapaKey: '4.1.6' },
                     { label: '4.1.7 Tirocínio', etapaKey: '4.1.7' },
-                  ])}
+                  ], 'icon-itin-seminario', <GraduationCap size={20} />)}
                 </div>
               </div>
             )}
@@ -2663,14 +2742,14 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-42">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 4.2 Vida Religiosa</h3>
+                    <h3 className="section-title"><Heart size={16} /> 4.2 Vida Religiosa</h3>
                     {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('4.2 Vida Religiosa', 'print-itinerario-42')}>
                         <Printer size={15} /> Imprimir
                       </button>
                     )}
                   </div>
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.1 Primeira Profissão</h4>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.1 Primeira Profissão</h4>
                   {renderItinSubItems([
                     { label: '4.2.1.1 Relatório do Mestre', etapaKey: '4.2.1.1' },
                     { label: '4.2.1.2 Pedido do noviço', etapaKey: '4.2.1.2' },
@@ -2678,17 +2757,17 @@ const PerfilMissionario: React.FC = () => {
                     { label: '4.2.1.4 Admissão', etapaKey: '4.2.1.4' },
                     { label: '4.2.1.5 Fórmula manuscrita', etapaKey: '4.2.1.5' },
                     { label: '4.2.1.6 Delegação para receber os votos', etapaKey: '4.2.1.6' },
-                  ])}
+                  ], 'icon-itin-religiosa', <Heart size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.2 Renovação dos Votos</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.2 Renovação dos Votos</h4>
                   {renderItinSubItems([
                     { label: '4.2.2.1 Relatório do Formador', etapaKey: '4.2.2.1' },
                     { label: '4.2.2.2 Pedido do religioso', etapaKey: '4.2.2.2' },
                     { label: '4.2.2.3 Admissão Fórmula manuscrita', etapaKey: '4.2.2.3' },
                     { label: '4.2.2.4 Delegação para receber os votos', etapaKey: '4.2.2.4' },
-                  ])}
+                  ], 'icon-itin-religiosa', <Heart size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.3 Profissão Perpétua</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.3 Profissão Perpétua</h4>
                   {renderItinSubItems([
                     { label: '4.2.3.1 Relatório do Formador', etapaKey: '4.2.3.1' },
                     { label: '4.2.3.2 Pedido do religioso', etapaKey: '4.2.3.2' },
@@ -2699,7 +2778,7 @@ const PerfilMissionario: React.FC = () => {
                     { label: '4.2.3.7 Fórmula manuscrita', etapaKey: '4.2.3.7' },
                     { label: '4.2.3.8 Delegação para receber os votos', etapaKey: '4.2.3.8' },
                     { label: '4.2.3.9 Notificação à paróquia de batismo', etapaKey: '4.2.3.9' },
-                  ])}
+                  ], 'icon-itin-religiosa', <Heart size={20} />)}
                 </div>
               </div>
             )}
@@ -2709,30 +2788,30 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-43">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 4.3 Ministérios</h3>
+                    <h3 className="section-title"><Church size={16} /> 4.3 Ministérios</h3>
                     {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('4.3 Ministérios', 'print-itinerario-43')}>
                         <Printer size={15} /> Imprimir
                       </button>
                     )}
                   </div>
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.1 Leitorado</h4>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.1 Leitorado</h4>
                   {renderItinSubItems([
                     { label: '4.3.1.1 Apresentação', etapaKey: '4.3.1.1' },
                     { label: '4.3.1.2 Pedido', etapaKey: '4.3.1.2' },
                     { label: '4.3.1.3 Admissão', etapaKey: '4.3.1.3' },
                     { label: '4.3.1.4 Certificado', etapaKey: '4.3.1.4' },
-                  ])}
+                  ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.2 Acolitado</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.2 Acolitado</h4>
                   {renderItinSubItems([
                     { label: '4.3.2.1 Apresentação', etapaKey: '4.3.2.1' },
                     { label: '4.3.2.2 Pedido', etapaKey: '4.3.2.2' },
                     { label: '4.3.2.3 Admissão', etapaKey: '4.3.2.3' },
                     { label: '4.3.2.4 Certificado', etapaKey: '4.3.2.4' },
-                  ])}
+                  ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.3 Diaconato</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.3 Diaconato</h4>
                   {renderItinSubItems([
                     { label: '4.3.3.1 Relatório do Formador', etapaKey: '4.3.3.1' },
                     { label: '4.3.3.2 Pedido do religioso', etapaKey: '4.3.3.2' },
@@ -2742,9 +2821,9 @@ const PerfilMissionario: React.FC = () => {
                     { label: '4.3.3.6 Cartas dimissórias', etapaKey: '4.3.3.6' },
                     { label: '4.3.3.7 Ata de ordenação', etapaKey: '4.3.3.7' },
                     { label: '4.3.3.8 Notificação à paróquia de batismo', etapaKey: '4.3.3.8' },
-                  ])}
+                  ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.4 Presbiterado</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.4 Presbiterado</h4>
                   {renderItinSubItems([
                     { label: '4.3.4.1 Relatório do Formador', etapaKey: '4.3.4.1' },
                     { label: '4.3.4.2 Pedido do diácono', etapaKey: '4.3.4.2' },
@@ -2754,14 +2833,14 @@ const PerfilMissionario: React.FC = () => {
                     { label: '4.3.4.6 Cartas dimissórias', etapaKey: '4.3.4.6' },
                     { label: '4.3.4.7 Ata de ordenação', etapaKey: '4.3.4.7' },
                     { label: '4.3.4.8 Notificação à paróquia de batismo', etapaKey: '4.3.4.8' },
-                  ])}
+                  ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.5 Primeira destinação missionária</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.5 Primeira destinação missionária</h4>
                   {renderItinSubItems([
                     { label: '4.3.5.1 Carta do religioso', etapaKey: '4.3.5.1' },
                     { label: '4.3.5.2 Relatório', etapaKey: '4.3.5.2' },
                     { label: '4.3.5.3 Parecer do Superior Regional', etapaKey: '4.3.5.3' },
-                  ])}
+                  ], 'icon-itin-ministerios', <Church size={20} />)}
                 </div>
               </div>
             )}
@@ -2771,16 +2850,26 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-44">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 4.4 Destinação dada pela Direção</h3>
-                    {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação dada pela Direção', 'print-itinerario-44')}>
-                        <Printer size={15} /> Imprimir
-                      </button>
-                    )}
+                    <h3 className="section-title"><MapPin size={16} /> 4.4 Destinação dada pela Direção</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {canPrint && (
+                        <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação dada pela Direção', 'print-itinerario-44')}>
+                          <Printer size={15} /> Imprimir
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button
+                          className="btn-action-lite-text"
+                          onClick={() => openItinEditModal('4.4 Destinação dada pela Direção', `4.4-${Date.now()}`, { etapa: `4.4-${Date.now()}`, is_sub_etapa: true })}
+                        >
+                          <Plus size={14} /> <span>Adicionar</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {renderItinSubItems([
                     { label: '4.4 Destinação dada pela Direção', etapaKey: '4.4' },
-                  ])}
+                  ], 'icon-itin-destinacao', <MapPin size={20} />)}
                 </div>
               </div>
             )}
@@ -3581,11 +3670,113 @@ const PerfilMissionario: React.FC = () => {
               <div className="modal-overlay">
                 <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
                   <h3>
-                    {editingFormacao || editingAtividade || editingSaude || editingBanco || editingObra ? 'Editar ' : 'Adicionar '}
-                    {showAddForm === 'formacao' ? 'Formação Acadêmica' : showAddForm === 'atividade' ? 'Atividade Missionária' : showAddForm === 'obras' ? 'Obras Realizadas' : showAddForm === 'saude' ? 'Registro de Saúde' : showAddForm === 'banco' ? 'Conta Bancária' : showAddForm === 'quadro' ? 'Curriculum Vitae' : 'Observação'}
+                    {editingFormacao || editingAtividade || editingSaude || editingBanco || editingObra || (showAddForm === 'itinerario' && (tempForm.local || tempForm.periodo || tempForm.observacoes)) ? 'Editar ' : 'Adicionar '}
+                    {showAddForm === 'itinerario' ? (editingItinLabel || 'Itinerário Formativo') :
+                      showAddForm === 'formacao' ? 'Formação Acadêmica' :
+                        showAddForm === 'atividade' ? 'Atividade Missionária' :
+                          showAddForm === 'obras' ? 'Obras Realizadas' :
+                            showAddForm === 'saude' ? 'Registro de Saúde' :
+                              showAddForm === 'banco' ? 'Conta Bancária' :
+                                showAddForm === 'quadro' ? 'Curriculum Vitae' : 'Observação'}
                   </h3>
 
                   <div className="form-grid-1" style={{ gap: '15px', marginTop: '15px' }}>
+                    {showAddForm === 'itinerario' && (
+                      <>
+                        <div className="form-group">
+                          <label>Período</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 01/01/2000 - 31/12/2004 ou 2000-2004"
+                            value={tempForm.periodo || ''}
+                            onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Local / Instituição</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Seminário Menor São Carlos, Guaporé, RS"
+                            value={tempForm.local || ''}
+                            onChange={e => setTempForm({ ...tempForm, local: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Observação</label>
+                          <textarea
+                            rows={4}
+                            placeholder="Digite as observações sobre este período/etapa..."
+                            value={tempForm.observacoes || ''}
+                            onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Anexar Documento / Comprovante (PDF, JPG, PNG)</label>
+                          {tempForm.doc_path ? (
+                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <FileText size={18} style={{ color: '#013375' }} />
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                                    Anexo Carregado
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                  <a
+                                    href={getFileUrl(tempForm.doc_path) || '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                                  >
+                                    <Eye size={14} /> Visualizar
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTempForm({ ...tempForm, doc_path: undefined })}
+                                    style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    title="Remover anexo para reenviar"
+                                  >
+                                    <Trash2 size={14} /> Excluir Anexo
+                                  </button>
+                                </div>
+                              </div>
+                              {/\.(jpe?g|png|webp)$/i.test(tempForm.doc_path) && (
+                                <div style={{ marginTop: '10px' }}>
+                                  <img
+                                    src={getFileUrl(tempForm.doc_path) || ''}
+                                    alt="Preview"
+                                    style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="file-input-wrapper" style={{ marginTop: '6px' }}>
+                              <input
+                                type="file"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const fd = new FormData();
+                                  fd.append('arquivo', file);
+                                  fd.append('descricao', `Doc Etapa: ${editingItinEtapa || 'Itinerário'}`);
+                                  try {
+                                    const res = await api.post(`/usuarios/${id}/documentos`, fd, {
+                                      headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+                                    const newPath = res.data.url || res.data.arquivo_path;
+                                    setTempForm(prev => ({ ...prev, doc_path: newPath }));
+                                  } catch {
+                                    alert('Erro ao carregar documento');
+                                  }
+                                }}
+                                accept=".pdf,.jpg,.jpeg,.png"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                     {showAddForm === 'formacao' && (
                       <>
                         <div className="form-group">
@@ -3850,10 +4041,67 @@ const PerfilMissionario: React.FC = () => {
                   </div>
 
                   <div className="modal-actions" style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button className="btn-back" onClick={() => { setShowAddForm(null); setEditingFormacao(null); setEditingAtividade(null); setEditingSaude(null); setEditingBanco(null); setEditingObra(null); setTempForm({}); }}>Cancelar</button>
                     <button
-                      className="btn-save-perfil"
+                      type="button"
+                      className="btn-back"
                       onClick={() => {
+                        setShowAddForm(null);
+                        setEditingFormacao(null);
+                        setEditingAtividade(null);
+                        setEditingSaude(null);
+                        setEditingBanco(null);
+                        setEditingObra(null);
+                        setEditingItinEtapa(null);
+                        setEditingItinLabel(null);
+                        setTempForm({});
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-save-perfil"
+                      disabled={isSaving}
+                      onClick={async () => {
+                        if (showAddForm === 'itinerario') {
+                          const etapaKey = editingItinEtapa || tempForm.etapa || '4.4';
+                          const existingIdx = itinerarioStages.findIndex(s => s.etapa === etapaKey);
+                          let updated: ItineraryStage[];
+                          if (existingIdx >= 0) {
+                            updated = itinerarioStages.map((s, idx) => idx === existingIdx ? {
+                              ...s,
+                              local: tempForm.local || '',
+                              periodo: tempForm.periodo || '',
+                              observacoes: tempForm.observacoes || '',
+                              doc_path: tempForm.doc_path !== undefined ? tempForm.doc_path : (s.doc_path || ''),
+                              is_sub_etapa: s.is_sub_etapa || etapaKey.includes('-')
+                            } : s);
+                          } else {
+                            updated = [...itinerarioStages, {
+                              etapa: etapaKey,
+                              local: tempForm.local || '',
+                              periodo: tempForm.periodo || '',
+                              observacoes: tempForm.observacoes || '',
+                              doc_path: tempForm.doc_path || '',
+                              is_sub_etapa: etapaKey.includes('-')
+                            }];
+                          }
+                          setItinerarioStages(updated);
+                          setIsSaving(true);
+                          try {
+                            await api.post(`/usuarios/${id}/itinerario`, { stages: updated });
+                            setShowAddForm(null);
+                            setEditingItinEtapa(null);
+                            setEditingItinLabel(null);
+                            setTempForm({});
+                          } catch {
+                            alert('Erro ao salvar itinerário');
+                          } finally {
+                            setIsSaving(false);
+                          }
+                          return;
+                        }
+
                         const endpoint = showAddForm === 'formacao' ? 'formacao-academica' :
                           showAddForm === 'atividade' ? 'atividade-missionaria' :
                             showAddForm === 'obras' ? 'obras-realizadas' :

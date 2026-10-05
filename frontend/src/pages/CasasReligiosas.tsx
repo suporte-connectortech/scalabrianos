@@ -412,15 +412,15 @@ const CasasReligiosas: React.FC = () => {
           <h2>{t('casas.title')}</h2>
         </div>
         <div className="header-actions">
-          <button className="btn-print-report" onClick={handlePrintHouses} title="Imprimir listagem completa">
-            <Printer size={18} /> Imprimir Relatório
+          <button className="btn-print-report" onClick={handlePrintHouses} title={t('casas.print_report', 'Imprimir listagem completa')}>
+            <Printer size={18} /> {t('casas.print_report', 'Imprimir Relatório')}
           </button>
-          <button className="btn-export" onClick={handleExportExcel} title="Exportar para Excel">
-            <Download size={18} /> {t('financeiro.actions.export')}
+          <button className="btn-export" onClick={handleExportExcel} title={t('casas.export_excel', 'Exportar para Excel')}>
+            <Download size={18} /> {t('financeiro.actions.export', 'Exportar Excel')}
           </button>
           {canEdit && (
             <button className="btn-new" onClick={handleNewHouse}>
-              <Plus size={18} /> {t('casas.new_house')}
+              <Plus size={18} /> {t('casas.new_house', 'Novo Cadastro')}
             </button>
           )}
         </div>
@@ -429,48 +429,48 @@ const CasasReligiosas: React.FC = () => {
       <div className="filters-card">
         <div className="filters-grid">
           <div className="filter-group">
-            <label>PRESENÇA MISSIONÁRIA</label>
+            <label>{t('missionaries.filters.house_label', 'PRESENÇA MISSIONÁRIA')}</label>
             <input
               type="text"
-              placeholder="Filtrar por nome..."
+              placeholder={t('casas.filter_name_placeholder', 'Filtrar por nome...')}
               value={filterName}
               onChange={(e) => setFilterName(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>CIDADE</label>
+            <label>{t('missionaries.filters.city_label', 'CIDADE')}</label>
             <input
               type="text"
-              placeholder="Filtrar por cidade..."
+              placeholder={t('casas.filter_city_placeholder', 'Filtrar por cidade...')}
               value={filterCity}
               onChange={(e) => setFilterCity(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>PAÍS</label>
+            <label>{t('missionaries.filters.country_label', 'PAÍS')}</label>
             <input
               type="text"
-              placeholder="Filtrar por país..."
+              placeholder={t('casas.filter_country_placeholder', 'Filtrar por país...')}
               value={filterCountry}
               onChange={(e) => setFilterCountry(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>STATUS</label>
+            <label>{t('missionaries.filters.status_label', 'STATUS')}</label>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="Todos">Todos</option>
-              <option value="ATIVO">Ativo</option>
-              <option value="INATIVO">Inativo</option>
+              <option value="Todos">{t('missionaries.filters.all', 'Todos')}</option>
+              <option value="ATIVO">{t('status.ativo', 'Ativo')}</option>
+              <option value="INATIVO">{t('status.inativo', 'Inativo')}</option>
             </select>
           </div>
         </div>
 
         <div className="filters-actions" style={{ display: 'flex', gap: '10px' }}>
           <button className="btn-clear" onClick={handleClearFilters} style={{ background: '#64748b', color: 'white', border: 'none' }}>
-            Limpar
+            {t('casas.clear_filters', 'Limpar')}
           </button>
           <button className="btn-filter-main" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#032b57', color: 'white', border: 'none' }}>
-            <Search size={18} /> Filtrar
+            <Search size={18} /> {t('casas.filter_btn', 'Filtrar')}
           </button>
         </div>
       </div>
@@ -492,13 +492,13 @@ const CasasReligiosas: React.FC = () => {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>PRESENÇA MISSIONÁRIA</th>
-                <th>CIDADE/UF</th>
-                <th>PAÍS</th>
-                <th className="center">STATUS</th>
+                <th>{t('missionaries.table.id', 'ID')}</th>
+                <th>{t('missionaries.filters.house_label', 'PRESENÇA MISSIONÁRIA')}</th>
+                <th>{t('missionaries.filters.city_label', 'CIDADE')}/UF</th>
+                <th>{t('missionaries.filters.country_label', 'PAÍS')}</th>
+                <th className="center">{t('missionaries.filters.status_label', 'STATUS')}</th>
                 <th className="center pm-cell">PM</th>
-                <th className="center">AÇÕES</th>
+                <th className="center">{t('missionaries.table.actions', 'AÇÕES')}</th>
               </tr>
             </thead>
             <tbody>
@@ -510,7 +510,7 @@ const CasasReligiosas: React.FC = () => {
                   <td>{house.regional || house.pais || '---'}</td>
                   <td className="center">
                     <span className={`status-tag ${house.status.toLowerCase()}`}>
-                      {house.status}
+                      {t(`status.${house.status.toLowerCase()}`, house.status)}
                     </span>
                   </td>
                   <td className="center pm-cell">

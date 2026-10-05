@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '../context/CurrencyContext';
 import api from '../api';
 import { FileText, Calendar, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
 import MonthPicker from '../components/Common/MonthPicker';
@@ -36,6 +38,8 @@ interface DetalhesPlanilha {
 
 const ExtratosMensais: React.FC = () => {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { formatCurrency } = useCurrency();
   
   const isOconomo = user?.role === 'ECONOMO_LOCAL' || user?.role === 'ECONOMO_REGIONAL' || !!user?.is_oconomo;
   
@@ -98,24 +102,23 @@ const ExtratosMensais: React.FC = () => {
       if (isOconomo && activeTab === 'comunidade') {
         url = `/financas-comunidade/${extrato.casa_id}/${extrato.mes_referencia}?usuario_id=${extrato.usuario_id}`;
       } else {
-        const uid = extrato.usuario_id || user?.id;
-        url = `/financas-mensais/usuario/${uid}/mes/${extrato.mes_referencia}`;
+        url = `/financas-mensais/usuario/${extrato.usuario_id}/${extrato.mes_referencia}`;
       }
       const res = await api.get(url);
       setDetalhes(res.data);
     } catch (err) {
-      console.error('Erro ao buscar detalhes', err);
-      alert('Erro ao carregar detalhes.');
+      console.error('Error fetching details:', err);
     } finally {
       setIsModalLoading(false);
     }
   };
 
   const getCategoriaNome = (id: number) => {
-    return categorias.find(c => c.id === id)?.nome || 'Categoria Desconhecida';
+    const cat = categorias.find(c => c.id === id);
+    return cat ? cat.nome : `Categoria #${id}`;
   };
 
-  // Filter Logic
+  // Filtering Logic
   const filteredExtratos = extratos.filter(ext => {
     const matchesMes = filterMes ? ext.mes_referencia === filterMes : true;
     const matchesCasa = filterCasa ? ext.casa_id?.toString() === filterCasa : true;
@@ -129,7 +132,7 @@ const ExtratosMensais: React.FC = () => {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '40px' }}>
-        <span style={{ color: '#64748b', fontSize: '16px' }}>Carregando extratos...</span>
+        <span style={{ color: '#64748b', fontSize: '16px' }}>{t('common.loading', 'Carregando extratos...')}</span>
       </div>
     );
   }
@@ -141,11 +144,13 @@ const ExtratosMensais: React.FC = () => {
           <FileText size={28} />
         </div>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#1e293b', margin: 0 }}>Extratos Mensais</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+            {t('extratos.title', 'Extratos Mensais')}
+          </h1>
           <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
             {isOconomo 
-              ? 'Histórico consolidado das prestações de contas validadas.'
-              : 'Histórico consolidado das suas prestações de contas validadas.'}
+              ? t('extratos.subtitle_admin', 'Histórico consolidado das prestações de contas validadas.')
+              : t('extratos.subtitle_user', 'Histórico consolidado das suas prestações de contas validadas.')}
           </p>
         </div>
       </div>
@@ -167,7 +172,7 @@ const ExtratosMensais: React.FC = () => {
               transition: 'all 0.2s'
             }}
           >
-            Extratos dos Missionários
+            {t('extratos.tab_missionary', 'Extratos dos Missionários')}
           </button>
           <button
             onClick={() => setActiveTab('comunidade')}
@@ -183,7 +188,7 @@ const ExtratosMensais: React.FC = () => {
               transition: 'all 0.2s'
             }}
           >
-            Extratos da Casa Religiosa
+            {t('extratos.tab_community', 'Extratos da Casa Religiosa')}
           </button>
         </div>
       )}
@@ -191,9 +196,11 @@ const ExtratosMensais: React.FC = () => {
       {extratos.length === 0 ? (
         <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '16px', padding: '48px', textAlign: 'center' }}>
           <Calendar size={48} color="#94a3b8" style={{ marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#475569', margin: '0 0 8px 0' }}>Nenhum extrato validado</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#475569', margin: '0 0 8px 0' }}>
+            {t('extratos.no_statements', 'Nenhum extrato validado')}
+          </h3>
           <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>
-            Não há prestações de contas validadas correspondentes para visualização do extrato.
+            {t('extratos.no_statements_desc', 'Não há prestações de contas validadas correspondentes para visualização do extrato.')}
           </p>
         </div>
       ) : (
@@ -213,7 +220,7 @@ const ExtratosMensais: React.FC = () => {
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={14} color="#64748b" /> Buscar por Mês/Ano:
+                <Calendar size={14} color="#64748b" /> {t('extratos.filter_month', 'Buscar por Mês/Ano:')}
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
                 <MonthPicker 
@@ -237,7 +244,7 @@ const ExtratosMensais: React.FC = () => {
                       gap: '4px'
                     }}
                   >
-                    Limpar
+                    {t('common.clear', 'Limpar')}
                   </button>
                 )}
               </div>
@@ -246,7 +253,7 @@ const ExtratosMensais: React.FC = () => {
             {isOconomo && (user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
-                  Casa Religiosa:
+                  {t('extratos.filter_house', 'Casa Religiosa:')}
                 </label>
                 <select
                   value={filterCasa}
@@ -263,7 +270,7 @@ const ExtratosMensais: React.FC = () => {
                     height: '38px'
                   }}
                 >
-                  <option value="">Todas as Casas</option>
+                  <option value="">{t('extratos.all_houses', 'Todas as Casas')}</option>
                   {casas.map(c => (
                     <option key={c.id} value={c.id.toString()}>{c.nome}</option>
                   ))}
@@ -275,7 +282,7 @@ const ExtratosMensais: React.FC = () => {
           {filteredExtratos.length === 0 ? (
             <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '16px', padding: '32px', textAlign: 'center' }}>
               <p style={{ color: '#64748b', margin: 0, fontSize: '14px', fontWeight: 600 }}>
-                Nenhum extrato encontrado para o mês selecionado.
+                {t('missionaries.empty', 'Nenhum extrato encontrado para o mês selecionado.')}
               </p>
             </div>
           ) : (
@@ -284,18 +291,18 @@ const ExtratosMensais: React.FC = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                      <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>Mês Referência</th>
+                      <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.month', 'Mês Referência')}</th>
                       {isOconomo && (
-                        <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>Casa Religiosa</th>
+                        <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.house', 'Casa Religiosa')}</th>
                       )}
                       {isOconomo && activeTab === 'missionario' && (
-                        <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>Missionário</th>
+                        <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.missionary', 'Missionário')}</th>
                       )}
-                      <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>Data Validação</th>
-                      <th style={{ padding: '16px 20px', color: '#059669', fontWeight: 600, fontSize: '14px' }}>Receitas</th>
-                      <th style={{ padding: '16px 20px', color: '#dc2626', fontWeight: 600, fontSize: '14px' }}>Despesas</th>
-                      <th style={{ padding: '16px 20px', color: '#0f172a', fontWeight: 700, fontSize: '14px' }}>Saldo</th>
-                      <th style={{ padding: '16px 20px', textAlign: 'center', color: '#475569', fontWeight: 600, fontSize: '14px' }}>Ações</th>
+                      <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.validation_date', 'Data Validação')}</th>
+                      <th style={{ padding: '16px 20px', color: '#059669', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.incomes', 'Receitas')}</th>
+                      <th style={{ padding: '16px 20px', color: '#dc2626', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.expenses', 'Despesas')}</th>
+                      <th style={{ padding: '16px 20px', color: '#0f172a', fontWeight: 700, fontSize: '14px' }}>{t('extratos.table.balance', 'Saldo')}</th>
+                      <th style={{ padding: '16px 20px', textAlign: 'center', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.actions', 'Ações')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -318,23 +325,23 @@ const ExtratosMensais: React.FC = () => {
                           </td>
                         )}
                         <td style={{ padding: '16px 20px', color: '#64748b', fontSize: '14px' }}>
-                          {ext.data_validacao ? new Date(ext.data_validacao).toLocaleDateString('pt-BR') : '-'}
+                          {ext.data_validacao ? new Date(ext.data_validacao).toLocaleDateString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR') : '-'}
                         </td>
                         <td style={{ padding: '16px 20px', color: '#059669', fontWeight: 600 }}>
-                          R$ {Number(ext.total_credito).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {formatCurrency(ext.total_credito)}
                         </td>
                         <td style={{ padding: '16px 20px', color: '#dc2626', fontWeight: 600 }}>
-                          R$ {Number(ext.total_debito).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {formatCurrency(ext.total_debito)}
                         </td>
                         <td style={{ padding: '16px 20px', color: Number(ext.saldo) >= 0 ? '#059669' : '#dc2626', fontWeight: 700 }}>
-                          R$ {Number(ext.saldo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {formatCurrency(ext.saldo)}
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'center' }}>
                           <button 
                             onClick={() => handleOpenDetails(ext)}
                             style={{ background: '#eef2ff', color: '#4f46e5', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '13px', transition: 'background 0.2s' }}
                           >
-                            <Eye size={16} /> Ver Detalhes
+                            <Eye size={16} /> {t('extratos.table.view_details', 'Ver Detalhes')}
                           </button>
                         </td>
                       </tr>
@@ -346,7 +353,9 @@ const ExtratosMensais: React.FC = () => {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                  <span style={{ fontSize: '14px', color: '#64748b' }}>Página {currentPage} de {totalPages}</span>
+                  <span style={{ fontSize: '14px', color: '#64748b' }}>
+                    {t('common.page', 'Página')} {currentPage} / {totalPages}
+                  </span>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
                       disabled={currentPage === 1}
@@ -378,7 +387,7 @@ const ExtratosMensais: React.FC = () => {
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Calendar size={20} color="#4f46e5" />
-                  Detalhes do Extrato
+                  {t('extratos.details_modal.title', 'Detalhes do Extrato')}
                 </h3>
                 <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px', textTransform: 'capitalize' }}>{selectedExtrato.mes_referencia}</p>
               </div>
@@ -389,21 +398,21 @@ const ExtratosMensais: React.FC = () => {
             
             <div style={{ padding: '24px', overflowY: 'auto' }}>
               {isModalLoading ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Carregando detalhes...</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>{t('common.loading', 'Carregando detalhes...')}</div>
               ) : detalhes && detalhes.itens && detalhes.itens.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   
                   {/* Receitas */}
                   <div>
                     <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #d1fae5' }}>
-                      <TrendingUp size={18} /> Receitas Detalhadas
+                      <TrendingUp size={18} /> {t('extratos.details_modal.incomes_title', 'Receitas Detalhadas')}
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').length > 0 ? (
                         detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').map(item => (
                           <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
                             <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#059669' }}>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <span style={{ fontWeight: 600, color: '#059669' }}>{formatCurrency(item.valor)}</span>
                           </div>
                         ))
                       ) : (
@@ -415,14 +424,14 @@ const ExtratosMensais: React.FC = () => {
                   {/* Despesas */}
                   <div>
                     <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #fee2e2' }}>
-                      <TrendingDown size={18} /> Despesas Detalhadas
+                      <TrendingDown size={18} /> {t('extratos.details_modal.expenses_title', 'Despesas Detalhadas')}
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').length > 0 ? (
                         detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').map(item => (
                           <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
                             <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#dc2626' }}>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <span style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(item.valor)}</span>
                           </div>
                         ))
                       ) : (
@@ -439,7 +448,7 @@ const ExtratosMensais: React.FC = () => {
             
             <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
               <button onClick={() => setSelectedExtrato(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
-                Fechar
+                {t('common.close', 'Fechar')}
               </button>
             </div>
           </div>

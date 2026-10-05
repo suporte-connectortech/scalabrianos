@@ -309,47 +309,21 @@ const Administradores: React.FC = () => {
   };
 
   const getRoleLabel = (role: UserRole | string) => {
-    switch (role) {
-      case 'ADMIN_GERAL': return t('admins.roles.admin_geral');
-      case 'ADMINISTRADOR': return t('admins.roles.administrador', 'Administrador');
-      case 'COLABORADOR': return t('admins.roles.colaborador');
-      case 'INTERMITENTE': return t('admins.roles.intermitente');
-      case 'PADRE': return 'Missionário';
-      case 'MISSIONARIO': return 'Missionário';
-      case 'REGISTRO_REGIONAL': return 'Registro Regional';
-      case 'SUPERIOR_REGIONAL': return 'Superior Regional';
-      case 'SECRETARIO_REGIONAL': return 'Secretário Regional';
-      case 'ECONOMO_REGIONAL': return 'Ecônomo Regional';
-      case 'SECRETARIADO_MISSAO': return 'Secretariado da Missão';
-      case 'SECRETARIADO_VIDA_RELIGIOSA': return 'Secretariado da Vida Religiosa';
-      case 'SECRETARIADO_FORMACAO': return 'Secretariado da Formação';
-      case 'SUPERIOR_LOCAL': return 'Superior Local';
-      case 'ECONOMO_LOCAL': return 'Ecônomo Local';
-      case 'CADASTRO_INICIAL': return 'Cadastro Inicial';
-      default: return role || '—';
-    }
+    if (!role) return '—';
+    const key = role.toLowerCase();
+    return t(`roles.${key}`, t(`admins.roles.${key}`, role));
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'ATIVO': return 'Ativo';
-      case 'INATIVO': return 'Inativo';
-      case 'BLOQUEADO': return 'Bloqueado';
-      case 'PENDENTE': return 'Pendente';
-      default: return status || '—';
-    }
+    if (!status) return '—';
+    const key = status.toLowerCase();
+    return t(`status.${key}`, status);
   };
 
   const getSituacaoLabel = (sit: string) => {
-    switch (sit) {
-      case 'EM_ATIVIDADE': return 'Em Atividade';
-      case 'FALECIDO': return 'Falecido';
-      case 'EGRESSO': return 'Egresso';
-      case 'EXCLAUSTRADO': return 'Exclaustrado';
-      case 'AFASTADO': return 'Afastado';
-      case 'FORMACAO': return 'Em Formação';
-      default: return sit || '—';
-    }
+    if (!sit) return '—';
+    const key = sit.toLowerCase();
+    return t(`situations.${key}`, sit);
   };
 
   const renderChangeItem = (item: string, idx: number) => {
@@ -882,7 +856,7 @@ const Administradores: React.FC = () => {
                   <td>{profile.login}</td>
                   <td className="center"><span className={`role-tag ${profile.role.toLowerCase()}`}>{getRoleLabel(profile.role)}</span></td>
                   <td>{profile.casa_nome || '—'}</td>
-                  <td className="center"><span className={`status-tag ${profile.status.toLowerCase()}`}>{profile.status}</span></td>
+                  <td className="center"><span className={`status-tag ${profile.status.toLowerCase()}`}>{getStatusLabel(profile.status)}</span></td>
                   <td>
                     <div className="action-buttons">
                       <button className="btn-icon-view" onClick={() => handleOpenEdit(profile)} title="Ver e Editar"><Eye size={18} /></button>

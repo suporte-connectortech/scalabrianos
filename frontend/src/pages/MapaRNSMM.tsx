@@ -80,15 +80,15 @@ const MapaRNSMM: React.FC = () => {
       {isAdm && (
         <div className="mapa-stats-grid">
           <div className="card-lite" onClick={() => navigate('/missionarios')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Missionários</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.total_members', 'Missionários')}</span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalUsers || 0}</span>
           </div>
           <div className="card-lite" onClick={() => navigate('/itinerario-formativo')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Religiosos / Seminaristas</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.seminaristas', 'Religiosos')}</span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalItineraries || 0}</span>
           </div>
           <div className="card-lite" onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Presença Missionária</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.houses', 'Presença Missionária')}</span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalHouses || 0}</span>
           </div>
         </div>
@@ -97,15 +97,15 @@ const MapaRNSMM: React.FC = () => {
       {/* Presença Missionária Detailed Breakdown */}
       {isAdm && (
         <div className="card-lite mapa-presenca-card">
-          <h3 style={{ margin: '0 0 1.5rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>Presença Missionária</h3>
+          <h3 style={{ margin: '0 0 1.5rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>{t('menu.houses', 'Presença Missionária')}</h3>
           <div className="mapa-presenca-grid">
               {[
-                  { label: 'Casas Religiosas (CR)', count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
-                  { label: 'Casas de Idosos (CI)', count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
-                  { label: 'Obras (M)', count: statsData?.housesByType?.M || 0, icon: <Heart size={20} />, type: 'M' },
-                  { label: 'Paróquias/Igrejas (P)', count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
-                  { label: 'Pastoral Vocacional (PV)', count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
-                  { label: 'Seminários (CS)', count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
+                  { label: t('mapa.houses_cr', 'Casas Religiosas (CR)'), count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
+                  { label: t('mapa.houses_ci', 'Casas de Idosos (CI)'), count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
+                  { label: t('mapa.houses_m', 'Obras (M)'), count: statsData?.housesByType?.M || 0, icon: <Heart size={20} />, type: 'M' },
+                  { label: t('mapa.houses_p', 'Paróquias/Igrejas (P)'), count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
+                  { label: t('mapa.houses_pv', 'Pastoral Vocacional (PV)'), count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
+                  { label: t('mapa.houses_cs', 'Seminários (CS)'), count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
               ].map((item, idx) => (
                   <div key={idx} onClick={() => navigate('/casas-religiosas')} className="mapa-presenca-item">
                       <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.85rem', textAlign: 'center' }}>{item.label}</span>
@@ -120,7 +120,7 @@ const MapaRNSMM: React.FC = () => {
         <div className="mapa-header-bar">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Globe className="text-primary" size={28} />
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Sede Canônica RNSMM</h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{t('mapa.sede_title', 'Sede Canônica RNSMM')}</h3>
             </div>
             <a 
                 href={googleMapsUrl} 
@@ -138,7 +138,7 @@ const MapaRNSMM: React.FC = () => {
                     borderRadius: '12px'
                 }}
             >
-                Abrir no Google Maps <ExternalLink size={18} />
+                {t('mapa.open_google_maps', 'Abrir no Google Maps')} <ExternalLink size={18} />
             </a>
         </div>
         

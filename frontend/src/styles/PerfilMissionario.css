@@ -1045,6 +1045,10 @@
 .icon-obra { background: #fff7ed; color: #c2410c; }
 .icon-saude { background: #fef2f2; color: #dc2626; }
 .icon-banco { background: #f5f3ff; color: #7c3aed; }
+.icon-itin-seminario { background: #eff6ff; color: #1d4ed8; }
+.icon-itin-religiosa { background: #fdf2f8; color: #be185d; }
+.icon-itin-ministerios { background: #f5f3ff; color: #6d28d9; }
+.icon-itin-destinacao { background: #f0fdf4; color: #15803d; }
 
 .item-main-content {
   flex: 1;

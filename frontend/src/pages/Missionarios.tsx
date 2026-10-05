@@ -644,7 +644,7 @@ const Missionarios: React.FC = () => {
     try {
       const hasOconomoLocal = (wizardData.atividade_funcoes || []).includes('Ecônomo Local');
       const hasSuperiorLocal = (wizardData.atividade_funcoes || []).includes('Superior Local');
-      
+
       const effectiveIsOconomo = wizardData.is_oconomo || hasOconomoLocal;
       const effectiveIsSuperior = wizardData.is_superior || hasSuperiorLocal;
 
@@ -692,7 +692,7 @@ const Missionarios: React.FC = () => {
       // 3 — Civil data
       const fullFiliacao = `${wizardData.nome_pai || ''} / ${wizardData.nome_mae || ''}`.trim();
       await api.post(`/usuarios/${newId}/dados-civis`, {
-        data_nascimento: wizardData.data_nascimento || null, 
+        data_nascimento: wizardData.data_nascimento || null,
         filiacao: fullFiliacao === '/' ? '' : fullFiliacao,
         cidade_estado: wizardData.cidade_estado,
         diocese: wizardData.diocese,
@@ -921,58 +921,58 @@ const Missionarios: React.FC = () => {
         <div className="title-with-badge">
           <Users size={24} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ margin: 0 }}>Visão Geral do Cadastro de missionários</h2>
+            <h2 style={{ margin: 0 }}>{t('missionaries.title_overview', 'Missionários/Religiosos Cadastrados')}</h2>
           </div>
         </div>
-        {canEdit && <button className="btn-new" onClick={openWizard}><Plus size={18} /> Cadastro</button>}
+        {canEdit && <button className="btn-new" onClick={openWizard}><Plus size={18} /> {t('missionaries.new_btn', 'Novo Cadastro')}</button>}
       </div>
 
       <div className="filters-card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
         <div className="filter-group">
-          <label>NOME</label>
+          <label>{t('missionaries.filters.name_label', 'NOME')}</label>
           <div className="search-input">
-            <input type="text" placeholder="Buscar por nome..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder={t('missionaries.filters.search_name_placeholder', 'Buscar por nome...')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             <Search size={18} />
           </div>
         </div>
         <div className="filter-group">
-          <label>PRESENÇA MISSIONÁRIA</label>
+          <label>{t('missionaries.filters.house_label', 'PRESENÇA MISSIONÁRIA')}</label>
           <div className="search-input">
-            <input type="text" placeholder="Filtrar por casa..." value={casaFilter} onChange={e => setCasaFilter(e.target.value)} />
+            <input type="text" placeholder={t('missionaries.filters.filter_house_placeholder', 'Filtrar por casa...')} value={casaFilter} onChange={e => setCasaFilter(e.target.value)} />
             <Search size={18} />
           </div>
         </div>
         <div className="filter-group">
-          <label>CIDADE</label>
+          <label>{t('missionaries.filters.city_label', 'CIDADE')}</label>
           <div className="search-input">
-            <input type="text" placeholder="Filtrar por cidade..." value={cidadeFilter} onChange={e => setCidadeFilter(e.target.value)} />
+            <input type="text" placeholder={t('missionaries.filters.filter_city_placeholder', 'Filtrar por cidade...')} value={cidadeFilter} onChange={e => setCidadeFilter(e.target.value)} />
             <Search size={18} />
           </div>
         </div>
         <div className="filter-group">
-          <label>PAÍS</label>
+          <label>{t('missionaries.filters.country_label', 'PAÍS')}</label>
           <div className="search-input">
-            <input type="text" placeholder="Filtrar por país..." value={paisFilter} onChange={e => setPaisFilter(e.target.value)} />
+            <input type="text" placeholder={t('missionaries.filters.filter_country_placeholder', 'Filtrar por país...')} value={paisFilter} onChange={e => setPaisFilter(e.target.value)} />
             <Search size={18} />
           </div>
         </div>
         <div className="filter-group">
-          <label>SITUAÇÃO</label>
+          <label>{t('missionaries.filters.situation_label', 'SITUAÇÃO')}</label>
           <select value={situacaoFilter} onChange={e => setSituacaoFilter(e.target.value)}>
-            <option value="">{t('missionaries.filters.all')}</option>
+            <option value="">{t('missionaries.filters.all', 'Todas as Situações')}</option>
             <option value="ATIVO">{t('missionaries.situations.ativo', 'Ativo')}</option>
             <option value="FALECIDO">{t('missionaries.situations.falecido', 'Falecido')}</option>
             <option value="EGRESSO">{t('missionaries.situations.egresso', 'Egresso')}</option>
             <option value="EXCLAUSTRADO">{t('missionaries.situations.exclaustrado', 'Exclaustrado')}</option>
           </select>
         </div>
-        <button className="btn-filter" style={{ gridColumn: 'span 1', width: '100%', height: '42px', marginTop: '0' }}><Filter size={18} /> {t('missionaries.filters.filter_btn')}</button>
+        <button className="btn-filter" style={{ gridColumn: 'span 1', width: '100%', height: '42px', marginTop: '0' }}><Filter size={18} /> {t('missionaries.filters.filter_btn', 'Filtrar')}</button>
       </div>
 
       {isLoading ? (
-        <div className="loading-state"><Loader2 className="animate-spin" size={32} /><p>{t('missionaries.loading')}</p></div>
+        <div className="loading-state"><Loader2 className="animate-spin" size={32} /><p>{t('missionaries.loading', 'Carregando...')}</p></div>
       ) : error ? (
-        <div className="error-state"><AlertCircle size={32} /><p>{error}</p><button onClick={fetchMissionarios} className="btn-retry">{t('common.retry')}</button></div>
+        <div className="error-state"><AlertCircle size={32} /><p>{error}</p><button onClick={fetchMissionarios} className="btn-retry">{t('common.retry', 'Tentar novamente')}</button></div>
       ) : (
         <div className="data-table">
           <table>
@@ -1001,14 +1001,14 @@ const Missionarios: React.FC = () => {
                     </span>
                   </td>
                   <td className="center">
-                    <button className="btn-action-lite" title={t('missionaries.table.view_details')} onClick={() => navigate(`/missionarios/${m.id}`)}>
+                    <button className="btn-action-lite" title={t('missionaries.table.view_details', 'Ver Detalhes')} onClick={() => navigate(`/missionarios/${m.id}`)}>
                       <Eye size={18} />
                     </button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#888' }}>{t('missionaries.empty')}</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#888' }}>{t('missionaries.empty', 'Nenhum missionário encontrado')}</td></tr>
               )}
             </tbody>
           </table>
@@ -1018,7 +1018,7 @@ const Missionarios: React.FC = () => {
             <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
               <span style={{ fontSize: '14px', color: '#64748b' }}>Página {currentPage} de {totalPages}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
+                <button
                   type="button"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -1026,7 +1026,7 @@ const Missionarios: React.FC = () => {
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <button 
+                <button
                   type="button"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -1102,7 +1102,7 @@ const Missionarios: React.FC = () => {
               {wizardStep === 0 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">0. Situação do Missionário</div>
-                  
+
                   <div className="form-group full" style={{ marginBottom: '14px' }}>
                     <label>Situação do Missionário *</label>
                     <select value={wizardData.situacao} onChange={e => set('situacao', e.target.value)}>
@@ -1301,7 +1301,7 @@ const Missionarios: React.FC = () => {
               {wizardStep === 1 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">1. Dados Civis</div>
-                  
+
                   <div className="form-group full">
                     <label>{t('missionaries.wizard.civil.full_name')} *</label>
                     <input
@@ -1382,10 +1382,10 @@ const Missionarios: React.FC = () => {
                       <label>RG / RNM / CI / DI</label>
                       <input
                         type="text"
-                        maxLength={10}
+                        maxLength={30}
                         value={wizardData.rnm}
-                        onChange={e => set('rnm', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        placeholder="000000000"
+                        onChange={e => set('rnm', e.target.value)}
+                        placeholder="Ex: 12.345.678-9, V123456-X..."
                       />
                     </div>
                     <div className="form-group">
@@ -1874,7 +1874,6 @@ const Missionarios: React.FC = () => {
                         }
                         set('itinerario', newItin);
                       };
-                      const showObs = seg.etapa === '4.1.5' || seg.etapa === '4.1.7' || (seg.etapa && seg.etapa.startsWith('4.2'));
                       return (
                         <div key={idx} style={{ padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fafafa' }}>
                           <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#013375', marginBottom: '6px' }}>{seg.label}</div>
@@ -1887,11 +1886,9 @@ const Missionarios: React.FC = () => {
                                 <input type="text" value={stage.local} onChange={e => updateStage('local', e.target.value)} placeholder="Local / Instituição" style={{ fontSize: '0.78rem' }} />
                               </div>
                             </div>
-                            {showObs && (
-                              <div className="form-group" style={{ marginBottom: 0, width: '100%' }}>
-                                <input type="text" value={stage.observacoes || ''} onChange={e => updateStage('observacoes', e.target.value)} placeholder="Observações" style={{ fontSize: '0.78rem', width: '100%' }} />
-                              </div>
-                            )}
+                            <div className="form-group" style={{ marginBottom: 0, width: '100%' }}>
+                              <input type="text" value={stage.observacoes || ''} onChange={e => updateStage('observacoes', e.target.value)} placeholder="Observações" style={{ fontSize: '0.78rem', width: '100%' }} />
+                            </div>
                           </div>
                         </div>
                       );
@@ -2345,9 +2342,9 @@ const Missionarios: React.FC = () => {
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                             {PERMISSIONS_LIST.map(perm => (
                               <div key={perm.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', padding: '6px 4px' }}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={!!wizardData.permissoes?.[perm.id]} 
+                                <input
+                                  type="checkbox"
+                                  checked={!!wizardData.permissoes?.[perm.id]}
                                   onChange={() => {
                                     const newPerms = { ...wizardData.permissoes };
                                     newPerms[perm.id] = !newPerms[perm.id];

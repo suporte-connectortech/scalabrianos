@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ChevronRight, User, MapPin, Lock, CreditCard, X, Trash2, Edit2 } from 'lucide-react';
+import { Camera, ChevronRight, User, MapPin, Lock, X, Trash2, Edit2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -20,18 +21,18 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: numbe
     ),
     mediaWidth,
     mediaHeight,
-  )
+  );
 }
 
 const MeuPerfil: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [perfil, setPerfil] = useState<any>(null);
   const [endereco, setEndereco] = useState<any>(null);
-  const [contaBancaria, setContaBancaria] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Modal states
-  const [activeModal, setActiveModal] = useState<'info' | 'endereco' | 'seguranca' | 'banco' | null>(null);
+  // Modal states (removed 'banco')
+  const [activeModal, setActiveModal] = useState<'info' | 'endereco' | 'seguranca' | null>(null);
   
   // Form states
   const [formData, setFormData] = useState<any>({});
@@ -52,7 +53,6 @@ const MeuPerfil: React.FC = () => {
       const res = await api.get('/meu-perfil');
       setPerfil(res.data.perfil);
       setEndereco(res.data.endereco || {});
-      setContaBancaria(res.data.contaBancaria || {});
     } catch (err) {
       console.error(err);
     } finally {
@@ -74,7 +74,7 @@ const MeuPerfil: React.FC = () => {
   function onSelectFile(e: React.ChangeEvent<HTMLInputElement>) {
     setShowPhotoOptions(false);
     if (e.target.files && e.target.files.length > 0) {
-      setCrop(undefined); // Makes crop preview update between images.
+      setCrop(undefined);
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         setImgSrc(reader.result?.toString() || '');
@@ -124,11 +124,11 @@ const MeuPerfil: React.FC = () => {
     const blob = await getCroppedImg(imgRef.current, completedCrop);
     if (!blob) return;
 
-    const formData = new FormData();
-    formData.append('foto', blob, 'profile.jpg');
+    const formDataUpload = new FormData();
+    formDataUpload.append('foto', blob, 'profile.jpg');
 
     try {
-      const res = await api.post('/meu-perfil/foto', formData, {
+      const res = await api.post('/meu-perfil/foto', formDataUpload, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
@@ -149,7 +149,7 @@ const MeuPerfil: React.FC = () => {
   };
 
   const handleDeletePhoto = async () => {
-    if (!window.confirm('Tem certeza que deseja remover sua foto de perfil?')) return;
+    if (!window.confirm(t('my_profile.confirm_delete_photo', 'Tem certeza que deseja remover sua foto de perfil?'))) return;
     try {
       await api.delete('/meu-perfil/foto');
       setShowPhotoOptions(false);
@@ -160,7 +160,7 @@ const MeuPerfil: React.FC = () => {
         window.location.reload();
       }
     } catch (err) {
-      alert('Erro ao excluir foto');
+      alert(t('my_profile.error_delete_photo', 'Erro ao excluir foto'));
     }
   };
 
@@ -172,11 +172,10 @@ const MeuPerfil: React.FC = () => {
     }
   };
 
-  const openModal = (type: 'info' | 'endereco' | 'seguranca' | 'banco') => {
+  const openModal = (type: 'info' | 'endereco' | 'seguranca') => {
     setActiveModal(type);
     if (type === 'info') setFormData({ nome: perfil?.nome || '' });
     else if (type === 'endereco') setFormData({ ...endereco });
-    else if (type === 'banco') setFormData({ ...contaBancaria });
     else if (type === 'seguranca') setPasswordData({ password: '', confirmPassword: '' });
   };
 
@@ -186,29 +185,27 @@ const MeuPerfil: React.FC = () => {
         await api.put('/meu-perfil', { nome: formData.nome });
       } else if (activeModal === 'endereco') {
         await api.put('/meu-perfil/endereco', formData);
-      } else if (activeModal === 'banco') {
-        await api.put('/meu-perfil/conta', formData);
       } else if (activeModal === 'seguranca') {
         if (passwordData.password !== passwordData.confirmPassword) {
-          alert('As senhas não coincidem');
+          alert(t('my_profile.passwords_dont_match', 'As senhas não coincidem'));
           return;
         }
         if (passwordData.password.length < 6) {
-          alert('A senha deve ter pelo menos 6 caracteres');
+          alert(t('my_profile.password_min_length', 'A senha deve ter pelo menos 6 caracteres'));
           return;
         }
         await api.put(`/usuarios/${user?.id}/password`, { password: passwordData.password });
-        alert('Senha atualizada com sucesso!');
+        alert(t('my_profile.password_updated', 'Senha atualizada com sucesso!'));
       }
       
       setActiveModal(null);
       fetchData();
     } catch (err) {
-      alert('Erro ao salvar os dados');
+      alert(t('my_profile.error_save', 'Erro ao salvar os dados'));
     }
   };
 
-  if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando...</div>;
+  if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>{t('common.loading', 'Carregando...')}</div>;
 
   return (
     <div className="meu-perfil-page">
@@ -233,10 +230,10 @@ const MeuPerfil: React.FC = () => {
               display: 'flex', flexDirection: 'column', overflow: 'hidden'
             }}>
               <button onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #eee', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Edit2 size={16} /> Trocar Foto
+                <Edit2 size={16} /> {t('my_profile.change_photo', 'Trocar Foto')}
               </button>
               <button onClick={handleDeletePhoto} style={{ padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Trash2 size={16} /> Excluir Foto
+                <Trash2 size={16} /> {t('my_profile.delete_photo', 'Excluir Foto')}
               </button>
             </div>
           )}
@@ -252,7 +249,7 @@ const MeuPerfil: React.FC = () => {
             <div className="menu-item-left">
               <div className="menu-icon-wrapper"><User size={20} /></div>
               <div className="menu-item-text">
-                <span className="menu-item-title">Informações do seu perfil</span>
+                <span className="menu-item-title">{t('my_profile.info_title', 'Informações do seu perfil')}</span>
                 <span className="menu-item-subtitle">{perfil?.nome}</span>
               </div>
             </div>
@@ -263,9 +260,9 @@ const MeuPerfil: React.FC = () => {
             <div className="menu-item-left">
               <div className="menu-icon-wrapper"><MapPin size={20} /></div>
               <div className="menu-item-text">
-                <span className="menu-item-title">Endereços</span>
+                <span className="menu-item-title">{t('my_profile.address_title', 'Endereços')}</span>
                 <span className="menu-item-subtitle">
-                  {endereco?.cidade_estado ? `${endereco.cidade_estado}` : 'Não informado'}
+                  {endereco?.cidade_estado ? `${endereco.cidade_estado}` : t('my_profile.not_informed', 'Não informado')}
                 </span>
               </div>
             </div>
@@ -276,21 +273,8 @@ const MeuPerfil: React.FC = () => {
             <div className="menu-item-left">
               <div className="menu-icon-wrapper"><Lock size={20} /></div>
               <div className="menu-item-text">
-                <span className="menu-item-title">Segurança</span>
-                <span className="menu-item-subtitle">Login e senha</span>
-              </div>
-            </div>
-            <div className="menu-item-right"><ChevronRight size={20} /></div>
-          </div>
-
-          <div className="menu-item" onClick={() => openModal('banco')}>
-            <div className="menu-item-left">
-              <div className="menu-icon-wrapper"><CreditCard size={20} /></div>
-              <div className="menu-item-text">
-                <span className="menu-item-title">Dados Bancários</span>
-                <span className="menu-item-subtitle">
-                  {contaBancaria?.agencia ? `Ag ${contaBancaria.agencia} / CC ${contaBancaria.numero}` : 'Não informado'}
-                </span>
+                <span className="menu-item-title">{t('my_profile.security_title', 'Segurança')}</span>
+                <span className="menu-item-subtitle">{t('my_profile.login_password', 'Login e senha')}</span>
               </div>
             </div>
             <div className="menu-item-right"><ChevronRight size={20} /></div>
@@ -303,7 +287,7 @@ const MeuPerfil: React.FC = () => {
         <div className="perfil-modal-overlay">
           <div className="perfil-modal-content" style={{ maxWidth: '600px' }}>
             <div className="perfil-modal-header">
-              <h3>Ajustar Foto</h3>
+              <h3>{t('my_profile.adjust_photo', 'Ajustar Foto')}</h3>
               <button className="perfil-modal-close" onClick={() => { setShowCropModal(false); setImgSrc(''); }}><X size={24} /></button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', background: '#f1f5f9', maxHeight: '400px', overflow: 'auto' }}>
@@ -325,10 +309,10 @@ const MeuPerfil: React.FC = () => {
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button className="perfil-btn-save" style={{ background: '#64748b' }} onClick={() => { setShowCropModal(false); setImgSrc(''); }}>
-                Cancelar
+                {t('common.cancel', 'Cancelar')}
               </button>
               <button className="perfil-btn-save" onClick={handleUploadCropped}>
-                Confirmar e Enviar
+                {t('my_profile.confirm_upload', 'Confirmar e Enviar')}
               </button>
             </div>
           </div>
@@ -340,10 +324,9 @@ const MeuPerfil: React.FC = () => {
           <div className="perfil-modal-content">
             <div className="perfil-modal-header">
               <h3>
-                {activeModal === 'info' && 'Editar Informações'}
-                {activeModal === 'endereco' && 'Endereço e Contato'}
-                {activeModal === 'seguranca' && 'Segurança'}
-                {activeModal === 'banco' && 'Dados Bancários'}
+                {activeModal === 'info' && t('my_profile.modal_edit_info', 'Editar Informações')}
+                {activeModal === 'endereco' && t('my_profile.modal_edit_address', 'Endereço e Contato')}
+                {activeModal === 'seguranca' && t('my_profile.modal_edit_security', 'Segurança')}
               </h3>
               <button className="perfil-modal-close" onClick={() => setActiveModal(null)}><X size={24} /></button>
             </div>
@@ -352,11 +335,11 @@ const MeuPerfil: React.FC = () => {
               {activeModal === 'info' && (
                 <>
                   <div className="perfil-form-group">
-                    <label>Nome Completo</label>
+                    <label>{t('my_profile.full_name', 'Nome Completo')}</label>
                     <input type="text" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
                   </div>
                   <div className="perfil-form-group">
-                    <label>Email (Login)</label>
+                    <label>{t('my_profile.email_login', 'Email (Login)')}</label>
                     <input type="text" value={perfil?.email || user?.email || ''} disabled style={{ background: '#f1f5f9', color: '#94a3b8' }} />
                   </div>
                 </>
@@ -365,49 +348,26 @@ const MeuPerfil: React.FC = () => {
               {activeModal === 'endereco' && (
                 <>
                   <div className="perfil-form-group">
-                    <label>Logradouro / Rua</label>
+                    <label>{t('my_profile.street', 'Logradouro / Rua')}</label>
                     <input type="text" value={formData.logradouro || ''} onChange={e => setFormData({...formData, logradouro: e.target.value})} />
                   </div>
                   <div className="perfil-form-row">
                     <div className="perfil-form-group" style={{ flex: 1 }}>
-                      <label>Bairro</label>
+                      <label>{t('my_profile.neighborhood', 'Bairro')}</label>
                       <input type="text" value={formData.bairro || ''} onChange={e => setFormData({...formData, bairro: e.target.value})} />
                     </div>
                     <div className="perfil-form-group" style={{ flex: 1 }}>
-                      <label>CEP</label>
+                      <label>{t('my_profile.cep', 'CEP / Código Postal')}</label>
                       <input type="text" value={formData.cep || ''} onChange={e => setFormData({...formData, cep: e.target.value})} />
                     </div>
                   </div>
                   <div className="perfil-form-group">
-                    <label>Cidade / Estado</label>
+                    <label>{t('my_profile.city_state', 'Cidade / Estado')}</label>
                     <input type="text" value={formData.cidade_estado || ''} onChange={e => setFormData({...formData, cidade_estado: e.target.value})} />
                   </div>
                   <div className="perfil-form-group">
-                    <label>Celular / WhatsApp</label>
+                    <label>{t('my_profile.phone', 'Celular / WhatsApp')}</label>
                     <input type="text" value={formData.celular_whatsapp || ''} onChange={e => setFormData({...formData, celular_whatsapp: e.target.value})} />
-                  </div>
-                </>
-              )}
-
-              {activeModal === 'banco' && (
-                <>
-                  <div className="perfil-form-group">
-                    <label>Tipo de Conta</label>
-                    <input type="text" placeholder="Ex: Conta Corrente - Banco do Brasil" value={formData.tipo_conta || ''} onChange={e => setFormData({...formData, tipo_conta: e.target.value})} />
-                  </div>
-                  <div className="perfil-form-group">
-                    <label>Titularidade</label>
-                    <input type="text" value={formData.titularidade || ''} onChange={e => setFormData({...formData, titularidade: e.target.value})} />
-                  </div>
-                  <div className="perfil-form-row">
-                    <div className="perfil-form-group" style={{ flex: 1 }}>
-                      <label>Agência</label>
-                      <input type="text" value={formData.agencia || ''} onChange={e => setFormData({...formData, agencia: e.target.value})} />
-                    </div>
-                    <div className="perfil-form-group" style={{ flex: 1 }}>
-                      <label>Número da Conta</label>
-                      <input type="text" value={formData.numero || ''} onChange={e => setFormData({...formData, numero: e.target.value})} />
-                    </div>
                   </div>
                 </>
               )}
@@ -415,18 +375,18 @@ const MeuPerfil: React.FC = () => {
               {activeModal === 'seguranca' && (
                 <>
                   <div className="perfil-form-group">
-                    <label>Nova Senha</label>
+                    <label>{t('my_profile.new_password', 'Nova Senha')}</label>
                     <input type="password" value={passwordData.password} onChange={e => setPasswordData({...passwordData, password: e.target.value})} />
                   </div>
                   <div className="perfil-form-group">
-                    <label>Confirmar Nova Senha</label>
+                    <label>{t('my_profile.confirm_new_password', 'Confirmar Nova Senha')}</label>
                     <input type="password" value={passwordData.confirmPassword} onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} />
                   </div>
                 </>
               )}
 
               <button className="perfil-btn-save" onClick={handleSave}>
-                Salvar Alterações
+                {t('common.save_changes', 'Salvar Alterações')}
               </button>
             </div>
           </div>
