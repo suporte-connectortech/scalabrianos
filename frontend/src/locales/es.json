@@ -31,13 +31,19 @@
     },
     "dashboard": {
       "overview": "Resumen",
+      "sede_title": "Sede Regional RNSMM",
       "loading": "Cargando tablero...",
+      "activity_ready": "Sistema listo",
+      "just_now": "Ahora mismo",
       "stats": {
         "total_members": "Total de Misioneros",
         "houses": "Presencia Misionera",
+        "obras": "Obras",
         "works": "Obras",
+        "paroquias": "Parroquias / Iglesias",
         "parishes": "Parroquias / Iglesias",
         "pastoral": "Pastoral / Vocacional",
+        "idosos": "Casas de Ancianos",
         "elderly_houses": "Casas de Ancianos",
         "religious_seminarists": "Religiosos",
         "seminaristas": "Religiosos"
@@ -536,7 +542,8 @@
       "confirm_delete": "¿Desea realmente eliminar este registro?",
       "yes": "Sí",
       "no": "No",
-      "retry": "Intentar nuevamente"
+      "retry": "Intentar nuevamente",
+      "view_details": "Ver Detalles"
     },
     "planilha": {
       "individual_title": "Rendición de Cuentas Mensual - Misionero",
@@ -693,6 +700,51 @@
         "administrador": "Administrador",
         "colaborador": "Misionero",
         "intermitente": "Misionero"
+      }
+    },
+    "mapa": {
+      "title": "Mapa RNSMM",
+      "stats": {
+        "missionaries": "Misioneros",
+        "religious": "Religiosos",
+        "houses": "Presencia Misionera"
+      },
+      "houses_breakdown_title": "Presencia Misionera",
+      "houses_cr": "Casas Religiosas (CR)",
+      "houses_ci": "Casas de Ancianos (CI)",
+      "houses_m": "Obras (M)",
+      "houses_p": "Parroquias / Iglesias (P)",
+      "houses_pv": "Pastoral Vocacional (PV)",
+      "houses_cs": "Seminarios (CS)",
+      "sede_title": "Sede Canónica RNSMM",
+      "open_google_maps": "Abrir en Google Maps",
+      "iframe_title": "Google Maps Sede RNSMM",
+      "mission_history_title": "Misión e Historia",
+      "mission_history_desc": "La RNSMM nació de la unión estratégica de las provincias scalabrinianas para atender mejor el flujo migratorio en América del Sur. Hoy, coordina la presencia en 7 países, unificando la gestión y el carisma de acogida.",
+      "region_countries_title": "Países de la Región",
+      "countries": {
+        "argentina": "Argentina",
+        "bolivia": "Bolivia",
+        "brazil": "Brasil",
+        "chile": "Chile",
+        "paraguay": "Paraguay",
+        "peru": "Perú",
+        "uruguay": "Uruguay"
+      },
+      "work_fronts_title": "Frentes de Trabajo",
+      "fronts": {
+        "acolhimento": {
+          "title": "Acogida",
+          "desc": "Casas de acogida y centros de atención al migrante."
+        },
+        "promocao": {
+          "title": "Promoción Humanitaria",
+          "desc": "Defensa de derechos e integración social."
+        },
+        "eclesial": {
+          "title": "Presencia Eclesial",
+          "desc": "Parroquias, misiones y pastorales especializadas."
+        }
       }
     }
   }

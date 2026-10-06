@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { isHiddenTestUser } from '../utils/userFilter';
+import { BankAutocomplete } from '../components/Common/BankAutocomplete';
 import '../styles/Perfis.css';
 import '../styles/Missionarios.css';
 
@@ -141,10 +142,12 @@ interface WizardData {
   nit: string;
 
   // Step 9 - Contas Bancárias
+  banco_nome: string;
   banco_tipo: string;
   banco_titular: string;
   banco_agencia: string;
   banco_numero: string;
+  banco_observacoes: string;
 
   // Step 10 - Obras Realizadas
   obra_periodo: string;
@@ -241,10 +244,12 @@ const initialWizard: WizardData = {
   saude_carteira: '',
   nit: '',
 
+  banco_nome: '',
   banco_tipo: '',
   banco_titular: '',
   banco_agencia: '',
   banco_numero: '',
+  banco_observacoes: '',
 
   obra_periodo: '',
   obra_lugar: '',
@@ -817,13 +822,15 @@ const Missionarios: React.FC = () => {
       }
 
       // 13 — Contas Bancárias
-      if (wizardData.banco_numero || wizardData.banco_agencia) {
+      if (wizardData.banco_numero || wizardData.banco_agencia || wizardData.banco_nome || wizardData.banco_tipo) {
         await api.post(`/usuarios/${newId}/contas-bancarias`, {
+          banco: wizardData.banco_nome,
           tipo_confirmacao: wizardData.banco_tipo,
           tipo_conta: wizardData.banco_tipo,
           titularidade: wizardData.banco_titular,
           agencia: wizardData.banco_agencia,
-          numero: wizardData.banco_numero
+          numero: wizardData.banco_numero,
+          observacoes: wizardData.banco_observacoes
         });
       }
 
@@ -2116,13 +2123,49 @@ const Missionarios: React.FC = () => {
               {wizardStep === 9 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">9. Contas Bancárias</div>
+                  <div className="form-group full" style={{ marginBottom: '14px' }}>
+                    <label>Instituição Financeira / Banco</label>
+                    <BankAutocomplete
+                      value={wizardData.banco_nome}
+                      onChange={val => set('banco_nome', val)}
+                      placeholder="Pesquise ou digite o banco (ex: Nubank, Mercado Pago, C6, Inter, Itaú, BB...)"
+                    />
+                  </div>
                   <div className="form-row-2">
-                    <div className="form-group"><label>Tipo de Conta</label><input type="text" value={wizardData.banco_tipo} onChange={e => set('banco_tipo', e.target.value)} placeholder="Corrente, Poupança..." /></div>
+                    <div className="form-group"><label>Tipo de Conta</label><input type="text" value={wizardData.banco_tipo} onChange={e => set('banco_tipo', e.target.value)} placeholder="Corrente, Poupança, Salário, Pagamento..." /></div>
                     <div className="form-group"><label>Titularidade</label><input type="text" value={wizardData.banco_titular} onChange={e => set('banco_titular', e.target.value)} placeholder="Titular da conta" /></div>
                   </div>
                   <div className="form-row-2">
-                    <div className="form-group"><label>Agência</label><input type="text" value={wizardData.banco_agencia} onChange={e => set('banco_agencia', e.target.value)} placeholder="Agência" /></div>
-                    <div className="form-group"><label>Número da Conta</label><input type="text" value={wizardData.banco_numero} onChange={e => set('banco_numero', e.target.value)} placeholder="Número da conta" /></div>
+                    <div className="form-group">
+                      <label>Agência</label>
+                      <input
+                        type="text"
+                        maxLength={10}
+                        value={wizardData.banco_agencia}
+                        onChange={e => set('banco_agencia', e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 10))}
+                        placeholder="Ex: 0001 ou 1234-5"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Número da Conta</label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={wizardData.banco_numero}
+                        onChange={e => set('banco_numero', e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 16))}
+                        placeholder="Ex: 12345678-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group full" style={{ marginTop: '6px' }}>
+                    <label>Observações da Conta</label>
+                    <textarea
+                      value={wizardData.banco_observacoes}
+                      onChange={e => set('banco_observacoes', e.target.value)}
+                      placeholder="Observações adicionais sobre esta conta bancária (chave PIX, finalidade, etc.)..."
+                      rows={3}
+                      style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}
+                    />
                   </div>
                 </div>
               )}

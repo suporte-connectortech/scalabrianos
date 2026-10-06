@@ -4,11 +4,13 @@ import {
   User, MapPin, BookOpen, Home as HomeIcon, Loader2, AlertCircle,
   Save, Trash2, Plus, Star, FileText, Download, ShieldCheck, Eye,
   Activity, ChevronLeft, DollarSign, GraduationCap, Upload, Lock,
-  CheckCircle, Printer, ChevronDown, ChevronRight, Edit, Heart, Church
+  CheckCircle, Printer, ChevronDown, ChevronRight, Edit, Heart, Church,
+  ExternalLink, Globe
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api, { getFileUrl } from '../api';
+import { BankAutocomplete } from '../components/Common/BankAutocomplete';
 import '../styles/PerfilMissionario.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -175,10 +177,13 @@ interface SaudeRecord {
 
 interface ContaBancaria {
   id: number;
+  banco?: string;
   tipo_conta: string;
   titularidade: string;
   agencia: string;
   numero: string;
+  observacoes?: string;
+  doc_path?: string;
 }
 
 interface Contato {
@@ -213,6 +218,7 @@ interface QuadroPessoal {
   funcao_atual?: string;
   competencias?: string;
   cv_path?: string;
+  links_externos?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -397,6 +403,99 @@ const PerfilMissionario: React.FC = () => {
   const [quadroPessoal, setQuadroPessoal] = useState<QuadroPessoal | null>(null);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const [cvUploadLoading, setCvUploadLoading] = useState(false);
+  const [linksExternosInput, setLinksExternosInput] = useState('');
+  const [isSavingLinks, setIsSavingLinks] = useState(false);
+  const [isEditingLinks, setIsEditingLinks] = useState(false);
+
+  useEffect(() => {
+    if (quadroPessoal?.links_externos !== undefined) {
+      setLinksExternosInput(quadroPessoal.links_externos || '');
+    }
+  }, [quadroPessoal?.links_externos]);
+
+  const parseExternalLinks = (raw?: string) => {
+    if (!raw) return [];
+    const items = raw
+      .split(/[\n,;]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    
+    return items.map(url => {
+      let fullUrl = url;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        fullUrl = 'https://' + url;
+      }
+      let domain = '';
+      try {
+        domain = new URL(fullUrl).hostname.replace('www.', '');
+      } catch {
+        domain = fullUrl;
+      }
+
+      let label = domain;
+      let badgeType = 'default';
+
+      if (domain.includes('linkedin.com')) {
+        label = 'LinkedIn';
+        badgeType = 'linkedin';
+      } else if (domain.includes('lattes.cnpq.br') || url.toLowerCase().includes('lattes')) {
+        label = 'Currículo Lattes';
+        badgeType = 'lattes';
+      } else if (domain.includes('orcid.org')) {
+        label = 'ORCID';
+        badgeType = 'orcid';
+      } else if (domain.includes('github.com')) {
+        label = 'GitHub';
+        badgeType = 'github';
+      } else if (domain.includes('instagram.com')) {
+        label = 'Instagram';
+        badgeType = 'instagram';
+      } else if (domain.includes('facebook.com')) {
+        label = 'Facebook';
+        badgeType = 'facebook';
+      } else if (domain.includes('youtube.com')) {
+        label = 'YouTube';
+        badgeType = 'youtube';
+      } else {
+        label = domain || 'Link Externo';
+      }
+
+      return {
+        url: fullUrl,
+        label,
+        domain,
+        badgeType
+      };
+    });
+  };
+
+  const handleSaveLinksExternos = async (customValue?: string) => {
+    const val = customValue !== undefined ? customValue : linksExternosInput;
+    setIsSavingLinks(true);
+    try {
+      await api.post(`/usuarios/${id}/quadro-pessoal`, {
+        funcao_atual: quadroPessoal?.funcao_atual || '',
+        competencias: quadroPessoal?.competencias || '',
+        cv_path: quadroPessoal?.cv_path || '',
+        links_externos: val
+      });
+      setQuadroPessoal(prev => prev ? { ...prev, links_externos: val } : {
+        id: 0,
+        usuario_id: Number(id),
+        funcao_atual: '',
+        competencias: '',
+        cv_path: '',
+        links_externos: val
+      });
+      setIsEditingLinks(false);
+      alert('Links externos salvos com sucesso!');
+    } catch (err) {
+      console.error('Erro ao salvar links externos:', err);
+      alert('Erro ao salvar links externos.');
+    } finally {
+      setIsSavingLinks(false);
+    }
+  };
 
   const handleCvUploadDirect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -415,16 +514,18 @@ const PerfilMissionario: React.FC = () => {
       await api.post(`/usuarios/${id}/quadro-pessoal`, {
         funcao_atual: quadroPessoal?.funcao_atual || '',
         competencias: quadroPessoal?.competencias || '',
-        cv_path: filePath
+        cv_path: filePath,
+        links_externos: quadroPessoal?.links_externos || ''
       });
 
-      setQuadroPessoal({
-        id: quadroPessoal?.id || 0,
+      setQuadroPessoal(prev => ({
+        id: prev?.id || 0,
         usuario_id: Number(id),
-        funcao_atual: quadroPessoal?.funcao_atual || '',
-        competencias: quadroPessoal?.competencias || '',
-        cv_path: filePath
-      });
+        funcao_atual: prev?.funcao_atual || '',
+        competencias: prev?.competencias || '',
+        cv_path: filePath,
+        links_externos: prev?.links_externos || ''
+      }));
 
       alert('Curriculum Vitae anexado com sucesso!');
     } catch (err) {
@@ -440,8 +541,18 @@ const PerfilMissionario: React.FC = () => {
     if (!window.confirm('Tem certeza de que deseja remover o arquivo do Curriculum Vitae?')) return;
     setCvUploadLoading(true);
     try {
-      await api.delete(`/usuarios/${id}/quadro-pessoal`);
-      setQuadroPessoal(null);
+      if (quadroPessoal?.links_externos) {
+        await api.post(`/usuarios/${id}/quadro-pessoal`, {
+          funcao_atual: quadroPessoal?.funcao_atual || '',
+          competencias: quadroPessoal?.competencias || '',
+          cv_path: '',
+          links_externos: quadroPessoal.links_externos
+        });
+        setQuadroPessoal(prev => prev ? { ...prev, cv_path: '' } : null);
+      } else {
+        await api.delete(`/usuarios/${id}/quadro-pessoal`);
+        setQuadroPessoal(null);
+      }
       alert('Curriculum Vitae removido com sucesso!');
     } catch (err) {
       console.error('Erro ao remover CV:', err);
@@ -3165,34 +3276,60 @@ const PerfilMissionario: React.FC = () => {
                   </div>
                   <div className="generic-list">
                     {contasBancarias.map(b => (
-                      <div key={b.id} className="list-item-card-premium">
-                        <div className="item-icon-container icon-banco">
-                          <DollarSign size={20} />
+                      <div key={b.id} className="list-item-card-premium" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="item-icon-container icon-banco">
+                              <DollarSign size={20} />
+                            </div>
+                            <div className="item-main-content">
+                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>
+                                {b.banco ? b.banco : (b.tipo_conta || 'Conta Bancária')}
+                              </strong>
+                              <div className="item-subtitle" style={{ marginTop: '2px', color: '#475569' }}>
+                                {b.banco && <span style={{ fontWeight: 600, marginRight: '6px' }}>{b.tipo_conta} •</span>}
+                                <span>Titular: <strong>{b.titularidade || 'Não informada'}</strong></span>
+                                <span style={{ marginLeft: '10px' }}>Ag: <strong>{b.agencia || '---'}</strong> • Conta: <strong>{b.numero || '---'}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                            {canEdit && (
+                              <>
+                                <button
+                                  className="btn-action-lite"
+                                  onClick={() => {
+                                    setEditingBanco(b.id);
+                                    setTempForm(b);
+                                    setShowAddForm('banco');
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="item-main-content">
-                          <strong>{b.tipo_conta} • {b.titularidade}</strong>
-                          <div className="item-subtitle">Ag: {b.agencia} • Conta: {b.numero}</div>
-                        </div>
-                        <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
-                          {canEdit && (
-                            <>
-                              <button
-                                className="btn-action-lite"
-                                onClick={() => {
-                                  setEditingBanco(b.id);
-                                  setTempForm(b);
-                                  setShowAddForm('banco');
-                                }}
-                                title="Editar"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir">
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
+
+                        {b.observacoes && (
+                          <div style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            fontSize: '0.85rem',
+                            color: '#334155',
+                            marginTop: '2px',
+                            marginLeft: '44px'
+                          }}>
+                            <span style={{ fontWeight: 600, color: '#64748b', marginRight: '6px' }}>Observações:</span>
+                            {b.observacoes}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {contasBancarias.length === 0 && <p className="empty-msg">Nenhuma conta bancária registrada.</p>}
@@ -3291,9 +3428,125 @@ const PerfilMissionario: React.FC = () => {
             {/* --- 12. CURRICULUM VITAE --- */}
             {activeTab === 'quadro_pessoal' && (
               <div className="tab-panel">
+                {/* Links Externos */}
+                <div className="section-card" style={{ marginBottom: '20px' }}>
+                  <div className="section-header-flex">
+                    <div>
+                      <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Globe size={18} /> Links Externos (Perfis Profissionais / Pessoais)
+                      </h3>
+                      <p className="section-subtitle" style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
+                        URLs de perfis externos do missionário (ex: LinkedIn, Plataforma Lattes, ORCID, Portfólio, Site Pessoal).
+                      </p>
+                    </div>
+                    {canEdit && !isEditingLinks && (
+                      <button
+                        type="button"
+                        className="btn-action-lite-text"
+                        onClick={() => setIsEditingLinks(true)}
+                      >
+                        <Edit size={14} /> Editar Links
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Edição / Exibição de Links */}
+                  {isEditingLinks ? (
+                    <div className="cv-links-edit-box">
+                      <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px', color: '#1e293b' }}>
+                        URLs de Perfis Externos (separe múltiplos links por quebra de linha, vírgula ou ponto e vírgula):
+                      </label>
+                      <textarea
+                        className="form-control"
+                        rows={3}
+                        placeholder="https://www.linkedin.com/in/...&#10;http://lattes.cnpq.br/...&#10;https://meuportfolio.com"
+                        value={linksExternosInput}
+                        onChange={e => setLinksExternosInput(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          marginBottom: '12px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn-back"
+                          style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                          onClick={() => {
+                            setLinksExternosInput(quadroPessoal?.links_externos || '');
+                            setIsEditingLinks(false);
+                          }}
+                          disabled={isSavingLinks}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-save-perfil"
+                          style={{ padding: '6px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => handleSaveLinksExternos()}
+                          disabled={isSavingLinks}
+                        >
+                          {isSavingLinks ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                          Salvar Links
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {parseExternalLinks(quadroPessoal?.links_externos).length > 0 ? (
+                        <div className="cv-links-grid">
+                          {parseExternalLinks(quadroPessoal?.links_externos).map((item, idx) => (
+                            <a
+                              key={idx}
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`cv-link-card badge-${item.badgeType}`}
+                              title={`Abrir ${item.url}`}
+                            >
+                              <div className="cv-link-icon">
+                                <ExternalLink size={16} />
+                              </div>
+                              <div className="cv-link-content">
+                                <span className="cv-link-label">{item.label}</span>
+                                <span className="cv-link-url">{item.url}</span>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="cv-links-empty">
+                          <Globe size={24} style={{ color: '#94a3b8', marginBottom: '6px' }} />
+                          <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
+                            Nenhum link externo cadastrado.
+                          </p>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              className="btn-action-lite-text"
+                              style={{ marginTop: '8px' }}
+                              onClick={() => setIsEditingLinks(true)}
+                            >
+                              <Plus size={14} /> Adicionar Link Externo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Arquivo do Curriculum Vitae */}
                 <div className="section-card" id="print-quadro">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><FileText size={18} /> 12. Curriculum Vitae</h3>
+                    <h3 className="section-title"><FileText size={18} /> Arquivo Anexo do CV</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {quadroPessoal?.cv_path && (
                         <>
@@ -4017,16 +4270,60 @@ const PerfilMissionario: React.FC = () => {
                     )}
                     {showAddForm === 'banco' && (
                       <>
-                        <div className="form-group"><label>Tipo de Conta</label><input type="text" placeholder="Ex: Corrente, Poupança" value={tempForm.tipo_conta || ''} onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
-                        <div className="form-group"><label>Titularidade</label><input type="text" value={tempForm.titularidade || ''} onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
-                        <div className="form-group"><label>Agência</label><input type="text" value={tempForm.agencia || ''} onChange={e => setTempForm({ ...tempForm, agencia: e.target.value })} /></div>
-                        <div className="form-group"><label>Número Conta</label><input type="text" value={tempForm.numero || ''} onChange={e => setTempForm({ ...tempForm, numero: e.target.value })} /></div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label>Instituição Financeira / Banco</label>
+                          <BankAutocomplete
+                            value={tempForm.banco || ''}
+                            onChange={val => setTempForm({ ...tempForm, banco: val })}
+                            placeholder="Selecione ou digite o banco (ex: Nubank, Mercado Pago, C6, Inter, Itaú, BB...)"
+                          />
+                        </div>
+                        <div className="form-group"><label>Tipo de Conta</label><input type="text" placeholder="Ex: Corrente, Poupança, Salário, Pagamento" value={tempForm.tipo_conta || ''} onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
+                        <div className="form-group"><label>Titularidade</label><input type="text" placeholder="Nome do titular da conta" value={tempForm.titularidade || ''} onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
+                        <div className="form-group">
+                          <label>Agência</label>
+                          <input
+                            type="text"
+                            maxLength={10}
+                            placeholder="Ex: 0001 ou 1234-5"
+                            value={tempForm.agencia || ''}
+                            onChange={e => setTempForm({ ...tempForm, agencia: e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 10) })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Número Conta</label>
+                          <input
+                            type="text"
+                            maxLength={16}
+                            placeholder="Ex: 12345678-9"
+                            value={tempForm.numero || ''}
+                            onChange={e => setTempForm({ ...tempForm, numero: e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 16) })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label>Observações da Conta</label>
+                          <textarea
+                            rows={3}
+                            placeholder="Observações relativas à conta bancária (chave PIX, finalidade, etc.)..."
+                            value={tempForm.observacoes || ''}
+                            onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
+                          />
+                        </div>
                       </>
                     )}
                     {showAddForm === 'quadro' && (
                       <>
                         <div className="form-group"><label>Função Atual</label><input type="text" value={tempForm.funcao_atual || ''} onChange={e => setTempForm({ ...tempForm, funcao_atual: e.target.value })} /></div>
                         <div className="form-group"><label>Competências / Resumo</label><textarea rows={4} value={tempForm.competencias || ''} onChange={e => setTempForm({ ...tempForm, competencias: e.target.value })} /></div>
+                        <div className="form-group">
+                          <label>Links Externos (URLs de perfis profissionais/pessoais)</label>
+                          <textarea
+                            rows={3}
+                            placeholder="Ex: https://www.linkedin.com/in/... ou http://lattes.cnpq.br/..."
+                            value={tempForm.links_externos || ''}
+                            onChange={e => setTempForm({ ...tempForm, links_externos: e.target.value })}
+                          />
+                        </div>
                         <div className="form-group">
                           <label>CV / Documento (PDF ou JPEG)</label>
                           <div className="file-input-wrapper">

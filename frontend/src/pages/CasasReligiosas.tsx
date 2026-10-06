@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Edit2, X, Loader2, AlertCircle, Plus, Trash2, Download,
   Home as HomeIcon, Save, Eye, Search, DollarSign, ChevronLeft,
-  ChevronRight, Printer
+  ChevronRight, Printer, Phone, PhoneCall, Mail
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,9 @@ interface ReligiousHouse {
   cidade?: string;
   cep?: string;
   pais?: string;
+  telefone?: string;
+  celular?: string;
+  email?: string;
   status: 'ATIVO' | 'INATIVO';
   missionarios_count: number;
   regional?: string;
@@ -118,6 +121,9 @@ const CasasReligiosas: React.FC = () => {
       'Presença Missionária': h.nome,
       'Tipo': NOMENCLATURES.find(n => n.code === h.tipo)?.label || h.tipo || '',
       'CNPJ': h.cnpj || '',
+      'Telefone': h.telefone || '',
+      'Celular': h.celular || '',
+      'E-mail': h.email || '',
       'Cidade/UF': extractCidadeUf(h.cidade, h.endereco),
       'País': h.regional || h.pais || 'Brasil',
       'Status': h.status,
@@ -386,6 +392,9 @@ const CasasReligiosas: React.FC = () => {
       cidade: '',
       cep: '',
       regional: 'Brasil',
+      telefone: '',
+      celular: '',
+      email: '',
       status: 'ATIVO',
       missionarios_count: 0
     });
@@ -710,6 +719,44 @@ const CasasReligiosas: React.FC = () => {
                     });
                   }}
                   required
+                />
+              </div>
+
+              {/* Contatos da Presença Missionária */}
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Phone size={14} /> Telefone Fixo
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: (11) 3277-0000"
+                    value={editingHouse.telefone || ''}
+                    onChange={(e) => setEditingHouse({ ...editingHouse, telefone: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <PhoneCall size={14} /> Celular / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: (11) 98765-4321"
+                    value={editingHouse.celular || ''}
+                    onChange={(e) => setEditingHouse({ ...editingHouse, celular: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={14} /> E-mail de Contato
+                </label>
+                <input
+                  type="email"
+                  placeholder="Ex: presenca.missao@scalabrinianos.org"
+                  value={editingHouse.email || ''}
+                  onChange={(e) => setEditingHouse({ ...editingHouse, email: e.target.value })}
                 />
               </div>
 

@@ -99,6 +99,7 @@ const Sidebar: React.FC = () => {
         <div key={index} className="menu-node">
           <div
             className={`sidebar-item level-${level} ${isActive ? 'active' : ''}`}
+            title={item.label}
             onClick={() => {
               if (hasSubItems) {
                 toggleSection(item.label);

@@ -13,6 +13,7 @@ interface DashboardStats {
   totalUsers?: number;
   totalHouses?: number;
   totalItineraries?: number;
+  housesByType?: Record<string, number>;
   isMissionary?: boolean;
   houseName?: string;
   regional?: string;
@@ -21,7 +22,7 @@ interface DashboardStats {
 }
 
 const Home: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { isAdminGeral, isRegional, canEdit } = useAuth();
   const isAdm = isAdminGeral || isRegional || canEdit;
@@ -44,13 +45,23 @@ const Home: React.FC = () => {
   };
 
   const stats = [
-    { label: t('dashboard.stats.total_members'), value: statsData?.totalUsers?.toString() || '0', icon: <Users size={24} />, color: '#013375' },
-    { label: t('dashboard.stats.obras'), value: '12', icon: <HouseIcon size={24} />, color: '#013375' },
-    { label: t('dashboard.stats.paroquias'), value: '25', icon: <HouseIcon size={24} />, color: '#013375' },
-    { label: t('dashboard.stats.pastoral'), value: '8', icon: <Activity size={24} />, color: '#013375' },
-    { label: t('dashboard.stats.idosos'), value: '5', icon: <HouseIcon size={24} />, color: '#013375' },
-    { label: t('dashboard.stats.seminaristas'), value: statsData?.totalUsers?.toString() || '0', icon: <Users size={24} />, color: '#013375', path: '/itinerario-formativo' },
+    { label: t('dashboard.stats.total_members'), value: (statsData?.totalUsers || 0).toString(), icon: <Users size={24} />, color: '#013375', path: '/missionarios' },
+    { label: t('dashboard.stats.obras'), value: (statsData?.housesByType?.M || 0).toString(), icon: <HouseIcon size={24} />, color: '#013375', path: '/casas-religiosas' },
+    { label: t('dashboard.stats.paroquias'), value: (statsData?.housesByType?.P || 0).toString(), icon: <HouseIcon size={24} />, color: '#013375', path: '/casas-religiosas' },
+    { label: t('dashboard.stats.pastoral'), value: (statsData?.housesByType?.PV || 0).toString(), icon: <Activity size={24} />, color: '#013375', path: '/casas-religiosas' },
+    { label: t('dashboard.stats.idosos'), value: (statsData?.housesByType?.CI || 0).toString(), icon: <HouseIcon size={24} />, color: '#013375', path: '/casas-religiosas' },
+    { label: t('dashboard.stats.seminaristas'), value: (statsData?.totalItineraries || 0).toString(), icon: <Users size={24} />, color: '#013375', path: '/itinerario-formativo' },
   ];
+
+  const formatActivityMessage = (msg: string) => {
+    if (msg === 'Sistema pronto') return t('dashboard.activity_ready', 'Sistema pronto');
+    return msg;
+  };
+
+  const formatActivityTime = (time: string) => {
+    if (time === 'Agora mesmo') return t('dashboard.just_now', 'Agora mesmo');
+    return time;
+  };
 
   if (isLoading) {
     return (
@@ -94,17 +105,17 @@ const Home: React.FC = () => {
         <div className="map-section card-lite" style={{ padding: '0', overflow: 'hidden', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
           <div className="section-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Globe size={20} className="text-primary" /> Sede Regional RNSMM
+                <Globe size={20} className="text-primary" /> {t('dashboard.sede_title', 'Sede Regional RNSMM')}
             </h3>
           </div>
           <div className="map-container" style={{ flex: 1, position: 'relative' }}>
             <iframe
-                title="Google Maps Sede RNSMM Home"
+                title={t('mapa.iframe_title', 'Google Maps Sede RNSMM')}
                 width="100%"
                 height="100%"
                 frameBorder="0"
                 style={{ border: 0, minHeight: '350px' }}
-                src={`https://maps.google.com/maps?q=${encodeURIComponent("R. Dr. Mário Vicente, 1108 - Ipiranga, São Paulo - SP")}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent("R. Dr. Mário Vicente, 1108 - Ipiranga, São Paulo - SP")}&t=&z=15&ie=UTF8&iwloc=&hl=${i18n.language.startsWith('es') ? 'es' : 'pt'}&output=embed`}
                 allowFullScreen
             ></iframe>
           </div>
@@ -115,7 +126,7 @@ const Home: React.FC = () => {
                   onClick={() => navigate('/mapa')}
                   style={{ background: 'none', border: 'none', color: '#013375', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                  Ver Detalhes <ArrowRight size={14} />
+                  {t('common.view_details', 'Ver Detalhes')} <ArrowRight size={14} />
               </button>
             </div>
             <div style={{ display: 'flex', gap: '20px', fontSize: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
@@ -136,8 +147,8 @@ const Home: React.FC = () => {
                   {act.user.charAt(0)}
                 </div>
                 <div className="activity-details">
-                  <p><strong>{act.user}</strong> {act.activity}</p>
-                  <span>{act.time}</span>
+                  <p><strong>{act.user}</strong> {formatActivityMessage(act.activity)}</p>
+                  <span>{formatActivityTime(act.time)}</span>
                 </div>
               </div>
             ))}

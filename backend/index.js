@@ -490,6 +490,9 @@ async function ensureOptionalSchema() {
           { name: 'cidade', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN cidade VARCHAR(255) DEFAULT NULL" },
           { name: 'pais', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN pais VARCHAR(100) DEFAULT NULL" },
           { name: 'cep', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN cep VARCHAR(20) DEFAULT NULL" },
+          { name: 'telefone', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN telefone VARCHAR(50) DEFAULT NULL" },
+          { name: 'celular', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN celular VARCHAR(50) DEFAULT NULL" },
+          { name: 'email', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN email VARCHAR(255) DEFAULT NULL" },
         ]
       },
       {
@@ -931,13 +934,20 @@ app.put('/api/meu-perfil/endereco', authenticateToken, async (req, res) => {
 
 app.put('/api/meu-perfil/conta', authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { tipo_conta, titularidade, agencia, numero } = req.body;
+  const { banco, tipo_conta, titularidade, agencia, numero, observacoes } = req.body;
   try {
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN banco VARCHAR(255)');
+    } catch (e) {}
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN observacoes TEXT');
+    } catch (e) {}
+
     const [existing] = await db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?', [userId]);
     if (existing.length > 0) {
-      await db.query(`UPDATE tb_contas_bancarias SET tipo_conta=?, titularidade=?, agencia=?, numero=? WHERE id=?`, [tipo_conta, titularidade, agencia, numero, existing[0].id]);
+      await db.query(`UPDATE tb_contas_bancarias SET banco=?, tipo_conta=?, titularidade=?, agencia=?, numero=?, observacoes=? WHERE id=?`, [banco || '', tipo_conta, titularidade, agencia, numero, observacoes || '', existing[0].id]);
     } else {
-      await db.query(`INSERT INTO tb_contas_bancarias (usuario_id, tipo_conta, titularidade, agencia, numero) VALUES (?, ?, ?, ?, ?)`, [userId, tipo_conta, titularidade, agencia, numero]);
+      await db.query(`INSERT INTO tb_contas_bancarias (usuario_id, banco, tipo_conta, titularidade, agencia, numero, observacoes) VALUES (?, ?, ?, ?, ?, ?, ?)`, [userId, banco || '', tipo_conta, titularidade, agencia, numero, observacoes || '']);
     }
     res.json({ success: true });
   } catch (error) {
@@ -1648,7 +1658,7 @@ app.post('/api/utils/validar-cnpj', authenticateToken, (req, res) => {
 });
 
 app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
 
@@ -1663,6 +1673,9 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
     const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
+    const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
+    const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
+    const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1672,6 +1685,9 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
     if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
     if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
     if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
+    if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
+    if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
+    if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
 
     const placeholders = cols.map(() => '?').join(',');
     const sql = `INSERT INTO tb_casas_religiosas (${cols.join(',')}) VALUES (${placeholders})`;
@@ -1685,7 +1701,7 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -1701,6 +1717,9 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
     const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
+    const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
+    const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
+    const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1710,6 +1729,9 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
     if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
     if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
+    if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
+    if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
+    if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -1725,7 +1747,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
 
 // Alias for POST to avoid 403 Forbidden on PUT in some production servers
 app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -1741,6 +1763,9 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
     const [hasCep] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cep'");
+    const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
+    const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
+    const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1750,6 +1775,9 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     if (hasCidade.length > 0) { cols.push('cidade'); params.push(cidade || null); }
     if (hasPais.length > 0) { cols.push('pais'); params.push(pais || null); }
     if (hasCep.length > 0) { cols.push('cep'); params.push(cep || null); }
+    if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
+    if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
+    if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -2482,16 +2510,34 @@ app.delete('/api/usuarios/:id/saude/:sid', authenticateToken, async (req, res) =
 // 4. Contas Bancárias
 app.get('/api/usuarios/:id/contas-bancarias', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?', [req.params.id]);
+    const [rows] = await db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ? ORDER BY id ASC', [req.params.id]);
     res.json(rows);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 app.post('/api/usuarios/:id/contas-bancarias', authenticateToken, async (req, res) => {
-  const { tipo_conta, titularidade, agencia, numero, doc_path } = req.body;
+  const { banco, tipo_conta, titularidade, agencia, numero, observacoes, doc_path } = req.body;
   try {
-    await db.query('INSERT INTO tb_contas_bancarias (usuario_id, tipo_conta, titularidade, agencia, numero, doc_path) VALUES (?, ?, ?, ?, ?, ?)', 
-      [req.params.id, sanitizeString(tipo_conta), sanitizeString(titularidade), sanitizeString(agencia), sanitizeString(numero), sanitizeString(doc_path)]);
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN banco VARCHAR(255)');
+    } catch (e) {}
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN observacoes TEXT');
+    } catch (e) {}
+
+    await db.query(
+      'INSERT INTO tb_contas_bancarias (usuario_id, banco, tipo_conta, titularidade, agencia, numero, observacoes, doc_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [
+        req.params.id, 
+        sanitizeString(banco), 
+        sanitizeString(tipo_conta), 
+        sanitizeString(titularidade), 
+        sanitizeString(agencia), 
+        sanitizeString(numero), 
+        sanitizeString(observacoes), 
+        sanitizeString(doc_path)
+      ]
+    );
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in contas-bancarias:', err);
@@ -2500,10 +2546,29 @@ app.post('/api/usuarios/:id/contas-bancarias', authenticateToken, async (req, re
 });
 
 app.put('/api/usuarios/:id/contas-bancarias/:bid', authenticateToken, async (req, res) => {
-  const { tipo_conta, titularidade, agencia, numero, doc_path } = req.body;
+  const { banco, tipo_conta, titularidade, agencia, numero, observacoes, doc_path } = req.body;
   try {
-    await db.query('UPDATE tb_contas_bancarias SET tipo_conta = ?, titularidade = ?, agencia = ?, numero = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
-      [sanitizeString(tipo_conta), sanitizeString(titularidade), sanitizeString(agencia), sanitizeString(numero), sanitizeString(doc_path), req.params.bid, req.params.id]);
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN banco VARCHAR(255)');
+    } catch (e) {}
+    try {
+      await db.query('ALTER TABLE tb_contas_bancarias ADD COLUMN observacoes TEXT');
+    } catch (e) {}
+
+    await db.query(
+      'UPDATE tb_contas_bancarias SET banco = ?, tipo_conta = ?, titularidade = ?, agencia = ?, numero = ?, observacoes = ?, doc_path = ? WHERE id = ? AND usuario_id = ?', 
+      [
+        sanitizeString(banco), 
+        sanitizeString(tipo_conta), 
+        sanitizeString(titularidade), 
+        sanitizeString(agencia), 
+        sanitizeString(numero), 
+        sanitizeString(observacoes), 
+        sanitizeString(doc_path), 
+        req.params.bid, 
+        req.params.id
+      ]
+    );
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in PUT contas-bancarias:', err);
@@ -2568,12 +2633,16 @@ app.get('/api/usuarios/:id/quadro-pessoal', authenticateToken, async (req, res) 
 });
 
 app.post('/api/usuarios/:id/quadro-pessoal', authenticateToken, async (req, res) => {
-  const { funcao_atual, competencias, cv_path } = req.body;
+  const { funcao_atual, competencias, cv_path, links_externos } = req.body;
   try {
+    try {
+      await db.query('ALTER TABLE tb_quadro_pessoal ADD COLUMN links_externos TEXT');
+    } catch (e) {}
+
     await db.query('DELETE FROM tb_quadro_pessoal WHERE usuario_id = ?', [req.params.id]);
     await db.query(
-      'INSERT INTO tb_quadro_pessoal (usuario_id, funcao_atual, competencias, cv_path) VALUES (?, ?, ?, ?)',
-      [req.params.id, funcao_atual || '', competencias || '', cv_path || '']
+      'INSERT INTO tb_quadro_pessoal (usuario_id, funcao_atual, competencias, cv_path, links_externos) VALUES (?, ?, ?, ?, ?)',
+      [req.params.id, funcao_atual || '', competencias || '', cv_path || '', links_externos || '']
     );
     res.json({ success: true });
   } catch (error) {
@@ -3683,10 +3752,20 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
     const [houseCount] = await db.query('SELECT COUNT(*) as count FROM tb_casas_religiosas');
     const [itineraryCount] = await db.query(`SELECT COUNT(*) as count FROM tb_usuarios WHERE role = 'PADRE' AND ${HIDDEN_USERS_SQL}`);
     
+    // Detailed counts by type
+    let housesByType = { CR: 0, CI: 0, M: 0, P: 0, PV: 0, CS: 0 };
+    try {
+      const [typeRows] = await db.query('SELECT tipo, COUNT(*) as count FROM tb_casas_religiosas GROUP BY tipo');
+      typeRows.forEach(r => { if (r.tipo) housesByType[r.tipo] = r.count; });
+    } catch (e) {
+      console.warn('Could not fetch house types (maybe column not exists yet)');
+    }
+
     res.json({
       totalUsers: userCount[0].count,
       totalHouses: houseCount[0].count,
       totalItineraries: itineraryCount[0].count,
+      housesByType,
       recentActivities: [
         { id: 1, user: 'Admin', activity: 'Sistema pronto', time: 'Agora mesmo' }
       ]

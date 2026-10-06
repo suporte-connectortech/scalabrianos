@@ -31,7 +31,10 @@
     },
     "dashboard": {
       "overview": "Visão Geral",
+      "sede_title": "Sede Regional RNSMM",
       "loading": "Carregando dashboard...",
+      "activity_ready": "Sistema pronto",
+      "just_now": "Agora mesmo",
       "stats": {
         "total_members": "Total de missionários",
         "houses": "Presença missionária",
@@ -535,7 +538,8 @@
       "confirm_delete": "Deseja realmente excluir este registro?",
       "yes": "Sim",
       "no": "Não",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "view_details": "Ver Detalhes"
     },
     "planilha": {
       "individual_title": "Prestação de Contas Mensal - Missionário",
@@ -692,6 +696,51 @@
         "administrador": "Administrador",
         "colaborador": "Missionário",
         "intermitente": "Missionário"
+      }
+    },
+    "mapa": {
+      "title": "Mapa RNSMM",
+      "stats": {
+        "missionaries": "Missionários",
+        "religious": "Religiosos",
+        "houses": "Presença Missionária"
+      },
+      "houses_breakdown_title": "Presença Missionária",
+      "houses_cr": "Casas Religiosas (CR)",
+      "houses_ci": "Casas de Idosos (CI)",
+      "houses_m": "Obras (M)",
+      "houses_p": "Paróquias / Igrejas (P)",
+      "houses_pv": "Pastoral Vocacional (PV)",
+      "houses_cs": "Seminários (CS)",
+      "sede_title": "Sede Canônica RNSMM",
+      "open_google_maps": "Abrir no Google Maps",
+      "iframe_title": "Google Maps Sede RNSMM",
+      "mission_history_title": "Missão e História",
+      "mission_history_desc": "A RNSMM nasceu da união estratégica das províncias scalabrinianas para melhor atender o fluxo migratório na América do Sul. Hoje, coordena a presença em 7 países, unificando a gestão e o carisma de acolhida.",
+      "region_countries_title": "Países da Região",
+      "countries": {
+        "argentina": "Argentina",
+        "bolivia": "Bolívia",
+        "brazil": "Brasil",
+        "chile": "Chile",
+        "paraguay": "Paraguai",
+        "peru": "Peru",
+        "uruguay": "Uruguai"
+      },
+      "work_fronts_title": "Frentes de Trabalho",
+      "fronts": {
+        "acolhimento": {
+          "title": "Acolhimento",
+          "desc": "Casas de acolhida e centros de atenção ao migrante."
+        },
+        "promocao": {
+          "title": "Promoção Humanitária",
+          "desc": "Defesa de direitos e integração social."
+        },
+        "eclesial": {
+          "title": "Presença Eclesial",
+          "desc": "Paróquias, missões e pastorais especializadas."
+        }
       }
     }
   }

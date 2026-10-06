@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   MapPin, Users, ArrowLeft, Loader2, AlertCircle, 
-  Globe, Building2, User, UserCheck, Info, Star, DollarSign
+  Globe, Building2, User, UserCheck, Info, Star, DollarSign,
+  Phone, Mail, PhoneCall
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
@@ -30,6 +31,9 @@ interface ReligiousHouse {
   endereco: string;
   cidade?: string;
   cep?: string;
+  telefone?: string;
+  celular?: string;
+  email?: string;
   status: 'ATIVO' | 'INATIVO';
   regional?: string;
   paroco?: string;
@@ -182,6 +186,59 @@ const PerfilCasa: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Contatos da Presença */}
+          <div className="card-lite" style={{ padding: '1.5rem', background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', color: '#032b57', fontSize: '1rem', fontWeight: 700 }}>
+              <Phone size={18} /> Contatos da Presença
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="info-item">
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Telefone Fixo
+                </label>
+                <p style={{ margin: '4px 0 0', fontSize: '13.5px', fontWeight: 500, color: '#1e293b' }}>
+                  {house.telefone ? (
+                    <a href={`tel:${house.telefone}`} style={{ color: '#0284c7', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Phone size={14} /> {house.telefone}
+                    </a>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>Não informado</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="info-item">
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Celular / WhatsApp
+                </label>
+                <p style={{ margin: '4px 0 0', fontSize: '13.5px', fontWeight: 500, color: '#1e293b' }}>
+                  {house.celular ? (
+                    <a href={`tel:${house.celular}`} style={{ color: '#16a34a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <PhoneCall size={14} /> {house.celular}
+                    </a>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>Não informado</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="info-item">
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  E-mail
+                </label>
+                <p style={{ margin: '4px 0 0', fontSize: '13.5px', fontWeight: 500, color: '#1e293b' }}>
+                  {house.email ? (
+                    <a href={`mailto:${house.email}`} style={{ color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all' }}>
+                      <Mail size={14} /> {house.email}
+                    </a>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>Não informado</span>
+                  )}
+                </p>
               </div>
             </div>
           </div>

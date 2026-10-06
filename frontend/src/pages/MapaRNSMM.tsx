@@ -15,7 +15,7 @@ interface DashboardStats {
 }
 
 const MapaRNSMM: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { isAdminGeral, isRegional, canEdit } = useAuth();
   const isAdm = isAdminGeral || isRegional || canEdit;
@@ -41,19 +41,31 @@ const MapaRNSMM: React.FC = () => {
   };
 
   const countries = [
-    { name: 'Argentina', flag: '🇦🇷' },
-    { name: 'Bolívia', flag: '🇧🇴' },
-    { name: 'Brasil', flag: '🇧🇷' },
-    { name: 'Chile', flag: '🇨🇱' },
-    { name: 'Paraguai', flag: '🇵🇾' },
-    { name: 'Peru', flag: '🇵🇪' },
-    { name: 'Uruguai', flag: '🇺🇾' },
+    { name: t('mapa.countries.argentina', 'Argentina'), flag: '🇦🇷' },
+    { name: t('mapa.countries.bolivia', 'Bolívia'), flag: '🇧🇴' },
+    { name: t('mapa.countries.brazil', 'Brasil'), flag: '🇧🇷' },
+    { name: t('mapa.countries.chile', 'Chile'), flag: '🇨🇱' },
+    { name: t('mapa.countries.paraguay', 'Paraguai'), flag: '🇵🇾' },
+    { name: t('mapa.countries.peru', 'Peru'), flag: '🇵🇪' },
+    { name: t('mapa.countries.uruguay', 'Uruguai'), flag: '🇺🇾' },
   ];
 
   const missionAreas = [
-    { title: 'Acolhimento', desc: 'Casas de acolhida e centros de atenção ao migrante.', icon: <Building size={20} /> },
-    { title: 'Promoção Humanitária', desc: 'Defesa de direitos e integração social.', icon: <Heart size={20} /> },
-    { title: 'Presença Eclesial', desc: 'Paróquias, missões e pastorais especializadas.', icon: <Users size={20} /> },
+    { 
+      title: t('mapa.fronts.acolhimento.title', 'Acolhimento'), 
+      desc: t('mapa.fronts.acolhimento.desc', 'Casas de acolhida e centros de atenção ao migrante.'), 
+      icon: <Building size={20} /> 
+    },
+    { 
+      title: t('mapa.fronts.promocao.title', 'Promoção Humanitária'), 
+      desc: t('mapa.fronts.promocao.desc', 'Defesa de direitos e integração social.'), 
+      icon: <Heart size={20} /> 
+    },
+    { 
+      title: t('mapa.fronts.eclesial.title', 'Presença Eclesial'), 
+      desc: t('mapa.fronts.eclesial.desc', 'Paróquias, missões e pastorais especializadas.'), 
+      icon: <Users size={20} /> 
+    },
   ];
 
   if (isLoading) {
@@ -71,7 +83,9 @@ const MapaRNSMM: React.FC = () => {
         <div className="title-with-badge">
           <Globe size={32} className="text-primary" />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#013375' }}>Mapa RNSMM</h1>
+            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#013375' }}>
+              {t('mapa.title', 'Mapa RNSMM')}
+            </h1>
           </div>
         </div>
       </div>
@@ -80,15 +94,21 @@ const MapaRNSMM: React.FC = () => {
       {isAdm && (
         <div className="mapa-stats-grid">
           <div className="card-lite" onClick={() => navigate('/missionarios')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.total_members', 'Missionários')}</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>
+                {t('mapa.stats.missionaries', 'Missionários')}
+              </span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalUsers || 0}</span>
           </div>
           <div className="card-lite" onClick={() => navigate('/itinerario-formativo')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.seminaristas', 'Religiosos')}</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>
+                {t('mapa.stats.religious', 'Religiosos')}
+              </span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalItineraries || 0}</span>
           </div>
           <div className="card-lite" onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t('dashboard.stats.houses', 'Presença Missionária')}</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>
+                {t('mapa.stats.houses', 'Presença Missionária')}
+              </span>
               <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalHouses || 0}</span>
           </div>
         </div>
@@ -97,13 +117,15 @@ const MapaRNSMM: React.FC = () => {
       {/* Presença Missionária Detailed Breakdown */}
       {isAdm && (
         <div className="card-lite mapa-presenca-card">
-          <h3 style={{ margin: '0 0 1.5rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>{t('menu.houses', 'Presença Missionária')}</h3>
+          <h3 style={{ margin: '0 0 1.5rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>
+            {t('mapa.houses_breakdown_title', 'Presença Missionária')}
+          </h3>
           <div className="mapa-presenca-grid">
               {[
                   { label: t('mapa.houses_cr', 'Casas Religiosas (CR)'), count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
                   { label: t('mapa.houses_ci', 'Casas de Idosos (CI)'), count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
                   { label: t('mapa.houses_m', 'Obras (M)'), count: statsData?.housesByType?.M || 0, icon: <Heart size={20} />, type: 'M' },
-                  { label: t('mapa.houses_p', 'Paróquias/Igrejas (P)'), count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
+                  { label: t('mapa.houses_p', 'Paróquias / Igrejas (P)'), count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
                   { label: t('mapa.houses_pv', 'Pastoral Vocacional (PV)'), count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
                   { label: t('mapa.houses_cs', 'Seminários (CS)'), count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
               ].map((item, idx) => (
@@ -120,7 +142,9 @@ const MapaRNSMM: React.FC = () => {
         <div className="mapa-header-bar">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Globe className="text-primary" size={28} />
-                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{t('mapa.sede_title', 'Sede Canônica RNSMM')}</h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>
+                  {t('mapa.sede_title', 'Sede Canônica RNSMM')}
+                </h3>
             </div>
             <a 
                 href={googleMapsUrl} 
@@ -144,12 +168,12 @@ const MapaRNSMM: React.FC = () => {
         
         <div className="mapa-iframe-wrapper">
             <iframe
-                title="Google Maps Sede RNSMM"
+                title={t('mapa.iframe_title', 'Google Maps Sede RNSMM')}
                 width="100%"
                 height="100%"
                 frameBorder="0"
                 style={{ border: 0 }}
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=16&ie=UTF8&iwloc=&hl=${i18n.language.startsWith('es') ? 'es' : 'pt'}&output=embed`}
                 allowFullScreen
             ></iframe>
         </div>
@@ -158,17 +182,16 @@ const MapaRNSMM: React.FC = () => {
       <div className="mapa-bottom-grid">
         <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
-            <Info size={22} /> Missão e História
+            <Info size={22} /> {t('mapa.mission_history_title', 'Missão e História')}
           </h4>
           <p style={{ fontSize: '1rem', lineHeight: '1.7', color: '#475569', textAlign: 'justify', margin: 0 }}>
-            A <strong>RNSMM</strong> nasceu da união estratégica das províncias scalabrinianas para melhor atender o fluxo migratório na América do Sul. 
-            Hoje, coordena a presença em 7 países, unificando a gestão e o carisma de acolhida.
+            {t('mapa.mission_history_desc', 'A RNSMM nasceu da união estratégica das províncias scalabrinianas para melhor atender o fluxo migratório na América do Sul. Hoje, coordena a presença em 7 países, unificando a gestão e o carisma de acolhida.')}
           </p>
         </div>
 
         <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
-            <Globe size={22} /> Países da Região
+            <Globe size={22} /> {t('mapa.region_countries_title', 'Países da Região')}
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
             {countries.map(c => (
@@ -182,11 +205,11 @@ const MapaRNSMM: React.FC = () => {
 
         <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
-            <Heart size={22} /> Frentes de Trabalho
+            <Heart size={22} /> {t('mapa.work_fronts_title', 'Frentes de Trabalho')}
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {missionAreas.map(area => (
-              <div key={area.title} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            {missionAreas.map((area, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <div style={{ background: '#eff6ff', color: '#3b82f6', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {area.icon}
                 </div>

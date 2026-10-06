@@ -15,12 +15,12 @@
 
 .main-content {
     flex: 1;
-    margin-left: 260px;
+    margin-left: 275px;
     background-color: var(--bg-color);
     min-height: calc(100vh - 100px);
     min-height: calc(100dvh - 100px);
     transition: margin-left 0.3s ease-in-out;
-    width: calc(100% - 260px);
+    width: calc(100% - 275px);
     display: flex;
     flex-direction: column;
     min-width: 0;
