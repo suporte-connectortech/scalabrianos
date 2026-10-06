@@ -45,12 +45,12 @@ const Financeiro: React.FC = () => {
 
   // Default tab: individual users land on their own spreadsheet;
   // admins (ADMIN_GERAL) go straight to the community/admin tab.
-  const [activeTab, setActiveTab] = useState<'individual' | 'comunidade' | 'planejamento' | 'anual' | 'validacoes_pendentes' | 'historico_aprovacoes' | 'historico_casa'>(
+  const [activeTab, setActiveTab] = useState<'individual' | 'comunidade' | 'planejamento' | 'anual' | 'validacoes_pendentes' | 'historico_casa'>(
     isAdminGeral ? 'comunidade' : 'individual'
   );
 
   useEffect(() => {
-    if (queryTab) {
+    if (queryTab && queryTab !== 'historico_aprovacoes') {
       setActiveTab(queryTab as any);
     } else if (queryMes) {
       setActiveTab('individual');
@@ -118,12 +118,6 @@ const Financeiro: React.FC = () => {
                 >
                   {t('financeiro.pending_validations', 'Validações Pendentes')}
                 </button>
-                <button
-                  className={`mode-btn ${activeTab === 'historico_aprovacoes' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('historico_aprovacoes')}
-                >
-                  {t('financeiro.missionary_history', 'Histórico Missionários')}
-                </button>
                 {(user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && (
                   <button
                     className={`mode-btn ${activeTab === 'historico_casa' ? 'active' : ''}`}
@@ -190,7 +184,6 @@ const Financeiro: React.FC = () => {
         {activeTab === 'planejamento' && isAdminGeral && <PlanejamentoOrcamentario casas={casas} categorias={categorias.filter(c => c.perfil === 'PLANEJAMENTO')} />}
         {activeTab === 'anual' && isAdminGeral && <PrestacaoContasAnual casas={casas} categorias={categorias.filter(c => c.perfil === 'ANUAL')} />}
         {activeTab === 'validacoes_pendentes' && isOconomo && <ValidacoesOconomo casas={casas} categorias={categorias} tipo="pendentes" />}
-        {activeTab === 'historico_aprovacoes' && isOconomo && <ValidacoesOconomo casas={casas} categorias={categorias} tipo="historico_missionario" />}
         {activeTab === 'historico_casa' && isOconomo && (user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && <ValidacoesOconomo casas={casas} categorias={categorias} tipo="historico_casa" />}
       </div>
     </div>

@@ -471,6 +471,20 @@ async function ensureOptionalSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `).catch(err => console.error('[BACKEND] Error creating tb_historico_situacao:', err?.message));
 
+    // 1.3 Ensure tb_casa_documentos table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_casa_documentos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        casa_id INT NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        arquivo_url VARCHAR(500) NOT NULL,
+        tipo VARCHAR(100) DEFAULT NULL,
+        tamanho INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (casa_id) REFERENCES tb_casas_religiosas(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch(err => console.error('[BACKEND] Error creating tb_casa_documentos:', err?.message));
+
     // 2. Ensure optional columns
     const schemas = [
       {
@@ -493,6 +507,10 @@ async function ensureOptionalSchema() {
           { name: 'telefone', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN telefone VARCHAR(50) DEFAULT NULL" },
           { name: 'celular', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN celular VARCHAR(50) DEFAULT NULL" },
           { name: 'email', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN email VARCHAR(255) DEFAULT NULL" },
+          { name: 'data_inicio', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN data_inicio DATE DEFAULT NULL" },
+          { name: 'data_entrega', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN data_entrega DATE DEFAULT NULL" },
+          { name: 'data_encerramento', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN data_encerramento DATE DEFAULT NULL" },
+          { name: 'observacao', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN observacao LONGTEXT DEFAULT NULL" },
         ]
       },
       {
@@ -1658,9 +1676,12 @@ app.post('/api/utils/validar-cnpj', authenticateToken, (req, res) => {
 });
 
 app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email, data_inicio, data_entrega, data_encerramento, observacao } = req.body;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
+    const dInicio = sanitizeDate(data_inicio);
+    const dEntrega = sanitizeDate(data_entrega);
+    const dEncerramento = sanitizeDate(data_encerramento);
 
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
@@ -1676,6 +1697,10 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
     const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
     const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
     const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
+    const [hasDataInicio] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_inicio'");
+    const [hasDataEntrega] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_entrega'");
+    const [hasDataEncerramento] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_encerramento'");
+    const [hasObservacao] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'observacao'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1688,6 +1713,10 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
     if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
     if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
     if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
+    if (hasDataInicio.length > 0) { cols.push('data_inicio'); params.push(dInicio); }
+    if (hasDataEntrega.length > 0) { cols.push('data_entrega'); params.push(dEntrega); }
+    if (hasDataEncerramento.length > 0) { cols.push('data_encerramento'); params.push(dEncerramento); }
+    if (hasObservacao.length > 0) { cols.push('observacao'); params.push(observacao || null); }
 
     const placeholders = cols.map(() => '?').join(',');
     const sql = `INSERT INTO tb_casas_religiosas (${cols.join(',')}) VALUES (${placeholders})`;
@@ -1701,10 +1730,13 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email, data_inicio, data_entrega, data_encerramento, observacao } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
+    const dInicio = sanitizeDate(data_inicio);
+    const dEntrega = sanitizeDate(data_entrega);
+    const dEncerramento = sanitizeDate(data_encerramento);
 
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
@@ -1720,6 +1752,10 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
     const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
     const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
+    const [hasDataInicio] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_inicio'");
+    const [hasDataEntrega] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_entrega'");
+    const [hasDataEncerramento] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_encerramento'");
+    const [hasObservacao] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'observacao'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1732,6 +1768,10 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
     if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
     if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
+    if (hasDataInicio.length > 0) { cols.push('data_inicio'); params.push(dInicio); }
+    if (hasDataEntrega.length > 0) { cols.push('data_entrega'); params.push(dEntrega); }
+    if (hasDataEncerramento.length > 0) { cols.push('data_encerramento'); params.push(dEncerramento); }
+    if (hasObservacao.length > 0) { cols.push('observacao'); params.push(observacao || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -1747,10 +1787,13 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
 
 // Alias for POST to avoid 403 Forbidden on PUT in some production servers
 app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res) => {
-  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais, cep, telefone, celular, email, data_inicio, data_entrega, data_encerramento, observacao } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
+    const dInicio = sanitizeDate(data_inicio);
+    const dEntrega = sanitizeDate(data_entrega);
+    const dEncerramento = sanitizeDate(data_encerramento);
 
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
@@ -1766,6 +1809,10 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     const [hasTelefone] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'telefone'");
     const [hasCelular] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'celular'");
     const [hasEmail] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'email'");
+    const [hasDataInicio] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_inicio'");
+    const [hasDataEntrega] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_entrega'");
+    const [hasDataEncerramento] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_encerramento'");
+    const [hasObservacao] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'observacao'");
 
     if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
@@ -1778,6 +1825,10 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     if (hasTelefone.length > 0) { cols.push('telefone'); params.push(telefone || null); }
     if (hasCelular.length > 0) { cols.push('celular'); params.push(celular || null); }
     if (hasEmail.length > 0) { cols.push('email'); params.push(email || null); }
+    if (hasDataInicio.length > 0) { cols.push('data_inicio'); params.push(dInicio); }
+    if (hasDataEntrega.length > 0) { cols.push('data_entrega'); params.push(dEntrega); }
+    if (hasDataEncerramento.length > 0) { cols.push('data_encerramento'); params.push(dEncerramento); }
+    if (hasObservacao.length > 0) { cols.push('observacao'); params.push(observacao || null); }
 
     const setClause = cols.map(col => `${col} = ?`).join(', ');
     const sql = `UPDATE tb_casas_religiosas SET ${setClause} WHERE id = ?`;
@@ -1785,6 +1836,66 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
 
     await db.query(sql, params);
     await logAction(req.user.id, 'ATUALIZAR_CASA_RELIGIOSA', 'tb_casas_religiosas', `Casa ID ${id} ("${nome}") atualizada (via POST)`);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Upload de documentos da Casa Religiosa / Presença Missionária
+app.post('/api/casas-religiosas/:id/documentos', authenticateToken, (req, res, next) => {
+  upload.single('arquivo')(req, res, (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Arquivo não enviado.' });
+  const casaId = req.params.id;
+  const nomeOriginal = req.body.nome || req.file.originalname;
+  try {
+    const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+    const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+    if (fileBuffer) {
+      await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+    }
+    const filePath = `/uploads/documentos/${req.file.filename}`;
+    const [result] = await db.query(
+      'INSERT INTO tb_casa_documentos (casa_id, nome, arquivo_url, tipo, tamanho) VALUES (?, ?, ?, ?, ?)',
+      [casaId, nomeOriginal, filePath, mimeType, req.file.size]
+    );
+    await logAction(req.user.id, 'ANEXAR_DOCUMENTO_CASA', 'tb_casa_documentos', `Documento "${nomeOriginal}" anexado à Casa ID ${casaId}`);
+    res.status(201).json({
+      id: result.insertId,
+      casa_id: Number(casaId),
+      nome: nomeOriginal,
+      arquivo_url: filePath,
+      tipo: mimeType,
+      tamanho: req.file.size,
+      created_at: new Date()
+    });
+  } catch (error) {
+    console.error('Error uploading casa doc:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Listar documentos de uma Casa Religiosa
+app.get('/api/casas-religiosas/:id/documentos', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM tb_casa_documentos WHERE casa_id = ? ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Excluir documento de uma Casa Religiosa
+app.delete('/api/casas-religiosas/:id/documentos/:docId', authenticateToken, async (req, res) => {
+  try {
+    const [doc] = await db.query('SELECT * FROM tb_casa_documentos WHERE id = ? AND casa_id = ?', [req.params.docId, req.params.id]);
+    if (doc.length === 0) return res.status(404).json({ message: 'Documento não encontrado' });
+    await db.query('DELETE FROM tb_casa_documentos WHERE id = ?', [req.params.docId]);
+    await logAction(req.user.id, 'EXCLUIR_DOCUMENTO_CASA', 'tb_casa_documentos', `Documento ID ${req.params.docId} excluído da Casa ID ${req.params.id}`);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1883,6 +1994,9 @@ app.get('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
         is_oconomo: !!isEconomo
       };
     });
+
+    const [documentos] = await db.query('SELECT * FROM tb_casa_documentos WHERE casa_id = ? ORDER BY created_at DESC', [req.params.id]);
+    house.documentos = documentos;
 
     res.json(house);
   } catch (error) {

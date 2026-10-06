@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 
@@ -15,6 +17,8 @@ interface Props {
 }
 
 const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
+  const { t } = useTranslation();
+  const { currencySymbol } = useCurrency();
   const { user } = useAuth();
   const [selectedAno, setSelectedAno] = useState((new Date().getFullYear() - 1).toString());
   const [selectedCasa, setSelectedCasa] = useState('');
@@ -51,7 +55,7 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
   };
 
   const handleSave = async () => {
-    if (!selectedCasa) return alert('Selecione uma casa.');
+    if (!selectedCasa) return alert(t('planilha.select_house_alert', 'Selecione uma casa.'));
     setIsSaving(true);
     const payload = {
       casa_id: parseInt(selectedCasa),
@@ -63,9 +67,9 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
     };
     try {
       await api.post('/api/prestacao-anual', payload);
-      alert('Prestação de contas anual salva!');
+      alert(t('planilha.annual_saved', 'Prestação de contas anual salva!'));
     } catch (err) {
-      alert('Erro ao salvar.');
+      alert(t('common.error', 'Erro ao salvar.'));
     } finally {
       setIsSaving(false);
     }
@@ -76,15 +80,15 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
       <div className="filters-card">
         <div className="filters-grid-premium">
           <div className="filter-item">
-            <label><Calendar size={14} /> Ano de Referência</label>
+            <label><Calendar size={14} /> {t('planilha.year_reference', 'Ano de Referência')}</label>
             <select value={selectedAno} onChange={e => setSelectedAno(e.target.value)}>
                {[-2,-1,0].map(i => <option key={i} value={new Date().getFullYear() + i}>{new Date().getFullYear() + i}</option>)}
             </select>
           </div>
           <div className="filter-item">
-            <label>Casa Religiosa</label>
+            <label>{t('gestao_financeira.house', 'Casa Religiosa')}</label>
             <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)}>
-              <option value="">Selecione...</option>
+              <option value="">{t('gestao_financeira.select_house', 'Selecione...')}</option>
               {casas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
@@ -94,12 +98,12 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
       <div className="spreedsheet-container card-lite" style={{ marginTop: '20px' }}>
         <div className="spreedsheet-header">
            <div>
-              <h3>Prestação de Contas ANUAL</h3>
-              <p>Relatório consolidado do exercício anterior.</p>
+              <h3>{t('planilha.annual_title', 'Prestação de Contas ANUAL')}</h3>
+              <p>{t('planilha.annual_desc', 'Relatório consolidado do exercício anterior.')}</p>
            </div>
            <button className="btn-save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              Salvar Prestação Anual
+              {t('planilha.save_annual', 'Salvar Prestação Anual')}
            </button>
         </div>
 
@@ -110,9 +114,9 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
             <table className="excel-style">
               <thead>
                 <tr>
-                  <th style={{ width: '100px' }}>Código</th>
-                  <th>Categoria</th>
-                  <th className="right" style={{ width: '200px' }}>Valor Total (R$)</th>
+                  <th style={{ width: '100px' }}>{t('planilha.col_code', 'Código')}</th>
+                  <th>{t('planilha.category', 'Categoria')}</th>
+                  <th className="right" style={{ width: '200px' }}>{t('planilha.value', 'Valor')} ({currencySymbol})</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,3 +145,4 @@ const PrestacaoContasAnual: React.FC<Props> = ({ casas, categorias }) => {
 };
 
 export default PrestacaoContasAnual;
+

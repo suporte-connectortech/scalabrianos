@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Save, Loader2,
-  Calendar, FileText, Download, TrendingUp, TrendingDown, Plus
+  Calendar, FileText, Download, TrendingUp, TrendingDown, Plus, AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
@@ -547,6 +547,27 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
           <div style={{ padding: '50px', textAlign: 'center' }}><Loader2 className="animate-spin" size={40} /></div>
         ) : (
           <>
+            {/* AVISO / INFORMATIVO */}
+            <div style={{
+              marginBottom: '20px',
+              padding: '16px 20px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              color: '#1e40af'
+            }}>
+              <AlertCircle size={24} style={{ flexShrink: 0, color: '#2563eb' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                <strong>{t('planilha.instruction_banner', 'Instruções ao Usuário: Todos os lançamentos devem ser feitos nos campos correspondentes de Receita e Despesa abaixo. É permitido salvar rascunhos até a submissão final («Enviar para Conferência»).')}</strong>
+                <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: '#3b82f6' }}>
+                  A tabela abaixo consolida os totais da Casa Religiosa e dos Missionários vinculados.
+                </span>
+              </div>
+            </div>
+
             {!isLocked && (
               <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                 <div className="spreadsheet-insertion-grid">
@@ -809,7 +830,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         style={{ background: '#64748b', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                       >
                         {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                        Salvar Rascunho
+                        {t('planilha.save_draft', 'Salvar Rascunho')}
                       </button>
                       <button
                         className="btn-save"
@@ -818,7 +839,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         style={{ background: '#10b981', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}
                       >
                         {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                        Enviar para o Regional
+                        {t('planilha.send_to_regional', 'Enviar para o Regional')}
                       </button>
                     </>
                   )}
@@ -835,16 +856,18 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       className="btn-save"
                       style={{ background: '#013375', color: 'white', textDecoration: 'none', height: '38px', padding: '0 20px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}
                     >
-                      <FileText size={18} /> Ver Recibos Anexados
+                      <FileText size={18} /> {t('planilha.view_receipts', 'Ver Recibos Anexados')}
                     </a>
                   </div>
                 )}
 
                 {planilha && planilha.status === 'ENVIADO_REGIONAL' ? (
                   <div className="validation-bar card-lite" style={{ padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 800, color: '#013375' }}>Feedback / Apontamentos para a Casa Religiosa</h4>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 800, color: '#013375' }}>
+                      {t('planilha.feedback_title', 'Feedback / Apontamentos para a Casa Religiosa')}
+                    </h4>
                     <textarea
-                      placeholder="Descreva o motivo da devolução, caso haja correções a fazer..."
+                      placeholder={t('planilha.feedback_placeholder', 'Descreva o motivo da devolução, caso haja correções a fazer...')}
                       value={apontamentos}
                       onChange={e => setApontamentos(e.target.value)}
                       style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '16px', fontSize: '13px', outline: 'none' }}
@@ -854,13 +877,13 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         onClick={() => handleValidateCommunity('APROVADO')}
                         style={{ background: '#10b981', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                       >
-                        Aprovar Prestação
+                        {t('planilha.approve_community', 'Aprovar Prestação')}
                       </button>
                       <button
                         onClick={() => handleValidateCommunity('DEVOLVIDO_SUPERIOR')}
                         style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                       >
-                        Devolver para Ajustes
+                        {t('planilha.return_for_adjustments', 'Devolver para Ajustes')}
                       </button>
                     </div>
                   </div>
@@ -868,11 +891,11 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   planilha && (
                     <div style={{ padding: '15px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
                       <p style={{ margin: 0, fontWeight: 700, color: '#475569' }}>
-                        Status da Prestação: <span style={{ textTransform: 'uppercase', color: planilha.status === 'APROVADO' ? '#10b981' : '#ef4444' }}>{planilha.status === 'DEVOLVIDO_SUPERIOR' ? 'DEVOLVIDO' : planilha.status}</span>
+                        {t('planilha.status_label', 'Status da Prestação:')} <span style={{ textTransform: 'uppercase', color: planilha.status === 'APROVADO' ? '#10b981' : '#ef4444' }}>{planilha.status === 'DEVOLVIDO_SUPERIOR' ? t('planilha.returned', 'DEVOLVIDO') : planilha.status}</span>
                       </p>
                       {apontamentos && (
                         <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                          <strong>Apontamentos:</strong> {apontamentos}
+                          <strong>{t('planilha.notes_label', 'Apontamentos:')}</strong> {apontamentos}
                         </p>
                       )}
                     </div>
@@ -934,23 +957,23 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         <FileText size={20} color="#fff" />
                       </div>
                       <div>
-                        <div style={{ color: '#c7d2fe', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Relatório de Lançamentos</div>
-                        <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>Demonstrativo da Comunidade</div>
+                        <div style={{ color: '#c7d2fe', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('planilha.entries_report', 'Relatório de Lançamentos')}</div>
+                        <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>{t('planilha.community_statement', 'Demonstrativo da Comunidade')}</div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '24px' }}>
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Receitas</div>
+                        <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_receitas', 'Total Receitas')}</div>
                         <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalRec)}</div>
                       </div>
                       <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Total Despesas</div>
+                        <div style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_despesas', 'Total Despesas')}</div>
                         <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalDep)}</div>
                       </div>
                       <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)' }} />
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ color: '#c7d2fe', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Saldo</div>
+                        <div style={{ color: '#c7d2fe', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.saldo_mes', 'Saldo')}</div>
                         <div style={{ color: totalSaldo >= 0 ? '#a5f3c3' : '#fca5a5', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalSaldo)}</div>
                       </div>
                     </div>
@@ -963,10 +986,10 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#03077f,#453bf2)', borderRadius: '2px' }} />
                         <span style={{ fontWeight: 800, fontSize: '13px', color: '#312e81', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Lançamentos Individuais ({entryLogs.length})
+                          {t('planilha.individual_entries', 'Lançamentos Individuais')} ({entryLogs.length})
                         </span>
                         <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
-                          — inseridos via campos de Receita / Despesa
+                          — {t('planilha.inserted_via_fields', 'inseridos via campos de Receita / Despesa')}
                         </span>
                       </div>
                       {entryLogs.length > 0 ? (
@@ -974,11 +997,11 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                             <thead>
                               <tr style={{ background: 'linear-gradient(90deg,#03077fff,#453bf2ff)' }}>
-                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tipo</th>
-                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Categoria</th>
-                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observação</th>
-                                <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Data / Hora</th>
-                                <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor ({currencySymbol})</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.type', 'Tipo')}</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.category', 'Categoria')}</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.description', 'Observação')}</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.datetime', 'Data / Hora')}</th>
+                                <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('financeiro.table.value', 'Valor')} ({currencySymbol})</th>
                                 <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}></th>
                               </tr>
                             </thead>
@@ -992,7 +1015,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                                       background: entry.tipo === 'CREDITO' ? '#d1fae5' : '#fee2e2',
                                       color: entry.tipo === 'CREDITO' ? '#065f46' : '#991b1b',
                                     }}>
-                                      {entry.tipo === 'CREDITO' ? '▲ Receita' : '▼ Despesa'}
+                                      {entry.tipo === 'CREDITO' ? `▲ ${t('planilha.receita_single', 'Receita')}` : `▼ ${t('planilha.despesa_single', 'Despesa')}`}
                                     </span>
                                   </td>
                                   <td style={{ padding: '10px 14px', color: '#312e81', fontWeight: 600 }}>{entry.categoriaNome}</td>
@@ -1013,7 +1036,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                                   <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                                     {!isLocked && (
                                       <button
-                                        title="Remover lançamento"
+                                        title={t('planilha.remove_entry', 'Remover lançamento')}
                                         onClick={() => handleRemoveItem(entry.id)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: '14px', lineHeight: 1, padding: '2px 4px', borderRadius: '4px' }}
                                       >✕</button>
@@ -1026,7 +1049,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         </div>
                       ) : (
                         <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', background: '#f5f3ff', borderRadius: '10px', border: '1px dashed #c7d2fe', fontSize: '12px', fontStyle: 'italic' }}>
-                          Nenhum lançamento individual. Use os campos "Adicionar Receita / Despesa" acima.
+                          {t('planilha.no_individual_entries', 'Nenhum lançamento individual. Use os campos "Adicionar Receita / Despesa" acima.')}
                         </div>
                       )}
                     </div>
@@ -1037,21 +1060,27 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                     {/* ══ Resumo consolidado (planilha + individuais) ══ */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                       <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#059669,#dc2626)', borderRadius: '2px' }} />
-                      <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Resumo Consolidado</span>
-                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>— planilha + lançamentos individuais</span>
+                      <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t('planilha.consolidated_summary', 'Resumo Consolidado')}
+                      </span>
+                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
+                        — {t('planilha.sheet_plus_individual', 'planilha + lançamentos individuais')}
+                      </span>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                       <div style={{ border: '1px solid #a7f3d0', borderRadius: '10px', overflow: 'hidden' }}>
                         <div style={{ background: 'linear-gradient(90deg,#059669,#10b981)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <TrendingUp size={14} color="#fff" />
-                          <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receitas da Casa</span>
+                          <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {t('planilha.house_receitas', 'Receitas da Casa')}
+                          </span>
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: '#fff' }}>
                           <thead>
                             <tr style={{ background: '#ecfdf5' }}>
-                              <th style={{ padding: '6px 12px', textAlign: 'left', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Categoria</th>
-                              <th style={{ padding: '6px 12px', textAlign: 'right', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Total</th>
+                              <th style={{ padding: '6px 12px', textAlign: 'left', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.category', 'Categoria')}</th>
+                              <th style={{ padding: '6px 12px', textAlign: 'right', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.col_total', 'Total')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1062,12 +1091,12 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                               </tr>
                             ))}
                             {Object.keys(receitaMap).length === 0 && (
-                              <tr><td colSpan={2} style={{ padding: '10px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>Nenhuma receita lançada.</td></tr>
+                              <tr><td colSpan={2} style={{ padding: '10px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>{t('planilha.no_receitas', 'Nenhuma receita lançada.')}</td></tr>
                             )}
                           </tbody>
                           <tfoot style={{ background: '#d1fae5', borderTop: '2px solid #a7f3d0' }}>
                             <tr>
-                              <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46', fontSize: '11px' }}>TOTAL</td>
+                              <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46', fontSize: '11px' }}>{t('planilha.col_total', 'TOTAL')}</td>
                               <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>{formatCurrency(totalRec)}</td>
                             </tr>
                           </tfoot>
@@ -1076,13 +1105,15 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       <div style={{ border: '1px solid #fecaca', borderRadius: '10px', overflow: 'hidden' }}>
                         <div style={{ background: 'linear-gradient(90deg,#dc2626,#ef4444)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <TrendingDown size={14} color="#fff" />
-                          <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Despesas da Casa</span>
+                          <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {t('planilha.house_despesas', 'Despesas da Casa')}
+                          </span>
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: '#fff' }}>
                           <thead>
                             <tr style={{ background: '#fef2f2' }}>
-                              <th style={{ padding: '6px 12px', textAlign: 'left', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Categoria</th>
-                              <th style={{ padding: '6px 12px', textAlign: 'right', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Total</th>
+                              <th style={{ padding: '6px 12px', textAlign: 'left', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.category', 'Categoria')}</th>
+                              <th style={{ padding: '6px 12px', textAlign: 'right', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.col_total', 'Total')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1093,12 +1124,12 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                               </tr>
                             ))}
                             {Object.keys(despesaMap).length === 0 && (
-                              <tr><td colSpan={2} style={{ padding: '10px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>Nenhuma despesa lançada.</td></tr>
+                              <tr><td colSpan={2} style={{ padding: '10px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>{t('planilha.no_despesas', 'Nenhuma despesa lançada.')}</td></tr>
                             )}
                           </tbody>
                           <tfoot style={{ background: '#fee2e2', borderTop: '2px solid #fecaca' }}>
                             <tr>
-                              <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b', fontSize: '11px' }}>TOTAL</td>
+                              <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b', fontSize: '11px' }}>{t('planilha.col_total', 'TOTAL')}</td>
                               <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>{formatCurrency(totalDep)}</td>
                             </tr>
                           </tfoot>

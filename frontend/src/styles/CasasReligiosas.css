@@ -864,3 +864,106 @@
     color: #1e40af;
     border: 1px solid #dbeafe;
 }
+
+.status-tag.entregue {
+    background-color: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.doc-attachment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+
+.doc-attachment-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.doc-attachment-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+}
+
+.doc-attachment-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    body {
+        background: #fff !important;
+        color: #0f172a !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+        font-size: 11pt !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .header, .sidebar, .btn-back-casa, .btn-print, .btn-print-report, .modal-overlay,
+    .btn-action-icon, .btn-new, .btn-export, .filters-card, .sidebar-overlay,
+    .doc-attachment-actions, .pagination, .filters-actions, button {
+        display: none !important;
+    }
+    .main-content, .page-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .casa-detail-header {
+        border-bottom: 2px solid #032b57 !important;
+        padding-bottom: 12px !important;
+        margin-bottom: 16px !important;
+        background: transparent !important;
+    }
+    .casa-detail-title {
+        color: #032b57 !important;
+        font-size: 18pt !important;
+        font-weight: 800 !important;
+    }
+    .card-lite {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 4px !important;
+        background: #fff !important;
+        padding: 12px !important;
+        page-break-inside: avoid;
+        margin-bottom: 14px !important;
+    }
+    .profile-grid {
+        display: block !important;
+    }
+    .profile-sidebar, .profile-main {
+        width: 100% !important;
+        display: block !important;
+    }
+    .status-tag {
+        border: 1px solid #334155 !important;
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        font-weight: 700 !important;
+    }
+    .doc-attachment-item {
+        border: 1px solid #cbd5e1 !important;
+        background: #fff !important;
+        padding: 6px 10px !important;
+        page-break-inside: avoid;
+    }
+}
+

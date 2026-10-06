@@ -1,17 +1,27 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Edit2, X, Loader2, AlertCircle, Plus, Trash2, Download,
   Home as HomeIcon, Save, Eye, Search, DollarSign, ChevronLeft,
-  ChevronRight, Printer, Phone, PhoneCall, Mail
+  ChevronRight, Printer, Phone, PhoneCall, Mail, Upload, File, Paperclip
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { getFileUrl } from '../api';
 import { formatCNPJ, validateCNPJ, cleanCNPJ } from '../utils/cnpjHelper';
 import { formatCEP, cleanCEP, isValidCEP, extractCidadeUf } from '../utils/addressHelper';
 import '../styles/CasasReligiosas.css';
+
+interface CasaDocumento {
+  id: number;
+  casa_id: number;
+  nome: string;
+  arquivo_url: string;
+  tipo?: string;
+  tamanho?: number;
+  created_at: string;
+}
 
 interface ReligiousHouse {
   id: number;
@@ -24,7 +34,11 @@ interface ReligiousHouse {
   telefone?: string;
   celular?: string;
   email?: string;
-  status: 'ATIVO' | 'INATIVO';
+  data_inicio?: string;
+  data_entrega?: string;
+  data_encerramento?: string;
+  observacao?: string;
+  status: 'ATIVO' | 'INATIVO' | 'ENTREGUE';
   missionarios_count: number;
   regional?: string;
   data_referencia_casa?: string;
@@ -39,8 +53,8 @@ const NOMENCLATURES = [
   { code: 'CR', label: 'Casas Religiosas – CR' },
   { code: 'M', label: 'Obras – M' },
   { code: 'P', label: 'Paróquia – P' },
-  { code: 'PV', label: 'Pastoral Vocacional - PV' },
-  { code: 'CS', label: 'Seminário - CS' },
+  { code: 'PV', label: 'Pastoral Vocacional – PV' },
+  { code: 'CS', label: 'Seminário – CS' },
 ];
 
 const CasasReligiosas: React.FC = () => {
@@ -62,6 +76,11 @@ const CasasReligiosas: React.FC = () => {
   const [cepStatus, setCepStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  // Documentos anexados no modal (novos e existentes)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingDocs, setExistingDocs] = useState<CasaDocumento[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchHouses();
@@ -126,6 +145,10 @@ const CasasReligiosas: React.FC = () => {
       'E-mail': h.email || '',
       'Cidade/UF': extractCidadeUf(h.cidade, h.endereco),
       'País': h.regional || h.pais || 'Brasil',
+      'Data Início': h.data_inicio ? h.data_inicio.slice(0, 10) : '',
+      'Data Entrega': h.data_entrega ? h.data_entrega.slice(0, 10) : '',
+      'Data Encerramento': h.data_encerramento ? h.data_encerramento.slice(0, 10) : '',
+      'Observações': h.observacao || '',
       'Status': h.status,
       'Endereço Completo': h.endereco || '',
       'Total Missionários': h.missionarios_count || 0
@@ -299,14 +322,48 @@ const CasasReligiosas: React.FC = () => {
     printWindow.document.close();
   };
 
-  const handleOpenEdit = (house: ReligiousHouse) => {
+  const handleOpenEdit = async (house: ReligiousHouse) => {
     const cleanAddressCity = extractCidadeUf(house.cidade, house.endereco);
     setEditingHouse({
       ...house,
       cidade: house.cidade || (cleanAddressCity !== '---' ? cleanAddressCity : '')
     });
     setCepStatus(house.cep && isValidCEP(house.cep) ? 'valid' : 'idle');
+    setPendingFiles([]);
+    setExistingDocs([]);
     setIsModalOpen(true);
+
+    try {
+      const res = await api.get(`/casas-religiosas/${house.id}/documentos`);
+      setExistingDocs(res.data || []);
+    } catch (err) {
+      console.error('Error fetching casa docs:', err);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
+      setPendingFiles(prev => [...prev, ...filesArray]);
+    }
+    // reset input so the same file can be chosen again if needed
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemovePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleDeleteExistingDoc = async (docId: number) => {
+    if (!editingHouse || editingHouse.id === 0) return;
+    if (!window.confirm('Deseja realmente excluir este documento anexado?')) return;
+    try {
+      await api.delete(`/casas-religiosas/${editingHouse.id}/documentos/${docId}`);
+      setExistingDocs(prev => prev.filter(d => d.id !== docId));
+    } catch (err) {
+      console.error('Error deleting doc:', err);
+      alert('Erro ao excluir documento.');
+    }
   };
 
   const handleCepChange = async (rawVal: string) => {
@@ -368,14 +425,32 @@ const CasasReligiosas: React.FC = () => {
         cidade: editingHouse.cidade ? editingHouse.cidade.trim() : extractCidadeUf(undefined, editingHouse.endereco),
         cnpj: editingHouse.cnpj ? formatCNPJ(editingHouse.cnpj) : ''
       };
+
+      let savedId = editingHouse.id;
       if (editingHouse.id === 0) {
-        await api.post('/casas-religiosas', payload);
+        const res = await api.post('/casas-religiosas', payload);
+        savedId = res.data?.id || res.data?.insertId;
       } else {
         await api.post(`/casas-religiosas/${editingHouse.id}/update`, payload);
       }
+
+      // Se há novos arquivos para anexar, faz o upload
+      if (pendingFiles.length > 0 && savedId) {
+        for (const file of pendingFiles) {
+          const formData = new FormData();
+          formData.append('arquivo', file);
+          formData.append('nome', file.name);
+          await api.post(`/casas-religiosas/${savedId}/documentos`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+
       await fetchHouses();
       setIsModalOpen(false);
       setEditingHouse(null);
+      setPendingFiles([]);
+      setExistingDocs([]);
     } catch (err) {
       console.error('Error saving house:', err);
       alert(t('common.error'));
@@ -395,10 +470,16 @@ const CasasReligiosas: React.FC = () => {
       telefone: '',
       celular: '',
       email: '',
+      data_inicio: '',
+      data_entrega: '',
+      data_encerramento: '',
+      observacao: '',
       status: 'ATIVO',
       missionarios_count: 0
     });
     setCepStatus('idle');
+    setPendingFiles([]);
+    setExistingDocs([]);
     setIsModalOpen(true);
   };
 
@@ -470,6 +551,7 @@ const CasasReligiosas: React.FC = () => {
               <option value="Todos">{t('missionaries.filters.all', 'Todos')}</option>
               <option value="ATIVO">{t('status.ativo', 'Ativo')}</option>
               <option value="INATIVO">{t('status.inativo', 'Inativo')}</option>
+              <option value="ENTREGUE">{t('status.entregue', 'Entregue')}</option>
             </select>
           </div>
         </div>
@@ -776,10 +858,180 @@ const CasasReligiosas: React.FC = () => {
                     value={editingHouse.status}
                     onChange={(e) => setEditingHouse({ ...editingHouse, status: e.target.value as any })}
                   >
-                    <option value="ATIVO">ATIVO</option>
-                    <option value="INATIVO">INATIVO</option>
+                    <option value="ATIVO">{t('status.ativo', 'Ativa')}</option>
+                    <option value="INATIVO">{t('status.inativo', 'Inativa')}</option>
+                    <option value="ENTREGUE">{t('status.entregue', 'Entregue')}</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Vigência / Datas */}
+              <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Data Início</label>
+                  <input
+                    type="date"
+                    value={editingHouse.data_inicio ? editingHouse.data_inicio.slice(0, 10) : ''}
+                    onChange={(e) => setEditingHouse({ ...editingHouse, data_inicio: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Data Entrega</label>
+                  <input
+                    type="date"
+                    value={editingHouse.data_entrega ? editingHouse.data_entrega.slice(0, 10) : ''}
+                    onChange={(e) => setEditingHouse({ ...editingHouse, data_entrega: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Data Encerramento</label>
+                  <input
+                    type="date"
+                    value={editingHouse.data_encerramento ? editingHouse.data_encerramento.slice(0, 10) : ''}
+                    onChange={(e) => setEditingHouse({ ...editingHouse, data_encerramento: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Observações */}
+              <div className="form-group">
+                <label>Observações (Sem limite de caracteres)</label>
+                <textarea
+                  rows={4}
+                  placeholder="Informações adicionais, histórico, convênios, anotações relevantes sobre a presença..."
+                  value={editingHouse.observacao || ''}
+                  onChange={(e) => setEditingHouse({ ...editingHouse, observacao: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    background: '#fff'
+                  }}
+                />
+              </div>
+
+              {/* Anexar Documentos */}
+              <div className="form-group" style={{ marginTop: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#1e293b' }}>
+                  <Paperclip size={16} /> Anexar Documentos (Múltiplos arquivos)
+                </label>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"
+                  style={{ display: 'none' }}
+                  onChange={handleFileSelect}
+                />
+
+                <div
+                  className="modal-upload-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    border: '2px dashed #94a3b8',
+                    borderRadius: '10px',
+                    padding: '16px 20px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginTop: '6px',
+                    marginBottom: '12px'
+                  }}
+                >
+                  <Upload size={24} style={{ color: '#032b57', margin: '0 auto 6px auto', display: 'block' }} />
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#032b57' }}>
+                    Clique para selecionar documentos para anexar
+                  </p>
+                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                    PDF, Word, Excel, Imagens (sem limite de arquivos)
+                  </span>
+                </div>
+
+                {/* Arquivos selecionados para upload */}
+                {pendingFiles.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#166534' }}>
+                      Novos arquivos para salvar ({pendingFiles.length}):
+                    </span>
+                    {pendingFiles.map((file, idx) => (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: '8px',
+                        fontSize: '12.5px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                          <File size={15} style={{ color: '#166534', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, color: '#166534', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                            {file.name}
+                          </span>
+                          <span style={{ color: '#64748b', fontSize: '11px' }}>
+                            ({(file.size / 1024).toFixed(0)} KB)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePendingFile(idx)}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          title="Remover anexo"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Documentos já cadastrados (na edição) */}
+                {existingDocs.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#032b57' }}>
+                      Documentos já salvos nesta presença ({existingDocs.length}):
+                    </span>
+                    {existingDocs.map((doc) => (
+                      <div key={doc.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '12.5px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                          <File size={15} style={{ color: '#032b57', flexShrink: 0 }} />
+                          <a
+                            href={getFileUrl(doc.arquivo_url) || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontWeight: 600, color: '#032b57', textDecoration: 'none', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}
+                          >
+                            {doc.nome}
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExistingDoc(doc.id)}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          title="Excluir documento"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">

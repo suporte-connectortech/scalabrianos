@@ -627,19 +627,19 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   className="btn-approve"
                   onClick={() => handleUpdateConsolidadoStatus('PENDENTE_SUPERIOR')}
                   disabled={isSavingConsolidado || !consolidadoData.every(r => r.status === 'VALIDADO')}
-                  title={!consolidadoData.every(r => r.status === 'VALIDADO') ? "Todas as planilhas devem estar validadas." : ""}
+                  title={!consolidadoData.every(r => r.status === 'VALIDADO') ? t('planilha.all_sheets_must_be_validated', 'Todas as planilhas devem estar validadas.') : ''}
                 >
-                  <CheckCircle size={18} /> Enviar para o Superior
+                  <CheckCircle size={18} /> {t('gestao_financeira.send_to_superior', 'Enviar para o Superior')}
                 </button>
               )}
 
               {isSuperior && consolidadoStatus?.status === 'PENDENTE_SUPERIOR' && (
                 <>
                   <button className="btn-approve" onClick={() => handleUpdateConsolidadoStatus('APROVADO')} disabled={isSavingConsolidado}>
-                    <CheckCircle size={18} /> Aprovar Consolidado
+                    <CheckCircle size={18} /> {t('gestao_financeira.approve_consolidado', 'Aprovar Consolidado')}
                   </button>
                   <button className="btn-reject" onClick={() => handleUpdateConsolidadoStatus('DEVOLVIDO_SUPERIOR')} disabled={isSavingConsolidado}>
-                    <XCircle size={18} /> Devolver para o Ecônomo
+                    <XCircle size={18} /> {t('gestao_financeira.return_to_economo', 'Devolver para o Ecônomo')}
                   </button>
                 </>
               )}
@@ -649,13 +649,13 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               <div className="comments-area" style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px' }}>
                 {consolidadoStatus.apontamentos_economo && (
                   <div style={{ marginBottom: '10px' }}>
-                    <strong>Notas do Ecônomo:</strong>
+                    <strong>{t('gestao_financeira.notes_economo_label', 'Notas do Ecônomo:')}</strong>
                     <p style={{ margin: '5px 0', fontSize: '14px' }}>{consolidadoStatus.apontamentos_economo}</p>
                   </div>
                 )}
                 {consolidadoStatus.apontamentos_superior && (
                   <div>
-                    <strong>Notas do Superior:</strong>
+                    <strong>{t('gestao_financeira.notes_superior_label', 'Notas do Superior:')}</strong>
                     <p style={{ margin: '5px 0', fontSize: '14px' }}>{consolidadoStatus.apontamentos_superior}</p>
                   </div>
                 )}
@@ -748,9 +748,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               gap: '14px',
               color: '#1e40af'
             }}>
-              <AlertCircle size={22} style={{ flexShrink: 0, color: '#2563eb' }} />
-              <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                <strong>Aviso Importante:</strong> Todos os valores devem ser cadastrados exclusivamente através dos campos de <strong>Lançamentos Individuais</strong> abaixo ⬇️, (selecionando a categoria, o valor e a observação).⚠️ A tabela em cinza, é mais para a visualização, ela exibe apenas os totais acumulados, não é possível editar nela. ⚠️
+              <AlertCircle size={24} style={{ flexShrink: 0, color: '#2563eb' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                <strong>{t('planilha.instruction_banner', 'Instruções ao Usuário: Todos os lançamentos devem ser feitos nos campos correspondentes de Receita e Despesa abaixo. É permitido salvar rascunhos até a submissão final («Enviar para Conferência»).')}</strong>
+                <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: '#3b82f6' }}>
+                  A tabela abaixo consolida os totais acumulados para conferência.
+                </span>
               </div>
             </div>
 
@@ -761,14 +764,14 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   {/* RECEITA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <span style={{ fontWeight: 800, color: '#166534', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <TrendingUp size={14} /> Receita
+                      <TrendingUp size={14} /> {t('planilha.receita_single', 'RECEITA')}
                     </span>
                     <select
                       style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
                       value={tempReceitaCat}
                       onChange={e => { setTempReceitaCat(e.target.value); setTempReceitaVal(''); setObsReceita(''); }}
                     >
-                      <option value="">Selecione a categoria...</option>
+                      <option value="">{t('planilha.select_category', 'Selecione a categoria...')}</option>
                       {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
@@ -786,7 +789,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       </div>
                       <input
                         type="text"
-                        placeholder="Observação da receita..."
+                        placeholder={t('planilha.obs_receita_placeholder', 'Observação da receita...')}
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsReceita}
                         onChange={e => setObsReceita(e.target.value)}
@@ -796,21 +799,21 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       onClick={() => handleAddItem('CREDITO')}
                       style={{ width: '100%', padding: '12px', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      Adicionar Receita
+                      {t('planilha.add_receita', 'Adicionar Receita')}
                     </button>
                   </div>
 
                   {/* DESPESA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <span style={{ fontWeight: 800, color: '#991b1b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <TrendingDown size={14} /> Despesa
+                      <TrendingDown size={14} /> {t('planilha.despesa_single', 'DESPESA')}
                     </span>
                     <select
                       style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff', outline: 'none' }}
                       value={tempDespesaCat}
                       onChange={e => { setTempDespesaCat(e.target.value); setTempDespesaVal(''); setObsDespesa(''); }}
                     >
-                      <option value="">Selecione a categoria...</option>
+                      <option value="">{t('planilha.select_category', 'Selecione a categoria...')}</option>
                       {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
@@ -828,7 +831,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       </div>
                       <input
                         type="text"
-                        placeholder="Observação da despesa..."
+                        placeholder={t('planilha.obs_despesa_placeholder', 'Observação da despesa...')}
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsDespesa}
                         onChange={e => setObsDespesa(e.target.value)}
@@ -838,7 +841,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       onClick={() => handleAddItem('DEBITO')}
                       style={{ width: '100%', padding: '12px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      Adicionar Despesa
+                      {t('planilha.add_despesa', 'Adicionar Despesa')}
                     </button>
                   </div>
                 </div>
@@ -847,15 +850,17 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
 
             {!isOwner && planilha && (planilha.obs_receita || planilha.obs_despesa) && (
               <div className="observations-display-card" style={{ marginBottom: '20px', padding: '18px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#013375', fontSize: '15px', fontWeight: 800 }}>Observações do Missionário</h4>
+                <h4 style={{ margin: '0 0 10px 0', color: '#013375', fontSize: '15px', fontWeight: 800 }}>
+                  {t('planilha.missionary_notes', 'Observações do Missionário')}
+                </h4>
                 {planilha.obs_receita && (
                   <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#334155' }}>
-                    <strong>Receitas:</strong> {planilha.obs_receita}
+                    <strong>{t('planilha.receitas', 'RECEITAS')}:</strong> {planilha.obs_receita}
                   </p>
                 )}
                 {planilha.obs_despesa && (
                   <p style={{ margin: 0, fontSize: '13px', color: '#334155' }}>
-                    <strong>Despesas:</strong> {planilha.obs_despesa}
+                    <strong>{t('planilha.despesas', 'DESPESAS')}:</strong> {planilha.obs_despesa}
                   </p>
                 )}
               </div>
@@ -974,10 +979,10 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   accept=".pdf,.jpg,.jpeg,.png"
                 />
                 <label htmlFor="anexo-input" className="btn-save" style={{ cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.5 : 1, pointerEvents: isLocked ? 'none' : 'auto', background: '#013375', color: 'white', border: 'none', height: '46px', padding: '0 25px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', borderRadius: '8px', fontWeight: 700, fontSize: '14px', boxShadow: '0 4px 6px -1px rgba(1, 51, 117, 0.2)' }}>
-                  <FileText size={20} /> {anexoFile ? anexoFile.name : (anexoUrl ? "Substituir Anexos" : "Anexar Comprovantes (PDF/IMG)")}
+                  <FileText size={20} /> {anexoFile ? anexoFile.name : (anexoUrl ? t('planilha.replace_files', 'Substituir Anexos') : t('planilha.attach_files', 'Anexar Comprovantes (PDF/IMG)'))}
                 </label>
                 {anexoUrl && (
-                  <a href={getFileUrl(anexoUrl) || '#'} target="_blank" rel="noreferrer" className="btn-icon-view" title="Ver Anexo" style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex' }}>
+                  <a href={getFileUrl(anexoUrl) || '#'} target="_blank" rel="noreferrer" className="btn-icon-view" title={t('planilha.view_attachment', 'Ver Anexo')} style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex' }}>
                     <FileText size={24} color="#013375" />
                   </a>
                 )}
@@ -988,11 +993,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <>
                     <button className="btn-save" onClick={handleSave} disabled={isSaving} style={{ background: '#64748b', height: '46px', padding: '0 25px', borderRadius: '8px', fontWeight: 700, fontSize: '14px' }}>
                       {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                      {isOwner ? 'Salvar Rascunho' : 'Salvar Alterações'}
+                      {isOwner ? t('planilha.save_draft', 'Salvar Rascunho') : t('planilha.save_changes', 'Salvar Alterações')}
                     </button>
                     {isOwner && (
                       <button className="btn-save" onClick={handleFinalize} disabled={isSaving} style={{ background: '#10b981', height: '46px', padding: '0 35px', borderRadius: '8px', fontWeight: 800, fontSize: '15px', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}>
-                        <CheckCircle size={22} /> {isSuperior && (!selectedUserId || selectedUserId === user?.id) ? "Finalizar Prestação" : "Enviar para Conferência"}
+                        <CheckCircle size={22} /> {isSuperior && (!selectedUserId || selectedUserId === user?.id) ? t('planilha.finalize_self', 'Finalizar Prestação') : t('planilha.send_for_review', 'Enviar para Conferência')}
                       </button>
                     )}
                   </>
@@ -1002,14 +1007,14 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
 
             {(canValidate || isSuperior) && viewMode === 'individual' && planilha && (!isOwner || (isOwner && (isOconomoUser || isSuperiorUser || user?.role === 'ADMIN_GERAL') && planilha.status === 'EM_VALIDACAO')) && planilha.status !== 'VALIDADO' && (
               <div className="management-controls card-lite" style={{ marginTop: '30px', borderTop: '4px solid #013375' }}>
-                <h3 style={{ marginBottom: '15px' }}>Revisão de Planilha: {selectedUserName || user?.nome}</h3>
+                <h3 style={{ marginBottom: '15px' }}>{t('planilha.review_title', 'Revisão de Planilha:')} {selectedUserName || user?.nome}</h3>
                 <div className="comment-box" style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Comentários / Apontamentos:</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('planilha.comments_notes', 'Comentários / Apontamentos:')}</label>
                   <textarea
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', minHeight: '100px', fontSize: '14px', fontFamily: 'inherit' }}
                     value={apontamentos}
                     onChange={(e) => setApontamentos(e.target.value)}
-                    placeholder="Descreva aqui o motivo da devolução ou observações de aprovação..."
+                    placeholder={t('planilha.review_placeholder', 'Descreva aqui o motivo da devolução ou observações de aprovação...')}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -1169,7 +1174,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', background: '#f5f3ff', borderRadius: '10px', border: '1px dashed #c7d2fe', fontSize: '12px', fontStyle: 'italic' }}>
-                  Nenhum lançamento individual. Use os campos "Adicionar Receita / Despesa" acima.
+                  {t('planilha.no_individual_entries', 'Nenhum lançamento individual. Use os campos "Adicionar Receita / Despesa" acima.')}
                 </div>
               )}
             </div>
@@ -1197,20 +1202,26 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <div style={{ borderTop: '2px dashed #c7d2fe', marginBottom: '20px' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                     <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#059669,#dc2626)', borderRadius: '2px' }} />
-                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Resumo Consolidado</span>
-                    <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>— total por categoria</span>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {t('planilha.consolidated_summary', 'Resumo Consolidado')}
+                    </span>
+                    <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
+                      — {t('planilha.total_by_category', 'total por categoria')}
+                    </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div style={{ border: '1px solid #a7f3d0', borderRadius: '10px', overflow: 'hidden' }}>
                       <div style={{ background: 'linear-gradient(90deg,#059669,#10b981)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <TrendingUp size={14} color="#fff" />
-                        <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receitas por Categoria</span>
+                        <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {t('planilha.receitas_by_category', 'Receitas por Categoria')}
+                        </span>
                       </div>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: '#fff' }}>
                         <thead>
                           <tr style={{ background: '#ecfdf5' }}>
-                            <th style={{ padding: '6px 12px', textAlign: 'left', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Categoria</th>
-                            <th style={{ padding: '6px 12px', textAlign: 'right', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Total</th>
+                            <th style={{ padding: '6px 12px', textAlign: 'left', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.category', 'Categoria')}</th>
+                            <th style={{ padding: '6px 12px', textAlign: 'right', color: '#065f46', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.col_total', 'Total')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1221,12 +1232,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                             </tr>
                           ))}
                           {Object.keys(receitaMap).length === 0 && (
-                            <tr><td colSpan={2} style={{ padding: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>Sem receitas</td></tr>
+                            <tr><td colSpan={2} style={{ padding: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>{t('planilha.no_receitas', 'Sem receitas')}</td></tr>
                           )}
                         </tbody>
                         <tfoot>
                           <tr style={{ background: '#ecfdf5', borderTop: '2px solid #6ee7b7' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46' }}>TOTAL</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 800, color: '#065f46' }}>{t('planilha.col_total', 'TOTAL')}</td>
                             <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#065f46' }}>{formatCurrency(totalRec)}</td>
                           </tr>
                         </tfoot>
@@ -1236,13 +1247,15 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     <div style={{ border: '1px solid #fca5a5', borderRadius: '10px', overflow: 'hidden' }}>
                       <div style={{ background: 'linear-gradient(90deg,#dc2626,#ef4444)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <TrendingDown size={14} color="#fff" />
-                        <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Despesas por Categoria</span>
+                        <span style={{ fontWeight: 800, fontSize: '11px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {t('planilha.despesas_by_category', 'Despesas por Categoria')}
+                        </span>
                       </div>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: '#fff' }}>
                         <thead>
                           <tr style={{ background: '#fff1f2' }}>
-                            <th style={{ padding: '6px 12px', textAlign: 'left', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Categoria</th>
-                            <th style={{ padding: '6px 12px', textAlign: 'right', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>Total</th>
+                            <th style={{ padding: '6px 12px', textAlign: 'left', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.category', 'Categoria')}</th>
+                            <th style={{ padding: '6px 12px', textAlign: 'right', color: '#991b1b', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase' }}>{t('planilha.col_total', 'Total')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1253,12 +1266,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                             </tr>
                           ))}
                           {Object.keys(despesaMap).length === 0 && (
-                            <tr><td colSpan={2} style={{ padding: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>Sem despesas</td></tr>
+                            <tr><td colSpan={2} style={{ padding: '12px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>{t('planilha.no_despesas', 'Sem despesas')}</td></tr>
                           )}
                         </tbody>
                         <tfoot>
                           <tr style={{ background: '#fff1f2', borderTop: '2px solid #fca5a5' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b' }}>TOTAL</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 800, color: '#991b1b' }}>{t('planilha.col_total', 'TOTAL')}</td>
                             <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#991b1b' }}>{formatCurrency(totalDep)}</td>
                           </tr>
                         </tfoot>

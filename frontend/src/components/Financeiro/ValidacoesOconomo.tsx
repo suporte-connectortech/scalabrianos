@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { Clock, FileText, ArrowRight, Calendar, Search, Home } from 'lucide-react';
@@ -37,6 +38,7 @@ interface Props {
 }
 
 const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [items, setItems] = useState<ValidationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,7 +122,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
         }}>
           <div>
             <div style={{ fontSize: '11px', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-              {selectedPlanilha.tipo_planilha === 'comunidade' ? 'Planilha da Casa Religiosa' : 'Planilha do Missionário'}
+              {selectedPlanilha.tipo_planilha === 'comunidade' ? t('planilha.comunidade_title', 'Planilha da Casa Religiosa') : t('planilha.individual_title', 'Planilha do Missionário')}
             </div>
             <div style={{ fontSize: '20px', fontWeight: 900, marginTop: '2px' }}>
               {selectedPlanilha.nome_usuario_ou_casa}
@@ -129,16 +131,16 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
           <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
             {selectedPlanilha.nome_casa && (
               <div>
-                <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>CASA RELIGIOSA</span>
+                <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>{t('gestao_financeira.house', 'Casa Religiosa').toUpperCase()}</span>
                 <strong style={{ fontSize: '15px' }}>{selectedPlanilha.nome_casa}</strong>
               </div>
             )}
             <div>
-              <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>MÊS / ANO</span>
+              <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>{t('planilha.month_year', 'MÊS / ANO')}</span>
               <strong style={{ fontSize: '15px' }}>{selectedPlanilha.mes_referencia}</strong>
             </div>
             <div>
-              <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>CÓDIGO PM (PRESENÇA)</span>
+              <span style={{ fontSize: '11px', opacity: 0.85, display: 'block', fontWeight: 600 }}>CÓDIGO PM</span>
               <strong style={{ fontSize: '14px', background: 'rgba(255, 255, 255, 0.2)', padding: '4px 10px', borderRadius: '6px', display: 'inline-block' }}>
                 {selectedPlanilha.codigo_pm || 'N/A'}
               </strong>
@@ -174,7 +176,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
           }}
         >
           <ArrowRight size={16} style={{ transform: 'rotate(180deg)', strokeWidth: 3 }} />
-          Voltar para a lista
+          {t('planilha.back_to_list', 'Voltar para a lista')}
         </button>
 
         {selectedPlanilha.tipo_planilha === 'missionario' ? (
@@ -212,11 +214,11 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: '1 1 220px', minWidth: 'min(100%, 200px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Search size={14} /> Buscar por Nome
+              <Search size={14} /> {t('planilha.search_by_name', 'Buscar por Nome')}
             </label>
             <input 
               type="text" 
-              placeholder="Digite o nome..." 
+              placeholder={t('planilha.search_name_placeholder', 'Digite o nome...')}
               value={filtroNome}
               onChange={e => setFiltroNome(e.target.value)}
               style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', height: '38px', background: 'white' }}
@@ -226,14 +228,14 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
           {isRegional && (
             <div style={{ flex: '1 1 200px', minWidth: 'min(100%, 180px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Home size={14} /> Casa Religiosa
+                <Home size={14} /> {t('gestao_financeira.house', 'Casa Religiosa')}
               </label>
               <select
                 value={filtroCasa}
                 onChange={e => setFiltroCasa(e.target.value)}
                 style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', height: '38px', background: 'white', fontWeight: 600 }}
               >
-                <option value="">Todas as Casas</option>
+                <option value="">{t('planilha.all_houses', 'Todas as Casas')}</option>
                 {casas.map(c => (
                   <option key={c.id} value={c.id.toString()}>{c.nome}</option>
                 ))}
@@ -243,7 +245,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
 
           <div style={{ flex: '1 1 180px', minWidth: 'min(100%, 160px)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: '#013375', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={14} /> Mês de Referência
+              <Calendar size={14} /> {t('gestao_financeira.month_ref', 'Mês de Referência')}
             </label>
             <MonthPicker
               value={filtroMes}
@@ -254,12 +256,12 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
       </div>
 
       {isLoading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Carregando dados...</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>{t('planilha.loading_data', 'Carregando dados...')}</div>
       ) : filteredItems.length === 0 ? (
         <div style={{ background: '#f8fafc', padding: '40px', borderRadius: '16px', border: '1px dashed #cbd5e1', textAlign: 'center' }}>
           {tipo === 'pendentes' ? <Clock size={40} color="#94a3b8" /> : <FileText size={40} color="#94a3b8" />}
           <h3 style={{ marginTop: '16px', color: '#475569' }}>
-            {tipo === 'pendentes' ? 'Nenhuma planilha pendente de validação' : 'Nenhum histórico encontrado'}
+            {tipo === 'pendentes' ? t('planilha.no_pending_validations', 'Nenhuma planilha pendente de validação') : t('planilha.no_history_found', 'Nenhum histórico encontrado')}
           </h3>
         </div>
       ) : (
@@ -288,14 +290,14 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                     fontSize: '11px', 
                     fontWeight: 700 
                   }}>
-                    {item.tipo_planilha === 'comunidade' ? 'Casa Religiosa' : 'Missionário'}
+                    {item.tipo_planilha === 'comunidade' ? t('gestao_financeira.house', 'Casa Religiosa') : t('gestao_financeira.missionary', 'Missionário')}
                   </span>
                 </div>
                 
                 <h4 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>{item.nome_usuario_ou_casa}</h4>
                 {item.nome_casa && (
                   <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600, marginTop: '-4px' }}>
-                    Casa: <span style={{ color: '#0f172a' }}>{item.nome_casa}</span>
+                    {t('gestao_financeira.house', 'Casa')}: <span style={{ color: '#0f172a' }}>{item.nome_casa}</span>
                   </div>
                 )}
 
@@ -307,10 +309,10 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                 )}
                 
                 <div style={{ fontSize: '12px', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div>Enviado em: {new Date(item.updated_at).toLocaleString('pt-BR')}</div>
+                  <div>{t('planilha.sent_at', 'Enviado em:')} {new Date(item.updated_at).toLocaleString(i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR')}</div>
                   {item.nome_validador && item.nome_validador !== 'N/A' && (
                     <div style={{ color: '#475569', fontWeight: 600 }}>
-                      Aprovador/Devolvedor: <span style={{ color: '#0f172a' }}>{item.nome_validador}</span>
+                      {t('planilha.approver_returner', 'Aprovador/Devolvedor:')} <span style={{ color: '#0f172a' }}>{item.nome_validador}</span>
                     </div>
                   )}
                 </div>
@@ -319,17 +321,17 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                   {/* Individual Item Status tag */}
                   {(item.status === 'VALIDADO' || item.status === 'APROVADO') && (
                     <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>
-                      Aprovado
+                      {t('planilha.approved', 'Aprovado')}
                     </span>
                   )}
                   {(item.status === 'DEVOLVIDO' || item.status === 'DEVOLVIDO_SUPERIOR') && (
                     <span style={{ background: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>
-                      Devolvido
+                      {t('planilha.returned', 'Devolvido')}
                     </span>
                   )}
                   {(item.status === 'PENDENTE' || item.status === 'EM_VALIDACAO' || item.status === 'ENVIADO_REGIONAL') && (
                     <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>
-                      Aguardando
+                      {t('planilha.waiting', 'Aguardando')}
                     </span>
                   )}
 
@@ -346,7 +348,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                       fontSize: '13px'
                     }}
                   >
-                    Visualizar Planilha
+                    {t('planilha.view_spreadsheet', 'Visualizar Planilha')}
                   </button>
                 </div>
               </div>
@@ -361,17 +363,17 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                 onClick={() => setCurrentPage(prev => prev - 1)}
                 style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', background: currentPage === 1 ? '#f1f5f9' : 'white', fontWeight: 600, color: '#475569' }}
               >
-                Anterior
+                {t('planilha.previous', 'Anterior')}
               </button>
               <span style={{ fontSize: '14px', fontWeight: 700, color: '#475569' }}>
-                Página {currentPage} de {totalPages}
+                {t('common.page', 'Página')} {currentPage} {t('common.of', 'de')} {totalPages}
               </span>
               <button 
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(prev => prev + 1)}
                 style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', background: currentPage === totalPages ? '#f1f5f9' : 'white', fontWeight: 600, color: '#475569' }}
               >
-                Próxima
+                {t('planilha.next', 'Próxima')}
               </button>
             </div>
           )}

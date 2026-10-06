@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [selectedAno, setSelectedAno] = useState(new Date().getFullYear().toString());
   const [selectedCasa, setSelectedCasa] = useState('');
@@ -51,7 +53,7 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
   };
 
   const handleSave = async () => {
-    if (!selectedCasa) return alert('Selecione uma casa.');
+    if (!selectedCasa) return alert(t('planilha.select_house_alert', 'Selecione uma casa.'));
     setIsSaving(true);
     const payload = {
       casa_id: parseInt(selectedCasa),
@@ -65,9 +67,9 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
     };
     try {
       await api.post('/api/planejamento', payload);
-      alert('Planejamento orçamentário salvo!');
+      alert(t('planilha.planning_saved', 'Planejamento orçamentário salvo!'));
     } catch (err) {
-      alert('Erro ao salvar.');
+      alert(t('common.error', 'Erro ao salvar.'));
     } finally {
       setIsSaving(false);
     }
@@ -78,15 +80,15 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
       <div className="filters-card">
         <div className="filters-grid-premium">
           <div className="filter-item">
-            <label><Calendar size={14} /> Ano do Planejamento</label>
+            <label><Calendar size={14} /> {t('planilha.year_planning', 'Ano do Planejamento')}</label>
             <select value={selectedAno} onChange={e => setSelectedAno(e.target.value)}>
                {[0,1,2].map(i => <option key={i} value={new Date().getFullYear() + i}>{new Date().getFullYear() + i}</option>)}
             </select>
           </div>
           <div className="filter-item">
-            <label>Casa Religiosa</label>
+            <label>{t('gestao_financeira.house', 'Casa Religiosa')}</label>
             <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)}>
-              <option value="">Selecione...</option>
+              <option value="">{t('gestao_financeira.select_house', 'Selecione...')}</option>
               {casas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
@@ -96,12 +98,12 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
       <div className="spreedsheet-container card-lite" style={{ marginTop: '20px' }}>
         <div className="spreedsheet-header">
            <div>
-              <h3>Planejamento Orçamentário</h3>
-              <p>Projeção para os próximos meses.</p>
+              <h3>{t('planilha.planning_title', 'Planejamento Orçamentário')}</h3>
+              <p>{t('planilha.planning_desc', 'Projeção para os próximos meses.')}</p>
            </div>
            <button className="btn-save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              Salvar Planejamento
+              {t('planilha.save_planning', 'Salvar Planejamento')}
            </button>
         </div>
 
@@ -112,11 +114,11 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
             <table className="excel-style">
               <thead>
                 <tr>
-                  <th style={{ width: '80px' }}>Código</th>
-                  <th>Categoria</th>
-                  <th className="right">Mês 1</th>
-                  <th className="right">Mês 2</th>
-                  <th className="right">Mês 3</th>
+                  <th style={{ width: '80px' }}>{t('planilha.col_code', 'Código')}</th>
+                  <th>{t('planilha.category', 'Categoria')}</th>
+                  <th className="right">{t('planilha.month_1', 'Mês 1')}</th>
+                  <th className="right">{t('planilha.month_2', 'Mês 2')}</th>
+                  <th className="right">{t('planilha.month_3', 'Mês 3')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,3 +162,4 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
 };
 
 export default PlanejamentoOrcamentario;
+
