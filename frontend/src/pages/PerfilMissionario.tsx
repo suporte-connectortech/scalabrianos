@@ -404,6 +404,7 @@ const PerfilMissionario: React.FC = () => {
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const [cvUploadLoading, setCvUploadLoading] = useState(false);
   const [linksExternosInput, setLinksExternosInput] = useState('');
+  const [newSingleLinkUrl, setNewSingleLinkUrl] = useState('');
   const [isSavingLinks, setIsSavingLinks] = useState(false);
   const [isEditingLinks, setIsEditingLinks] = useState(false);
 
@@ -469,7 +470,7 @@ const PerfilMissionario: React.FC = () => {
     });
   };
 
-  const handleSaveLinksExternos = async (customValue?: string) => {
+  const handleSaveLinksExternos = async (customValue?: string, silent?: boolean) => {
     const val = customValue !== undefined ? customValue : linksExternosInput;
     setIsSavingLinks(true);
     try {
@@ -487,14 +488,63 @@ const PerfilMissionario: React.FC = () => {
         cv_path: '',
         links_externos: val
       });
+      setLinksExternosInput(val);
       setIsEditingLinks(false);
-      alert('Links externos salvos com sucesso!');
+      if (!silent) {
+        alert(t('profile.links.saved_success', 'Links externos salvos com sucesso!'));
+      }
     } catch (err) {
       console.error('Erro ao salvar links externos:', err);
-      alert('Erro ao salvar links externos.');
+      alert(t('profile.links.error_saving', 'Erro ao salvar links externos.'));
     } finally {
       setIsSavingLinks(false);
     }
+  };
+
+  const handleAddSingleLink = async () => {
+    const trimmed = newSingleLinkUrl.trim();
+    if (!trimmed) return;
+
+    let fullUrl = trimmed;
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      fullUrl = 'https://' + trimmed;
+    }
+
+    const currentLinks = parseExternalLinks(quadroPessoal?.links_externos);
+    if (currentLinks.some(l => l.url.toLowerCase() === fullUrl.toLowerCase())) {
+      alert(t('profile.links.already_exists', 'Este link já foi adicionado.'));
+      return;
+    }
+
+    const updatedRaw = currentLinks.length > 0
+      ? `${(quadroPessoal?.links_externos || '').trim()}\n${fullUrl}`
+      : fullUrl;
+
+    await handleSaveLinksExternos(updatedRaw);
+    setNewSingleLinkUrl('');
+  };
+
+  const handleDeleteLink = async (indexToDelete: number) => {
+    const links = parseExternalLinks(quadroPessoal?.links_externos);
+    const targetLink = links[indexToDelete];
+    if (!targetLink) return;
+
+    const confirmMsg = t('profile.links.delete_confirm', {
+      label: targetLink.label,
+      url: targetLink.url,
+      defaultValue: `Deseja realmente excluir o link: ${targetLink.label} (${targetLink.url})?`
+    });
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    const remaining = links
+      .filter((_, idx) => idx !== indexToDelete)
+      .map(l => l.url)
+      .join('\n');
+
+    await handleSaveLinksExternos(remaining);
   };
 
   const handleCvUploadDirect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3433,32 +3483,87 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <div>
                       <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Globe size={18} /> Links Externos (Perfis Profissionais / Pessoais)
+                        <Globe size={18} /> {t('profile.links.title', 'Links Externos (Perfis Profissionais / Pessoais)')}
                       </h3>
                       <p className="section-subtitle" style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
-                        URLs de perfis externos do missionário (ex: LinkedIn, Plataforma Lattes, ORCID, Portfólio, Site Pessoal).
+                        {t('profile.links.subtitle', 'URLs de perfis externos do missionário (ex: LinkedIn, Plataforma Lattes, ORCID, Portfólio, Site Pessoal).')}
                       </p>
                     </div>
-                    {canEdit && !isEditingLinks && (
+                    {canEdit && (
                       <button
                         type="button"
                         className="btn-action-lite-text"
-                        onClick={() => setIsEditingLinks(true)}
+                        onClick={() => setIsEditingLinks(!isEditingLinks)}
                       >
-                        <Edit size={14} /> Editar Links
+                        <Edit size={14} /> {isEditingLinks ? t('profile.links.close_edit', 'Fechar Edição') : t('profile.links.edit_all', 'Edição em Massa')}
                       </button>
                     )}
                   </div>
 
-                  {/* Edição / Exibição de Links */}
+                  {/* Direct single-link insertion form */}
+                  {canEdit && !isEditingLinks && (
+                    <div className="cv-add-link-form" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', flex: '1 1 320px' }}>
+                          <Globe size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                          <input
+                            type="url"
+                            placeholder={t('profile.links.add_placeholder', 'Cole aqui a URL (ex: https://linkedin.com/in/... ou http://lattes.cnpq.br/...)')}
+                            value={newSingleLinkUrl}
+                            onChange={e => setNewSingleLinkUrl(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddSingleLink();
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '10px 14px 10px 38px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '0.9rem',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-save-perfil"
+                          onClick={handleAddSingleLink}
+                          disabled={!newSingleLinkUrl.trim() || isSavingLinks}
+                          style={{
+                            padding: '10px 18px',
+                            fontSize: '0.875rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: '#013375',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                            cursor: !newSingleLinkUrl.trim() || isSavingLinks ? 'not-allowed' : 'pointer',
+                            opacity: !newSingleLinkUrl.trim() || isSavingLinks ? 0.6 : 1
+                          }}
+                        >
+                          {isSavingLinks ? <Loader2 className="animate-spin" size={15} /> : <Plus size={16} />}
+                          {t('profile.links.add_btn', 'Adicionar Link')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bulk edit / list of links */}
                   {isEditingLinks ? (
                     <div className="cv-links-edit-box">
                       <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '6px', color: '#1e293b' }}>
-                        URLs de Perfis Externos (separe múltiplos links por quebra de linha, vírgula ou ponto e vírgula):
+                        {t('profile.links.bulk_label', 'URLs de Perfis Externos (separe múltiplos links por quebra de linha, vírgula ou ponto e vírgula):')}
                       </label>
                       <textarea
                         className="form-control"
-                        rows={3}
+                        rows={4}
                         placeholder="https://www.linkedin.com/in/...&#10;http://lattes.cnpq.br/...&#10;https://meuportfolio.com"
                         value={linksExternosInput}
                         onChange={e => setLinksExternosInput(e.target.value)}
@@ -3484,7 +3589,7 @@ const PerfilMissionario: React.FC = () => {
                           }}
                           disabled={isSavingLinks}
                         >
-                          Cancelar
+                          {t('common.cancel', 'Cancelar')}
                         </button>
                         <button
                           type="button"
@@ -3494,7 +3599,7 @@ const PerfilMissionario: React.FC = () => {
                           disabled={isSavingLinks}
                         >
                           {isSavingLinks ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
-                          Salvar Links
+                          {t('profile.links.save_links', 'Salvar Links')}
                         </button>
                       </div>
                     </div>
@@ -3503,40 +3608,48 @@ const PerfilMissionario: React.FC = () => {
                       {parseExternalLinks(quadroPessoal?.links_externos).length > 0 ? (
                         <div className="cv-links-grid">
                           {parseExternalLinks(quadroPessoal?.links_externos).map((item, idx) => (
-                            <a
-                              key={idx}
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={`cv-link-card badge-${item.badgeType}`}
-                              title={`Abrir ${item.url}`}
-                            >
-                              <div className="cv-link-icon">
-                                <ExternalLink size={16} />
-                              </div>
-                              <div className="cv-link-content">
-                                <span className="cv-link-label">{item.label}</span>
-                                <span className="cv-link-url">{item.url}</span>
-                              </div>
-                            </a>
+                            <div key={idx} className={`cv-link-card-container badge-${item.badgeType}`}>
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="cv-link-card-main"
+                                title={`Abrir ${item.url}`}
+                              >
+                                <div className="cv-link-icon">
+                                  <ExternalLink size={16} />
+                                </div>
+                                <div className="cv-link-content">
+                                  <span className="cv-link-label">{item.label}</span>
+                                  <span className="cv-link-url">{item.url}</span>
+                                </div>
+                              </a>
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  className="btn-delete-link"
+                                  title={t('profile.links.delete_tooltip', 'Excluir link')}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteLink(idx);
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </div>
                           ))}
                         </div>
                       ) : (
                         <div className="cv-links-empty">
-                          <Globe size={24} style={{ color: '#94a3b8', marginBottom: '6px' }} />
+                          <Globe size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
                           <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
-                            Nenhum link externo cadastrado.
+                            {t('profile.links.empty', 'Nenhum link externo cadastrado.')}
                           </p>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              className="btn-action-lite-text"
-                              style={{ marginTop: '8px' }}
-                              onClick={() => setIsEditingLinks(true)}
-                            >
-                              <Plus size={14} /> Adicionar Link Externo
-                            </button>
-                          )}
+                          <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>
+                            {t('profile.links.empty_hint', 'Insira o link de LinkedIn, Lattes, ORCID ou portfólio no campo acima.')}
+                          </span>
                         </div>
                       )}
                     </div>

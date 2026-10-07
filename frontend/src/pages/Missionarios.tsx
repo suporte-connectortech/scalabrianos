@@ -160,6 +160,7 @@ interface WizardData {
   // Step 12 - Quadro de Pessoal CV
   quadro_funcao_atual: string;
   quadro_competencias: string;
+  quadro_links_externos: string;
 
   // Step 14 - Acesso & Permissões
   login: string;
@@ -259,6 +260,7 @@ const initialWizard: WizardData = {
 
   quadro_funcao_atual: '',
   quadro_competencias: '',
+  quadro_links_externos: '',
 
   login: '',
   password: '',
@@ -851,10 +853,11 @@ const Missionarios: React.FC = () => {
       }
 
       // 16 — Quadro de Pessoal CV
-      if (wizardData.quadro_funcao_atual || wizardData.quadro_competencias) {
+      if (wizardData.quadro_funcao_atual || wizardData.quadro_competencias || wizardData.quadro_links_externos) {
         await api.post(`/usuarios/${newId}/quadro-pessoal`, {
           funcao_atual: wizardData.quadro_funcao_atual,
-          competencias: wizardData.quadro_competencias
+          competencias: wizardData.quadro_competencias,
+          links_externos: wizardData.quadro_links_externos
         });
       }
 
@@ -2201,7 +2204,7 @@ const Missionarios: React.FC = () => {
                 <div className="wizard-step-content">
                   <div className="wizard-divider">12. Curriculum Vitae</div>
                   <p className="wizard-hint">
-                    Anexe o arquivo oficial do Curriculum Vitae do missionário (PDF, Imagens ou Documentos).
+                    Anexe o arquivo oficial do Curriculum Vitae do missionário e/ou insira links para perfis profissionais/pessoais externos.
                   </p>
                   <div className="doc-add-row" style={{ alignItems: 'center', marginTop: '1rem' }}>
                     <button type="button" className="btn-add-doc" onClick={() => quadroFileRef.current?.click()}>
@@ -2220,6 +2223,23 @@ const Missionarios: React.FC = () => {
                     {quadroCvFile && (
                       <button type="button" onClick={() => setQuadroCvFile(null)} style={{ background: 'none', border: 'none', color: '#e57373', cursor: 'pointer', fontSize: '18px' }} title="Remover">✕</button>
                     )}
+                  </div>
+
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.35rem', color: '#1e293b' }}>
+                      Links Externos (LinkedIn, Lattes, ORCID, Portfólio, etc.):
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      placeholder="https://www.linkedin.com/in/...&#10;http://lattes.cnpq.br/...&#10;https://orcid.org/..."
+                      value={wizardData.quadro_links_externos}
+                      onChange={e => setWizardData(prev => ({ ...prev, quadro_links_externos: e.target.value }))}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                    <small style={{ color: '#64748b', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
+                      Insira os links para perfis profissionais ou pessoais externos (um por linha).
+                    </small>
                   </div>
                 </div>
               )}

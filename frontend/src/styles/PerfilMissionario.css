@@ -1660,6 +1660,37 @@
   margin-top: 14px;
 }
 
+.cv-link-card-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px 6px 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+.cv-link-card-container:hover {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
+  transform: translateY(-2px);
+}
+
+.cv-link-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #1e293b;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+}
+
 .cv-link-card {
   display: flex;
   align-items: center;
@@ -1681,6 +1712,27 @@
   transform: translateY(-2px);
 }
 
+.btn-delete-link {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease-in-out;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.btn-delete-link:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.1);
+}
+
 .cv-link-icon {
   display: flex;
   align-items: center;
@@ -1694,35 +1746,59 @@
   transition: all 0.2s;
 }
 
+.cv-link-card-container:hover .cv-link-icon,
 .cv-link-card:hover .cv-link-icon {
   background: #eff6ff;
   color: #2563eb;
 }
 
+.cv-link-card-container.badge-linkedin .cv-link-icon,
 .cv-link-card.badge-linkedin .cv-link-icon {
   background: #e0f2fe;
   color: #0284c7;
 }
 
+.cv-link-card-container.badge-lattes .cv-link-icon,
 .cv-link-card.badge-lattes .cv-link-icon {
   background: #e0e7ff;
   color: #4338ca;
 }
 
+.cv-link-card-container.badge-orcid .cv-link-icon,
 .cv-link-card.badge-orcid .cv-link-icon {
   background: #ecfccb;
   color: #65a30d;
 }
 
+.cv-link-card-container.badge-github .cv-link-icon,
 .cv-link-card.badge-github .cv-link-icon {
   background: #f1f5f9;
   color: #0f172a;
+}
+
+.cv-link-card-container.badge-instagram .cv-link-icon,
+.cv-link-card.badge-instagram .cv-link-icon {
+  background: #fce7f3;
+  color: #db2777;
+}
+
+.cv-link-card-container.badge-facebook .cv-link-icon,
+.cv-link-card.badge-facebook .cv-link-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.cv-link-card-container.badge-youtube .cv-link-icon,
+.cv-link-card.badge-youtube .cv-link-icon {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .cv-link-content {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex: 1;
 }
 
 .cv-link-label {
@@ -1760,4 +1836,9 @@
   border-radius: 10px;
   padding: 16px;
   margin-top: 12px;
+}
+
+.cv-add-link-form input:focus {
+  border-color: #013375;
+  box-shadow: 0 0 0 2px rgba(1, 51, 117, 0.1);
 }

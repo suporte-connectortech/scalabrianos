@@ -271,6 +271,23 @@
         "obs_text": "Texto de la Observación",
         "attach_certificate": "Adjuntar Certificado",
         "add_item": "Agregar"
+      },
+      "links": {
+        "title": "Enlaces Externos (Perfiles Profesionales / Personales)",
+        "subtitle": "URLs de perfiles externos del misionero (ej: LinkedIn, Plataforma Lattes, ORCID, Portafolio, Sitio Personal).",
+        "edit_all": "Edición Masiva",
+        "close_edit": "Cerrar Edición",
+        "add_placeholder": "Pegue aquí la URL (ej: https://linkedin.com/in/... o http://lattes.cnpq.br/...)",
+        "add_btn": "Agregar Enlace",
+        "bulk_label": "URLs de Perfiles Externos (separe múltiples enlaces por salto de línea, coma o punto y coma):",
+        "save_links": "Guardar Enlaces",
+        "empty": "Ningún enlace externo registrado.",
+        "empty_hint": "Ingrese el enlace de LinkedIn, Lattes, ORCID o portafolio en el campo de arriba.",
+        "already_exists": "Este enlace ya ha sido agregado.",
+        "saved_success": "¡Enlaces externos guardados con éxito!",
+        "error_saving": "Error al guardar los enlaces externos.",
+        "delete_confirm": "¿Desea realmente eliminar el enlace: {{label}} ({{url}})?",
+        "delete_tooltip": "Eliminar enlace"
       }
     },
     "my_profile": {
