@@ -197,4 +197,66 @@ async function sendPasswordResetEmail(email, nome) {
   return true;
 }
 
-module.exports = { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail };
+const escapeHtml = (val) => String(val ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/**
+ * Envia à Sede Regional o pedido de correção de dados/documentos feito pelo missionário.
+ */
+async function sendCorrecaoDadosEmail(recipientEmail, { missionarioNome, missionarioEmail, secao, campos = [], descricao, enviadoEm }) {
+  try {
+    const dateStr = enviadoEm.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = enviadoEm.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const row = (label, value) => `
+                  <tr>
+                    <td style="padding: 8px 0; font-size: 13px; color: #6b7280; font-weight: 600; width: 110px; vertical-align: top;">${label}</td>
+                    <td style="padding: 8px 0; font-size: 14px; color: #111827;">${value}</td>
+                  </tr>`;
+
+    await getTransporter().sendMail({
+      from: `"Sistema Scalabrinianos" <${clean(process.env.SMTP_FROM) || clean(process.env.SMTP_USER)}>`,
+      to: recipientEmail,
+      replyTo: missionarioEmail || undefined,
+      subject: `Pedido de correção de dados — ${missionarioNome}`,
+      text: `Pedido de correção de dados\n\nO missionário abaixo informou dados ou documentos incorretos no seu cadastro:\n\nMissionário: ${missionarioNome}\nE-mail: ${missionarioEmail || '-'}\nSeção: ${secao}\nCampos a alterar: ${campos.join(', ') || '-'}\nData: ${dateStr}\nHorário: ${timeStr} (horário de Brasília)\n\nObservação:\n${descricao}\n\nAtenciosamente,\nSistema Scalabrinianos`,
+      html: `
+        <div style="font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #1f2937; background: #f8fafc; padding: 32px;">
+          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);">
+            <div style="background: linear-gradient(135deg, #013375 0%, #b45309 100%); padding: 32px; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 22px; letter-spacing: -0.5px;">Pedido de correção de dados</h1>
+              <p style="margin: 6px 0 0; font-size: 14px; color: rgba(255,255,255,0.85);">Sistema Scalabrinianos — Sede Regional</p>
+            </div>
+            <div style="padding: 32px;">
+              <p style="font-size: 15px; color: #475569; margin: 0 0 24px; line-height: 1.7;">
+                Um missionário informou <strong>dados ou documentos incorretos</strong> no seu cadastro.
+              </p>
+              <div style="border: 1.5px solid #fde68a; border-radius: 18px; padding: 24px; background: #fffbeb; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  ${row('Missionário', `<strong>${escapeHtml(missionarioNome)}</strong>`)}
+                  ${row('E-mail', escapeHtml(missionarioEmail || '-'))}
+                  ${row('Seção', escapeHtml(secao))}
+                  ${row('Campos a alterar', campos.length ? campos.map(c => `<span style="display: inline-block; margin: 0 6px 6px 0; padding: 3px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 700;">${escapeHtml(c)}</span>`).join('') : '-')}
+                  ${row('Data', dateStr)}
+                  ${row('Horário', `${timeStr} (horário de Brasília)`)}
+                </table>
+              </div>
+              <p style="font-size: 13px; color: #6b7280; font-weight: 600; margin: 0 0 8px;">Observação do missionário</p>
+              <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; background: #f8fafc; font-size: 14px; color: #1f2937; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(descricao)}</div>
+            </div>
+            <div style="background: #f8fafc; padding: 20px 32px; color: #64748b; font-size: 13px;">
+              <p style="margin: 0;">Responda este e-mail para falar diretamente com o missionário.<br/><strong>Sistema Scalabrinianos</strong></p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[EMAIL] Correction request sent to ${recipientEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[EMAIL] Failed to send correction request:', error.code, error.message);
+    return false;
+  }
+}
+
+module.exports = { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail, sendCorrecaoDadosEmail };

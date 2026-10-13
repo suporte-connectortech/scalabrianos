@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, MapPin, BookOpen, Home as HomeIcon, Loader2, AlertCircle,
   Save, Trash2, Plus, Star, FileText, Download, ShieldCheck, Eye,
@@ -8,9 +8,14 @@ import {
   ExternalLink, Globe
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import api, { getFileUrl } from '../api';
 import { BankAutocomplete } from '../components/Common/BankAutocomplete';
+import { appAlert, appConfirm } from '../components/Common/AppDialog';
+import FileInputButton from '../components/Common/FileInputButton';
+import CorrecaoModal, { type CorrecaoDetalhe } from '../components/Common/CorrecaoModal';
+import { OBITO_ACCEPT, OBITO_INVALID_MSG, isValidObitoFile } from '../utils/obito';
 import '../styles/PerfilMissionario.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -116,7 +121,15 @@ interface SituacaoData {
   exclaustrado_data: string;
   exclaustrado_processo: string;
   exclaustrado_doc_path?: string;
+  transferido_data_inicio: string;
+  transferido_data_fim: string;
+  transferido_origem: string;
+  transferido_destino: string;
+  transferido_doc_path: string;
+  transferido_observacao: string;
 }
+
+const MAX_TRANSFERIDO_DOCS = 4;
 
 const PAISES_COMMON = [
   'Afeganistão', 'África do Sul', 'Albânia', 'Alemanha', 'Andorra', 'Angola', 'Antígua e Barbuda', 'Arábia Saudita', 'Argélia', 'Argentina', 'Armênia', 'Austrália', 'Áustria', 'Azerbaijão',
@@ -237,9 +250,11 @@ function parseDateLocal(dateStr?: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+const getDateLocale = (): string => ((i18n.language || '').startsWith('es') ? 'es-ES' : 'pt-BR');
+
 function formatDateLocal(dateStr?: string | null): string {
   const d = parseDateLocal(dateStr);
-  return d ? d.toLocaleDateString('pt-BR') : '?';
+  return d ? d.toLocaleDateString(getDateLocale()) : '?';
 }
 
 function calcDuracao(dataInicio: string, dataFim?: string | null): string {
@@ -251,9 +266,9 @@ function calcDuracao(dataInicio: string, dataFim?: string | null): string {
   let meses = fim.getMonth() - ini.getMonth();
   if (meses < 0) { anos--; meses += 12; }
   const parts = [];
-  if (anos > 0) parts.push(`${anos} ano${anos > 1 ? 's' : ''}`);
-  if (meses > 0) parts.push(`${meses} ${meses > 1 ? 'meses' : 'mês'}`);
-  return parts.length ? parts.join(' e ') : 'menos de 1 mês';
+  if (anos > 0) parts.push(anos > 1 ? i18n.t('profile.duration.years', { n: anos, defaultValue: `${anos} anos` }) : i18n.t('profile.duration.year', { n: anos, defaultValue: `${anos} ano` }));
+  if (meses > 0) parts.push(meses > 1 ? i18n.t('profile.duration.months', { n: meses, defaultValue: `${meses} meses` }) : i18n.t('profile.duration.month', { n: meses, defaultValue: `${meses} mês` }));
+  return parts.length ? parts.join(` ${i18n.t('profile.duration.and', 'e')} `) : i18n.t('profile.duration.less_than_month', 'menos de 1 mês');
 }
 
 const PERMISSIONS_LIST = [
@@ -277,6 +292,7 @@ const normalizeSituacao = (sit?: string): string => {
   if (clean === 'EGRESSO') return 'Egresso';
   if (clean === 'FALECIDO') return 'Falecido';
   if (clean === 'EXCLAUSTRADO') return 'Exclaustrado';
+  if (clean === 'TRANSFERIDO') return 'Transferido';
   return 'Ativo';
 };
 
@@ -364,14 +380,67 @@ const extractSortDate = (periodoStr?: string | null): number => {
 const PerfilMissionario: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canEdit, user: authUser, isAdminGeral, isOconomo, isSuperior, isRegional } = useAuth();
+  const { canEdit, user: authUser, isAdminGeral, isOconomo, isSuperior, isRegional, canAccessObito } = useAuth();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('dados');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // ?tab= abre direto uma seção (ex.: vindo de uma solicitação de correção do missionário)
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'dados');
+  const tabParam = searchParams.get('tab');
+  const correcaoParam = Number(searchParams.get('correcao')) || null;
+  const [correcaoBanner, setCorrecaoBanner] = useState<CorrecaoDetalhe | null>(null);
+  const [correcaoModalOpen, setCorrecaoModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (tabParam) setActiveTab(tabParam);
+  }, [tabParam, id]);
+
+  const loadCorrecaoBanner = () => {
+    if (!correcaoParam) { setCorrecaoBanner(null); return; }
+    api.get(`/correcoes/${correcaoParam}`)
+      .then(res => setCorrecaoBanner(res.data))
+      .catch(() => setCorrecaoBanner(null));
+  };
+
+  useEffect(loadCorrecaoBanner, [correcaoParam]);
+
+  const fecharCorrecaoBanner = () => {
+    setCorrecaoBanner(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('correcao');
+    next.delete('tab');
+    setSearchParams(next, { replace: true });
+  };
+
+  // Display-only translation of situation values (stored values stay unchanged)
+  const situacaoLabel = (sit?: string | null): string => {
+    if (!sit) return '';
+    const map: Record<string, string> = {
+      ATIVO: 'ativo', EGRESSO: 'egresso', FALECIDO: 'falecido', EXCLAUSTRADO: 'exclaustrado',
+      TRANSFERIDO: 'transferido', AFASTADO: 'afastado',
+    };
+    const key = map[sit.trim().toUpperCase()];
+    return key ? t(`missionaries.situations.${key}`, sit) : sit;
+  };
+
+  // Display-only translation of standard function names (stored values stay unchanged)
+  const funcaoLabel = (fun: string): string => {
+    const map: Record<string, string> = {
+      'Superior Local': 'superior_local',
+      'Pároco': 'paroco',
+      'Diretor (rádios, escolas, fundações, escritórios)': 'diretor',
+      'Ecônomo Local': 'economo_local',
+      'Vigário': 'vigario',
+      'Reitor (seminários)': 'reitor'
+    };
+    const key = map[fun];
+    return key ? t(`profile.functions.${key}`, fun) : fun;
+  };
 
   const [missionario, setMissionario] = useState<Missionario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [civilData, setCivilData] = useState<CivilData>({ data_nascimento: '', filiacao: '', nome_pai: '', nome_mae: '', cidade_estado: '', diocese: '', pais: '', naturalidade: '', rnm: '', cpf: '', titulo_eleitor: '', cnh: '', passaporte: '' });
+  const [cepLoading, setCepLoading] = useState(false);
   const [enderecoData, setEnderecoData] = useState<EnderecoData>({ logradouro: '', complemento: '', bairro: '', cep: '', cidade_estado: '', celular_whatsapp: '', telefone_fixo: '', email_pessoal: '' });
   const [religiososData, setReligiososData] = useState<ReligiososData>({ primeiros_votos_data: '', votos_perpetuos_data: '', lugar_profissao: '', diaconato_data: '', presbiterato_data: '', bispo_ordenante: '', data_batismo: '', data_primeira_comunhao: '', data_crisma: '', doc_batismo: '', doc_primeira_comunhao: '', doc_crisma: '' });
   const [casasHistorico, setCasasHistorico] = useState<CasaHistorico[]>([]);
@@ -440,7 +509,7 @@ const PerfilMissionario: React.FC = () => {
         label = 'LinkedIn';
         badgeType = 'linkedin';
       } else if (domain.includes('lattes.cnpq.br') || url.toLowerCase().includes('lattes')) {
-        label = 'Currículo Lattes';
+        label = t('profile.links.lattes_label', 'Currículo Lattes');
         badgeType = 'lattes';
       } else if (domain.includes('orcid.org')) {
         label = 'ORCID';
@@ -458,7 +527,7 @@ const PerfilMissionario: React.FC = () => {
         label = 'YouTube';
         badgeType = 'youtube';
       } else {
-        label = domain || 'Link Externo';
+        label = domain || t('profile.links.external_link', 'Link Externo');
       }
 
       return {
@@ -491,11 +560,11 @@ const PerfilMissionario: React.FC = () => {
       setLinksExternosInput(val);
       setIsEditingLinks(false);
       if (!silent) {
-        alert(t('profile.links.saved_success', 'Links externos salvos com sucesso!'));
+        appAlert(t('profile.links.saved_success', 'Links externos salvos com sucesso!'));
       }
     } catch (err) {
       console.error('Erro ao salvar links externos:', err);
-      alert(t('profile.links.error_saving', 'Erro ao salvar links externos.'));
+      appAlert(t('profile.links.error_saving', 'Erro ao salvar links externos.'));
     } finally {
       setIsSavingLinks(false);
     }
@@ -512,7 +581,7 @@ const PerfilMissionario: React.FC = () => {
 
     const currentLinks = parseExternalLinks(quadroPessoal?.links_externos);
     if (currentLinks.some(l => l.url.toLowerCase() === fullUrl.toLowerCase())) {
-      alert(t('profile.links.already_exists', 'Este link já foi adicionado.'));
+      appAlert(t('profile.links.already_exists', 'Este link já foi adicionado.'));
       return;
     }
 
@@ -535,7 +604,7 @@ const PerfilMissionario: React.FC = () => {
       defaultValue: `Deseja realmente excluir o link: ${targetLink.label} (${targetLink.url})?`
     });
 
-    if (!window.confirm(confirmMsg)) {
+    if (!await appConfirm(confirmMsg)) {
       return;
     }
 
@@ -577,10 +646,10 @@ const PerfilMissionario: React.FC = () => {
         links_externos: prev?.links_externos || ''
       }));
 
-      alert('Curriculum Vitae anexado com sucesso!');
+      appAlert(t('profile.msgs.cv_attached', 'Curriculum Vitae anexado com sucesso!'));
     } catch (err) {
       console.error('Erro ao anexar CV:', err);
-      alert('Erro ao anexar Curriculum Vitae.');
+      appAlert(t('profile.msgs.cv_attach_error', 'Erro ao anexar Curriculum Vitae.'));
     } finally {
       setCvUploadLoading(false);
       if (e.target) e.target.value = '';
@@ -588,7 +657,7 @@ const PerfilMissionario: React.FC = () => {
   };
 
   const handleDeleteCv = async () => {
-    if (!window.confirm('Tem certeza de que deseja remover o arquivo do Curriculum Vitae?')) return;
+    if (!await appConfirm(t('profile.msgs.cv_remove_confirm', 'Tem certeza de que deseja remover o arquivo do Curriculum Vitae?'))) return;
     setCvUploadLoading(true);
     try {
       if (quadroPessoal?.links_externos) {
@@ -603,10 +672,10 @@ const PerfilMissionario: React.FC = () => {
         await api.delete(`/usuarios/${id}/quadro-pessoal`);
         setQuadroPessoal(null);
       }
-      alert('Curriculum Vitae removido com sucesso!');
+      appAlert(t('profile.msgs.cv_removed', 'Curriculum Vitae removido com sucesso!'));
     } catch (err) {
       console.error('Erro ao remover CV:', err);
-      alert('Erro ao remover Curriculum Vitae.');
+      appAlert(t('profile.msgs.cv_remove_error', 'Erro ao remover Curriculum Vitae.'));
     } finally {
       setCvUploadLoading(false);
     }
@@ -614,7 +683,7 @@ const PerfilMissionario: React.FC = () => {
 
   const handlePrintCvFile = (cvPath: string) => {
     if (!cvPath) {
-      alert('Nenhum arquivo de currículo anexado para impressão.');
+      appAlert(t('profile.msgs.cv_none_to_print', 'Nenhum arquivo de currículo anexado para impressão.'));
       return;
     }
     const fileUrl = getFileUrl(cvPath);
@@ -656,7 +725,9 @@ const PerfilMissionario: React.FC = () => {
     data_falecimento: '', cidade_falecimento: '', certidao_obito_path: '', local_sepultamento: '',
     egresso_incardinado_path: '', egresso_desistencia_path: '', egresso_laicizado_path: '',
     egresso_transf_sacerdotes_path: '', egresso_transf_para_regiao_path: '', egresso_transf_da_regiao_path: '',
-    exclaustrado_data: '', exclaustrado_processo: '', exclaustrado_doc_path: ''
+    exclaustrado_data: '', exclaustrado_processo: '', exclaustrado_doc_path: '',
+    transferido_data_inicio: '', transferido_data_fim: '', transferido_origem: '', transferido_destino: '',
+    transferido_doc_path: '', transferido_observacao: ''
   });
   const [originalSituacao, setOriginalSituacao] = useState('');
   const [showSituacaoConfirmModal, setShowSituacaoConfirmModal] = useState(false);
@@ -667,6 +738,11 @@ const PerfilMissionario: React.FC = () => {
   const uploadSituacaoDoc = async (campo: keyof SituacaoData, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (campo === 'certidao_obito_path' && !isValidObitoFile(file)) {
+      e.target.value = '';
+      appAlert(t('profile.situation.obito_invalid_format', OBITO_INVALID_MSG));
+      return;
+    }
     const fd = new FormData();
     fd.append('arquivo', file);
     fd.append('campo', campo);
@@ -685,12 +761,14 @@ const PerfilMissionario: React.FC = () => {
             [campo]: res.data.filePath,
             data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : prev.data_falecimento,
             exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : prev.exclaustrado_data,
+            transferido_data_inicio: sitRes.data.transferido_data_inicio ? sitRes.data.transferido_data_inicio.split('T')[0] : prev.transferido_data_inicio,
+            transferido_data_fim: sitRes.data.transferido_data_fim ? sitRes.data.transferido_data_fim.split('T')[0] : prev.transferido_data_fim,
           }));
         }
-        alert('Documento anexado com sucesso!');
+        appAlert(t('profile.msgs.doc_attached', 'Documento anexado com sucesso!'));
       }
     } catch (err: any) {
-      alert('Erro ao enviar documento: ' + (err?.response?.data?.message || err.message));
+      appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + (err?.response?.data?.message || err.message));
     } finally {
       setIsSaving(false);
       e.target.value = '';
@@ -711,20 +789,20 @@ const PerfilMissionario: React.FC = () => {
               rel="noreferrer"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
             >
-              <FileText size={16} /> Ver Documento Anexado
+              <FileText size={16} /> {t('profile.ui.view_attached_doc', 'Ver Documento Anexado')}
             </a>
             {canEdit && (
               <button
                 type="button"
                 onClick={async () => {
-                  if (window.confirm('Deseja realmente remover este documento anexado?')) {
+                  if (await appConfirm(t('profile.msgs.doc_remove_confirm', 'Deseja realmente remover este documento anexado?'))) {
                     setIsSaving(true);
                     try {
                       await api.delete(`/usuarios/${id}/situacao/doc/${campo}`);
                       setSituacaoData(prev => ({ ...prev, [campo]: '' }));
-                      alert('Documento removido com sucesso!');
+                      appAlert(t('profile.msgs.doc_removed', 'Documento removido com sucesso!'));
                     } catch (err: any) {
-                      alert('Erro ao remover documento: ' + (err?.response?.data?.message || err.message));
+                      appAlert(t('profile.msgs.doc_remove_error_detail', 'Erro ao remover documento: ') + (err?.response?.data?.message || err.message));
                     } finally {
                       setIsSaving(false);
                     }
@@ -732,7 +810,7 @@ const PerfilMissionario: React.FC = () => {
                 }}
                 style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
               >
-                <Trash2 size={14} /> Remover Anexo
+                <Trash2 size={14} /> {t('profile.ui.remove_attachment', 'Remover Anexo')}
               </button>
             )}
           </div>
@@ -742,7 +820,7 @@ const PerfilMissionario: React.FC = () => {
               <input
                 type="file"
                 id={`file-input-${campo}`}
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept={campo === 'certidao_obito_path' ? OBITO_ACCEPT : '.pdf,.jpg,.jpeg,.png'}
                 style={{ display: 'none' }}
                 onChange={e => uploadSituacaoDoc(campo, e)}
               />
@@ -750,12 +828,12 @@ const PerfilMissionario: React.FC = () => {
                 htmlFor={`file-input-${campo}`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
               >
-                <Upload size={15} /> Anexar Documento (PDF / JPEG)
+                <Upload size={15} /> {t('profile.ui.attach_doc_formats', 'Anexar Documento (PDF, PNG ou JPG)')}
               </label>
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Nenhum arquivo anexado</span>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('profile.ui.no_file_attached', 'Nenhum arquivo anexado')}</span>
             </div>
           ) : (
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>Nenhum documento anexado.</span>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>{t('profile.ui.no_doc_attached', 'Nenhum documento anexado.')}</span>
           )
         )}
       </div>
@@ -766,7 +844,7 @@ const PerfilMissionario: React.FC = () => {
     const filePaths = (situacaoData.exclaustrado_doc_path || '').split(',').map(s => s.trim()).filter(Boolean);
     return (
       <div id="exclaustrado_doc_path" className="form-group full" style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', transition: 'all 0.3s ease' }}>
-        <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>Documentos Anexados (Adicione quantos desejar)</label>
+        <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>{t('profile.situation.exclaustrado_docs_label', 'Documentos Anexados (Adicione quantos desejar)')}</label>
 
         {filePaths.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
@@ -780,7 +858,7 @@ const PerfilMissionario: React.FC = () => {
                     rel="noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
                   >
-                    <FileText size={16} /> Ver Documento {idx + 1}
+                    <FileText size={16} /> {t('profile.ui.view_doc_n', { n: idx + 1, defaultValue: `Ver Documento ${idx + 1}` })}
                   </a>
                   {canEdit && (
                     <button
@@ -791,7 +869,7 @@ const PerfilMissionario: React.FC = () => {
                       }}
                       style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
                     >
-                      <Trash2 size={14} /> Remover
+                      <Trash2 size={14} /> {t('profile.ui.remove', 'Remover')}
                     </button>
                   )}
                 </div>
@@ -799,7 +877,7 @@ const PerfilMissionario: React.FC = () => {
             })}
           </div>
         ) : (
-          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', display: 'block', marginBottom: '12px' }}>Nenhum documento anexado.</span>
+          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', display: 'block', marginBottom: '12px' }}>{t('profile.ui.no_doc_attached', 'Nenhum documento anexado.')}</span>
         )}
 
         {canEdit && (
@@ -822,10 +900,10 @@ const PerfilMissionario: React.FC = () => {
                     const newUrl = res.data.url || res.data.arquivo_path;
                     const newPaths = [...filePaths, newUrl];
                     setSituacaoData(prev => ({ ...prev, exclaustrado_doc_path: newPaths.join(',') }));
-                    alert('Documento anexado! Não esqueça de clicar em "Salvar Situação" para finalizar.');
+                    appAlert(t('profile.msgs.doc_attached_save_reminder', 'Documento anexado! Não esqueça de clicar em "Salvar Situação" para finalizar.'));
                   }
                 } catch (err: any) {
-                  alert('Erro ao enviar documento: ' + (err?.response?.data?.message || err.message));
+                  appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + (err?.response?.data?.message || err.message));
                 } finally {
                   setIsSaving(false);
                   e.target.value = '';
@@ -836,10 +914,99 @@ const PerfilMissionario: React.FC = () => {
               htmlFor="file-input-exclaustrado_doc_path"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
             >
-              <Upload size={15} /> Adicionar Documento
+              <Upload size={15} /> {t('profile.ui.add_doc', 'Adicionar Documento')}
             </label>
           </div>
         )}
+      </div>
+    );
+  };
+
+  const renderTransferidoDocs = () => {
+    const filePaths = (situacaoData.transferido_doc_path || '').split(',').map(s => s.trim()).filter(Boolean);
+    const canAddMore = filePaths.length < MAX_TRANSFERIDO_DOCS;
+    return (
+      <div id="transferido_doc_path" className="form-group full" style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', transition: 'all 0.3s ease' }}>
+        <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
+          {t('profile.situation.transferido_docs_label', { n: filePaths.length, max: MAX_TRANSFERIDO_DOCS, defaultValue: `Documentos da Transferência (${filePaths.length}/${MAX_TRANSFERIDO_DOCS} — PDF, PNG ou JPG)` })}
+        </label>
+
+        {filePaths.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+            {filePaths.map((path, idx) => {
+              const docUrl = getFileUrl(path) || path;
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <a
+                    href={docUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
+                  >
+                    <FileText size={16} /> {t('profile.ui.view_doc_n', { n: idx + 1, defaultValue: `Ver Documento ${idx + 1}` })}
+                  </a>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!await appConfirm(t('profile.msgs.doc_remove_confirm', 'Deseja realmente remover este documento anexado?'))) return;
+                        setIsSaving(true);
+                        try {
+                          const res = await api.delete(`/usuarios/${id}/situacao/transferido-doc/${idx}`);
+                          setSituacaoData(prev => ({ ...prev, transferido_doc_path: res.data?.transferido_doc_path || '' }));
+                        } catch (err: any) {
+                          appAlert(t('profile.msgs.doc_remove_error_detail', 'Erro ao remover documento: ') + (err?.response?.data?.message || err.message));
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                    >
+                      <Trash2 size={14} /> {t('profile.ui.remove', 'Remover')}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', display: 'block', marginBottom: '12px' }}>{t('profile.ui.no_doc_attached', 'Nenhum documento anexado.')}</span>
+        )}
+
+        {canEdit && (canAddMore ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="file"
+              id="file-input-transferido_doc_path"
+              accept=".pdf,.jpg,.jpeg,.png"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('arquivo', file);
+                setIsSaving(true);
+                try {
+                  const res = await api.post(`/usuarios/${id}/situacao/transferido-doc`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                  setSituacaoData(prev => ({ ...prev, transferido_doc_path: res.data?.transferido_doc_path || prev.transferido_doc_path }));
+                } catch (err: any) {
+                  appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + (err?.response?.data?.message || err.message));
+                } finally {
+                  setIsSaving(false);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <label
+              htmlFor="file-input-transferido_doc_path"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+            >
+              <Upload size={15} /> {t('profile.ui.add_doc', 'Adicionar Documento')}
+            </label>
+          </div>
+        ) : (
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('profile.situation.transferido_limit', { max: MAX_TRANSFERIDO_DOCS, defaultValue: `Limite de ${MAX_TRANSFERIDO_DOCS} anexos atingido. Remova um documento para anexar outro.` })}</span>
+        ))}
       </div>
     );
   };
@@ -918,7 +1085,7 @@ const PerfilMissionario: React.FC = () => {
             }
             return;
           }
-          textValue = inp.nextSibling?.textContent?.trim() || inp.name || 'Sim';
+          textValue = inp.nextSibling?.textContent?.trim() || inp.name || t('common.yes', 'Sim');
         } else if (inp.type === 'date') {
           textValue = formatDateLocal(inp.value) || '-';
         } else {
@@ -927,7 +1094,7 @@ const PerfilMissionario: React.FC = () => {
       } else if (tagName === 'select') {
         const sel = origEl as HTMLSelectElement;
         const optText = sel.options[sel.selectedIndex]?.text || sel.value;
-        textValue = optText.includes('Selecione') ? '-' : optText.trim() || '-';
+        textValue = (optText.includes('Selecione') || optText.includes('Seleccione')) ? '-' : optText.trim() || '-';
       } else if (tagName === 'textarea') {
         const txt = origEl as HTMLTextAreaElement;
         textValue = txt.value.trim() || '-';
@@ -944,12 +1111,13 @@ const PerfilMissionario: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const dataAtual = new Date().toLocaleDateString('pt-BR');
-    const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dateLocale = getDateLocale();
+    const dataAtual = new Date().toLocaleDateString(dateLocale);
+    const horaAtual = new Date().toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
 
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html lang="pt-BR">
+      <html lang="${dateLocale}">
       <head>
         <meta charset="UTF-8">
         <title>${title} - ${missionario?.nome || ''}</title>
@@ -1127,12 +1295,12 @@ const PerfilMissionario: React.FC = () => {
       <body>
         <div class="print-container">
           <div class="print-header">
-            <div class="org-name">Congregação dos Missionários de São Carlos – Scalabrinianos</div>
+            <div class="org-name">${t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos')}</div>
             <div class="doc-title">${title}</div>
             <div class="print-header-meta">
-              <span>Missionário: <strong>${missionario?.nome || ''}</strong></span>
+              <span>${t('profile.missionary_role', 'Missionário')}: <strong>${missionario?.nome || ''}</strong></span>
               <span>ID: <strong>#${missionario?.id || ''}</strong></span>
-              <span>Emissão: <strong>${dataAtual} às ${horaAtual}</strong></span>
+              <span>${t('profile.print.issued', 'Emissão')}: <strong>${dataAtual} ${t('profile.print.at', 'às')} ${horaAtual}</strong></span>
             </div>
           </div>
 
@@ -1141,8 +1309,8 @@ const PerfilMissionario: React.FC = () => {
           </div>
 
           <div class="print-footer">
-            <span>Portal Scalabrinianos — Sistema de Gestão</span>
-            <span>Documento impresso individualmente</span>
+            <span>${t('profile.print.footer_system', 'Portal Scalabrinianos — Sistema de Gestão')}</span>
+            <span>${t('profile.print.footer_individual', 'Documento impresso individualmente')}</span>
           </div>
         </div>
       </body>
@@ -1248,6 +1416,7 @@ const PerfilMissionario: React.FC = () => {
       if (isInitial) {
         setActiveTab(prev => {
           if (prev && prev !== 'dados') return prev;
+          if (new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab')) return prev;
           if (isSelf) return 'dados';
           if (normSit !== 'Ativo') return 'situacao';
           return 'dados';
@@ -1313,6 +1482,12 @@ const PerfilMissionario: React.FC = () => {
           exclaustrado_data: data.situacaoData.exclaustrado_data ? data.situacaoData.exclaustrado_data.split('T')[0] : '',
           exclaustrado_processo: data.situacaoData.exclaustrado_processo || '',
           exclaustrado_doc_path: data.situacaoData.exclaustrado_doc_path || '',
+          transferido_data_inicio: data.situacaoData.transferido_data_inicio ? data.situacaoData.transferido_data_inicio.split('T')[0] : '',
+          transferido_data_fim: data.situacaoData.transferido_data_fim ? data.situacaoData.transferido_data_fim.split('T')[0] : '',
+          transferido_origem: data.situacaoData.transferido_origem || '',
+          transferido_destino: data.situacaoData.transferido_destino || '',
+          transferido_doc_path: data.situacaoData.transferido_doc_path || '',
+          transferido_observacao: data.situacaoData.transferido_observacao || '',
         }));
       }
 
@@ -1361,15 +1536,15 @@ const PerfilMissionario: React.FC = () => {
         api.post(`/usuarios/${id}/dados-civis`, { ...civilDataToSave, nit }),
         api.post(`/usuarios/${id}/nacionalidades`, { nacionalidades: filteredNacs })
       ]);
-      alert('Dados civis atualizados!');
-    } catch { alert('Erro ao salvar dados civis'); }
+      appAlert(t('profile.msgs.civil_saved', 'Dados civis atualizados!'));
+    } catch { appAlert(t('profile.msgs.civil_save_error', 'Erro ao salvar dados civis')); }
     finally { setIsSaving(false); }
   };
 
   const saveReligiosos = async () => {
     setIsSaving(true);
     try {
-      await api.put(`/usuarios/${id}/dados-religiosos`, {
+      await api.post(`/usuarios/${id}/dados-religiosos`, {
         ...religiososData,
         data_batismo: religiososData.data_batismo || null,
         data_primeira_comunhao: religiososData.data_primeira_comunhao || null,
@@ -1390,8 +1565,8 @@ const PerfilMissionario: React.FC = () => {
       // Update Situation Details
       await api.post(`/usuarios/${id}/situacao`, situacaoData);
 
-      alert('Dados religiosos e situação atualizados!');
-    } catch { alert('Erro ao salvar dados religiosos'); }
+      appAlert(t('profile.msgs.religious_saved', 'Dados religiosos e situação atualizados!'));
+    } catch { appAlert(t('profile.msgs.religious_save_error', 'Erro ao salvar dados religiosos')); }
     finally { setIsSaving(false); }
   };
 
@@ -1403,8 +1578,8 @@ const PerfilMissionario: React.FC = () => {
         api.post(`/usuarios/${id}/endereco-contato`, enderecoData),
         api.post(`/usuarios/${id}/contatos`, { contatos })
       ]);
-      alert('Endereço e contatos atualizados!');
-    } catch { alert('Erro ao salvar endereço e contatos'); }
+      appAlert(t('profile.msgs.address_saved', 'Endereço e contatos atualizados!'));
+    } catch { appAlert(t('profile.msgs.address_save_error', 'Erro ao salvar endereço e contatos')); }
     finally { setIsSaving(false); }
   };
 
@@ -1422,21 +1597,21 @@ const PerfilMissionario: React.FC = () => {
       });
       fetchData();
       setNovaVinculacao({ casa_id: '', data_inicio: '', data_fim: '', funcao: [] as string[], is_superior: false, pm: '', tipo: '', pais: 'Brasil' } as any);
-    } catch { alert('Erro ao vincular casa'); }
+    } catch { appAlert(t('profile.msgs.house_bind_error', 'Erro ao vincular casa')); }
   };
 
   const removeCasa = async (vinculoId: number) => {
-    if (!window.confirm('Remover este vínculo?')) return;
+    if (!await appConfirm(t('profile.msgs.house_unbind_confirm', 'Remover este vínculo?'))) return;
     try {
       await api.delete(`/usuarios/${id}/casas-historico/${vinculoId}`);
       fetchData();
-    } catch { alert('Erro ao remover vínculo'); }
+    } catch { appAlert(t('profile.msgs.house_unbind_error', 'Erro ao remover vínculo')); }
   };
 
   const uploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!pendingDocDesc.trim()) return alert('Informe a descrição do documento');
+    if (!pendingDocDesc.trim()) return appAlert(t('profile.msgs.doc_desc_required', 'Informe a descrição do documento'));
 
     const formData = new FormData();
     formData.append('arquivo', file);
@@ -1452,15 +1627,15 @@ const PerfilMissionario: React.FC = () => {
       fetchData();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }, message?: string };
-      const msg = err?.response?.data?.message || err?.message || 'Erro ao enviar documento';
-      alert(`Erro ao enviar documento: ${msg}`);
+      const msg = err?.response?.data?.message || err?.message || t('profile.msgs.doc_upload_error', 'Erro ao enviar documento');
+      appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + msg);
     } finally { setIsSaving(false); }
   };
 
   const uploadReligiousDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!pendingReligiousDocDesc.trim()) return alert('Informe a descrição do documento');
+    if (!pendingReligiousDocDesc.trim()) return appAlert(t('profile.msgs.doc_desc_required', 'Informe a descrição do documento'));
 
     const formData = new FormData();
     formData.append('arquivo', file);
@@ -1476,17 +1651,59 @@ const PerfilMissionario: React.FC = () => {
       fetchData();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }, message?: string };
-      const msg = err?.response?.data?.message || err?.message || 'Erro ao enviar documento';
-      alert(`Erro ao enviar documento: ${msg}`);
+      const msg = err?.response?.data?.message || err?.message || t('profile.msgs.doc_upload_error', 'Erro ao enviar documento');
+      appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + msg);
     } finally { setIsSaving(false); }
   };
 
+  const uploadSacramentoDoc = async (campo: 'doc_batismo' | 'doc_primeira_comunhao' | 'doc_crisma', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('arquivo', file);
+    fd.append('campo', campo);
+    setIsSaving(true);
+    try {
+      const res = await api.post(`/usuarios/${id}/dados-religiosos/upload-sacramento`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setReligiososData(prev => ({ ...prev, [campo]: res.data?.path || '' }));
+      appAlert(t('profile.msgs.doc_attached', 'Documento anexado com sucesso!'));
+    } catch (err: any) {
+      appAlert(t('profile.msgs.doc_upload_error_detail', 'Erro ao enviar documento: ') + (err?.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleCepChange = async (cep: string) => {
+    setEnderecoData(prev => ({ ...prev, cep }));
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setEnderecoData(prev => ({
+          ...prev,
+          logradouro: data.logradouro || prev.logradouro,
+          bairro: data.bairro || prev.bairro,
+          cidade_estado: `${data.localidade} - ${data.uf}`
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
   const removeDocument = async (docId: number) => {
-    if (!window.confirm('Excluir este documento permanentemente?')) return;
+    if (!await appConfirm(t('profile.msgs.doc_delete_confirm', 'Excluir este documento permanentemente?'))) return;
     try {
       await api.delete(`/usuarios/${id}/documentos/${docId}`);
       fetchData();
-    } catch { alert('Erro ao remover documento'); }
+    } catch { appAlert(t('profile.msgs.doc_remove_error', 'Erro ao remover documento')); }
   };
 
   const saveBasicInfo = async () => {
@@ -1510,12 +1727,12 @@ const PerfilMissionario: React.FC = () => {
       }
 
       await api.put(`/usuarios/${id}`, payload);
-      alert('Informações de acesso atualizadas com sucesso!');
+      appAlert(t('profile.msgs.access_saved', 'Informações de acesso atualizadas com sucesso!'));
       setNewPassword('');
       const hPerfRes = await api.get(`/usuarios/${id}/historico-perfil`).catch(() => ({ data: [] }));
       setHistoricoPerfil(Array.isArray(hPerfRes.data) ? hPerfRes.data : []);
     } catch (err: any) {
-      alert('Erro ao salvar informações: ' + (err.response?.data?.message || err.message));
+      appAlert(t('profile.msgs.save_info_error_detail', 'Erro ao salvar informações: ') + (err.response?.data?.message || err.message));
     }
     finally { setIsSaving(false); }
   };
@@ -1529,9 +1746,9 @@ const PerfilMissionario: React.FC = () => {
       setIsSaving(true);
       try {
         await api.post(`/usuarios/${id}/situacao`, situacaoData);
-        alert('Dados de situação atualizados com sucesso!');
+        appAlert(t('profile.msgs.situation_data_saved', 'Dados de situação atualizados com sucesso!'));
       } catch (err: any) {
-        alert('Erro ao salvar dados de situação: ' + (err.response?.data?.message || err.message));
+        appAlert(t('profile.msgs.situation_data_save_error_detail', 'Erro ao salvar dados de situação: ') + (err.response?.data?.message || err.message));
       } finally {
         setIsSaving(false);
       }
@@ -1561,12 +1778,12 @@ const PerfilMissionario: React.FC = () => {
       setOriginalSituacao(norm);
       setShowSituacaoConfirmModal(false);
       setMotivoSituacao('');
-      alert('Situação atualizada com sucesso e registrada no histórico!');
+      appAlert(t('profile.msgs.situation_saved_history', 'Situação atualizada com sucesso e registrada no histórico!'));
 
       const hSitRes = await api.get(`/usuarios/${id}/historico-situacao`).catch(() => ({ data: [] }));
       setHistoricoSituacao(Array.isArray(hSitRes.data) ? hSitRes.data : []);
     } catch (err: any) {
-      alert('Erro ao salvar situação: ' + (err.response?.data?.message || err.message));
+      appAlert(t('profile.msgs.situation_save_error_detail', 'Erro ao salvar situação: ') + (err.response?.data?.message || err.message));
     } finally {
       setIsSaving(false);
     }
@@ -1598,9 +1815,9 @@ const PerfilMissionario: React.FC = () => {
       setItinerarioStages(newStages);
       await api.post(`/usuarios/${id}/itinerario`, { stages: newStages });
       if (itinFileInputRef.current) itinFileInputRef.current.value = '';
-      alert('Documento anexado com sucesso!');
+      appAlert(t('profile.msgs.doc_attached', 'Documento anexado com sucesso!'));
     } catch {
-      alert('Erro ao anexar documento');
+      appAlert(t('profile.msgs.doc_attach_error', 'Erro ao anexar documento'));
     } finally {
       setIsSaving(false);
     }
@@ -1618,7 +1835,7 @@ const PerfilMissionario: React.FC = () => {
       setEditingObra(null);
       setTempForm({});
       await fetchData(false);
-    } catch { alert('Erro ao salvar registro'); }
+    } catch { appAlert(t('profile.msgs.record_save_error', 'Erro ao salvar registro')); }
     finally { setIsSaving(false); }
   };
 
@@ -1648,7 +1865,7 @@ const PerfilMissionario: React.FC = () => {
         setTempForm({});
         await fetchData(false);
       } catch {
-        alert('Erro ao atualizar registro');
+        appAlert(t('profile.msgs.record_update_error', 'Erro ao atualizar registro'));
       }
     } finally {
       setIsSaving(false);
@@ -1670,9 +1887,9 @@ const PerfilMissionario: React.FC = () => {
       const filePath = res.data.arquivo_path || res.data.url;
       const fieldName = endpoint === 'quadro-pessoal' ? 'cv_path' : 'doc_path';
       setTempForm(prev => ({ ...prev, [fieldName]: filePath }));
-      alert('Documento anexado com sucesso!');
+      appAlert(t('profile.msgs.doc_attached', 'Documento anexado com sucesso!'));
     } catch {
-      alert('Erro ao enviar documento');
+      appAlert(t('profile.msgs.doc_upload_error', 'Erro ao enviar documento'));
     } finally {
       setIsSaving(false);
       e.target.value = '';
@@ -1680,11 +1897,11 @@ const PerfilMissionario: React.FC = () => {
   };
 
   const handleGenericDelete = async (endpoint: string, itemId: number) => {
-    if (!window.confirm('Excluir este registro?')) return;
+    if (!await appConfirm(t('profile.msgs.record_delete_confirm', 'Excluir este registro?'))) return;
     try {
       await api.delete(`/usuarios/${id}/${endpoint}/${itemId}`);
       fetchData();
-    } catch { alert('Erro ao remover registro'); }
+    } catch { appAlert(t('profile.msgs.record_remove_error', 'Erro ao remover registro')); }
   };
 
   if (isLoading) return <div className="perfil-loading"><Loader2 className="animate-spin" size={40} /><p>{t('profile.loading')}</p></div>;
@@ -1695,7 +1912,7 @@ const PerfilMissionario: React.FC = () => {
 
   // Tabs principais (Situação só aparece para Admin/Regional)
   const mainTabs = [
-    ...(!isSelfProfile ? [{ key: 'situacao', label: '0. Situação', icon: <Star size={16} />, perm: 'dados_civis' }] : []),
+    ...(!isSelfProfile ? [{ key: 'situacao', label: t('profile.tabs.situation', '0. Situação'), icon: <Star size={16} />, perm: 'dados_civis' }] : []),
     { key: 'dados', label: t('profile.tabs.personal'), icon: <User size={16} />, perm: 'dados_civis' },
     { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
   ];
@@ -1751,7 +1968,7 @@ const PerfilMissionario: React.FC = () => {
   };
 
   const handleDeleteItinStage = async (etapaKey: string) => {
-    if (!window.confirm('Deseja realmente remover ou limpar este registro do itinerário?')) return;
+    if (!await appConfirm(t('profile.msgs.itin_remove_confirm', 'Deseja realmente remover ou limpar este registro do itinerário?'))) return;
     let updated: ItineraryStage[] = [];
     if (etapaKey.includes('-')) {
       updated = itinerarioStages.filter(s => s.etapa !== etapaKey);
@@ -1788,7 +2005,7 @@ const PerfilMissionario: React.FC = () => {
                   style={{ fontSize: '0.78rem', padding: '2px 8px' }}
                   onClick={() => openItinEditModal(sub.label, `${sub.etapaKey}-${Date.now()}`, { etapa: `${sub.etapaKey}-${Date.now()}`, is_sub_etapa: true })}
                 >
-                  <Plus size={13} /> Adicionar Local/Período
+                  <Plus size={13} /> {t('profile.itinerary.add_place_period', 'Adicionar Local/Período')}
                 </button>
               )}
             </div>
@@ -1805,14 +2022,14 @@ const PerfilMissionario: React.FC = () => {
                       <>
                         <strong>{stage.periodo}</strong>
                         <div className="item-subtitle">
-                          {stage.local || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Local não informado</span>}
+                          {stage.local || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>{t('profile.itinerary.place_not_informed', 'Local não informado')}</span>}
                         </div>
                       </>
                     ) : (
                       <>
                         <strong>{stage.local || sub.label}</strong>
                         <div className="item-subtitle">
-                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Período não informado</span>
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>{t('profile.itinerary.period_not_informed', 'Período não informado')}</span>
                         </div>
                       </>
                     )}
@@ -1825,7 +2042,7 @@ const PerfilMissionario: React.FC = () => {
                     )}
                     {stage.observacoes && (
                       <div className="item-description" style={{ marginTop: '8px', whiteSpace: 'pre-wrap' }}>
-                        <strong>Observação:</strong> {stage.observacoes}
+                        <strong>{t('profile.ui.observation', 'Observação')}:</strong> {stage.observacoes}
                       </div>
                     )}
                     {stage.doc_path && (
@@ -1837,14 +2054,14 @@ const PerfilMissionario: React.FC = () => {
                           className="btn-itin-doc success"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 600 }}
                         >
-                          <FileText size={14} /> Visualizar Documento / Comprovante
+                          <FileText size={14} /> {t('profile.itinerary.view_doc_proof', 'Visualizar Documento / Comprovante')}
                         </a>
                       </div>
                     )}
                   </div>
                   <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
                     {stage.doc_path && (
-                      <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Visualizar Documento">
+                      <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title={t('profile.ui.view_doc', 'Visualizar Documento')}>
                         <Eye size={14} />
                       </a>
                     )}
@@ -1854,7 +2071,7 @@ const PerfilMissionario: React.FC = () => {
                           type="button"
                           className="btn-action-lite"
                           onClick={() => openItinEditModal(sub.label, stage.etapa, stage)}
-                          title="Editar"
+                          title={t('common.edit', 'Editar')}
                         >
                           <Edit size={14} />
                         </button>
@@ -1863,7 +2080,7 @@ const PerfilMissionario: React.FC = () => {
                             type="button"
                             className="btn-action-lite"
                             onClick={() => { activeEtapaRef.current = stage.etapa; itinFileInputRef.current?.click(); }}
-                            title="Anexar Documento"
+                            title={t('profile.ui.attach_doc', 'Anexar Documento')}
                           >
                             <FileText size={14} />
                           </button>
@@ -1873,7 +2090,7 @@ const PerfilMissionario: React.FC = () => {
                             type="button"
                             className="btn-action-lite delete"
                             onClick={() => handleDeleteItinStage(stage.etapa)}
-                            title="Excluir / Limpar"
+                            title={t('profile.ui.delete_clear', 'Excluir / Limpar')}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1906,11 +2123,11 @@ const PerfilMissionario: React.FC = () => {
         </div>
         <div className="perfil-main-info" style={{ flex: 1 }}>
           <div className="perfil-name-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', minWidth: 0 }}>
               <h1>{missionario.nome}</h1>
               {!isSelfProfile && (
                 <span className={`situacao-tag-premium ${(missionario.situacao || '').toLowerCase()}`}>
-                  {missionario.situacao}
+                  {situacaoLabel(missionario.situacao)}
                 </span>
               )}
             </div>
@@ -1934,7 +2151,7 @@ const PerfilMissionario: React.FC = () => {
                 }}
               >
                 <Lock size={14} />
-                Editar acessos do usuário
+                {t('profile.ui.edit_user_access', 'Editar acessos do usuário')}
               </button>
             )}
           </div>
@@ -1952,19 +2169,19 @@ const PerfilMissionario: React.FC = () => {
 
         {/* Sidebar esquerda em cascata */}
         <aside className="perfil-sidebar">
-          <div className="sidebar-section-title">Mais Informações</div>
+          <div className="sidebar-section-title">{t('profile.ui.more_info', 'Mais Informações')}</div>
           <nav className="sidebar-nav">
             {SIDEBAR.map(item => {
               if (item.key === 'itinerario') {
                 const itinSubItems = [
-                  { key: 'itin_4.1', label: '4.1 Seminário' },
-                  { key: 'itin_4.2', label: '4.2 Vida Religiosa' },
-                  { key: 'itin_4.3', label: '4.3 Ministérios' },
-                  { key: 'itin_4.4', label: '4.4 Destinação dada pela Direção' },
+                  { key: 'itin_4.1', label: t('profile.itinerary.menu_4_1', '4.1 Seminário') },
+                  { key: 'itin_4.2', label: t('profile.itinerary.menu_4_2', '4.2 Vida Religiosa') },
+                  { key: 'itin_4.3', label: t('profile.itinerary.menu_4_3', '4.3 Ministérios') },
+                  { key: 'itin_4.4', label: t('profile.itinerary.menu_4_4', '4.4 Destinação dada pela Direção') },
                 ];
                 const isItinActive = activeTab.startsWith('itin_');
                 return (
-                  <div key="itinerario-group">
+                  <div key="itinerario-group" className="sidebar-nav-group">
                     <button
                       className={`sidebar-nav-item ${isItinActive ? 'active' : ''}`}
                       style={{ display: 'flex', alignItems: 'center', width: '100%' }}
@@ -2021,6 +2238,34 @@ const PerfilMissionario: React.FC = () => {
           </div>
 
           <div className="perfil-content">
+            {correcaoBanner && (
+              <div className="cm-banner">
+                <div className="cm-banner-body">
+                  <strong>
+                    {correcaoBanner.status === 'RESOLVIDA'
+                      ? t('correcao.banner_resolved', 'Solicitação de correção (resolvida)')
+                      : t('correcao.banner_title', 'Correção solicitada pelo missionário')} — {correcaoBanner.secao}
+                  </strong>
+                  {t('correcao.fields', 'Campos a alterar')}:
+                  <ul className="cm-campos">
+                    {correcaoBanner.campos.map(c => <li key={c}>{c}</li>)}
+                  </ul>
+                  <p className="cm-banner-note">“{correcaoBanner.descricao}”</p>
+                </div>
+                <div className="cm-banner-actions">
+                  <button className="cm-btn-primary" onClick={() => setCorrecaoModalOpen(true)}>{t('correcao.view_details', 'Ver detalhes')}</button>
+                  <button className="cm-btn-secondary" style={{ color: '#475569', borderColor: '#cbd5e1' }} onClick={fecharCorrecaoBanner}>{t('common.close', 'Fechar')}</button>
+                </div>
+              </div>
+            )}
+            {correcaoModalOpen && correcaoBanner && (
+              <CorrecaoModal
+                correcaoId={correcaoBanner.id}
+                hideGoToSection
+                onClose={() => setCorrecaoModalOpen(false)}
+                onResolved={loadCorrecaoBanner}
+              />
+            )}
             {/* --- 0. SITUAÇÃO --- */}
             {(activeTab === 'situacao' || activeTab.startsWith('situacao_')) && (() => {
               const currentSituacao = normalizeSituacao(missionario.situacao);
@@ -2028,10 +2273,10 @@ const PerfilMissionario: React.FC = () => {
                 <div className="tab-panel">
                   <div className="section-card" id="print-situacao">
                     <div className="section-header-flex">
-                      <h3 className="section-title"><Star size={16} /> 0. Situação do Missionário</h3>
+                      <h3 className="section-title"><Star size={16} /> {t('profile.situation.title', '0. Situação do Missionário')}</h3>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('0. Situação', 'print-situacao')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.situation', '0. Situação'), 'print-situacao')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
                     </div>
@@ -2039,39 +2284,47 @@ const PerfilMissionario: React.FC = () => {
                     {/* Status badge display */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
                       <span className={`situacao-tag-premium ${currentSituacao.toLowerCase()}`} style={{ fontSize: '1rem', padding: '10px 24px' }}>
-                        {currentSituacao}
+                        {situacaoLabel(currentSituacao)}
                       </span>
-                      <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Situação atual do missionário no sistema</span>
+                      <span style={{ color: '#64748b', fontSize: '0.9rem' }}>{t('profile.situation.current_hint', 'Situação atual do missionário no sistema')}</span>
                     </div>
 
                     {/* Alterar Situação (quando edita) */}
                     {canEdit && (
                       <div className="form-grid-2" style={{ marginBottom: '24px' }}>
                         <div className="form-group">
-                          <label>Alterar Situação do Missionário</label>
+                          <label>{t('profile.situation.change_label', 'Alterar Situação do Missionário')}</label>
                           <select
                             value={currentSituacao}
                             onChange={e => setMissionario({ ...missionario, situacao: e.target.value } as any)}
                           >
-                            <option value="Ativo">Ativo</option>
-                            <option value="Egresso">Egresso</option>
-                            <option value="Falecido">Falecido</option>
-                            <option value="Exclaustrado">Exclaustrado</option>
+                            <option value="Ativo">{t('missionaries.situations.ativo', 'Ativo')}</option>
+                            <option value="Egresso">{t('missionaries.situations.egresso', 'Egresso')}</option>
+                            {(canAccessObito || currentSituacao === 'Falecido') && (
+                              <option value="Falecido" disabled={!canAccessObito}>{t('missionaries.situations.falecido', 'Falecido')}</option>
+                            )}
+                            <option value="Exclaustrado">{t('missionaries.situations.exclaustrado', 'Exclaustrado')}</option>
+                            <option value="Transferido">{t('missionaries.situations.transferido', 'Transferido')}</option>
                           </select>
                         </div>
                       </div>
                     )}
 
-                    {/* ── FALECIDO ── */}
-                    {currentSituacao === 'Falecido' && (
+                    {/* ── FALECIDO — dados de óbito restritos ao Registro Regional ── */}
+                    {currentSituacao === 'Falecido' && !canAccessObito && (
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', color: '#64748b', fontSize: '0.9rem' }}>
+                        🔒 {t('profile.situation.obito_restricted', 'As informações de óbito são restritas ao perfil Registro Regional.')}
+                      </div>
+                    )}
+                    {currentSituacao === 'Falecido' && canAccessObito && (
                       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
                         <h4 style={{ margin: '0 0 16px 0', color: '#334155', fontSize: '1rem', borderBottom: '2px solid #cbd5e1', paddingBottom: '8px' }}>
-                          🕊️ Informações de Falecimento
+                          🕊️ {t('profile.situation.obito_title', 'Informações de Falecimento')}
                         </h4>
                         {(activeTab === 'situacao' || activeTab === 'situacao_falecido_data_cidade') && (
                           <div id="falecido_data_cidade" className="form-grid-2" style={{ marginBottom: '16px' }}>
                             <div className="form-group">
-                              <label>Data de Falecimento</label>
+                              <label>{t('profile.situation.death_date', 'Data de Falecimento')}</label>
                               <input
                                 type="date"
                                 value={situacaoData.data_falecimento || ''}
@@ -2080,28 +2333,28 @@ const PerfilMissionario: React.FC = () => {
                               />
                             </div>
                             <div className="form-group">
-                              <label>Cidade de Falecimento</label>
+                              <label>{t('profile.situation.death_city', 'Cidade de Falecimento')}</label>
                               <input
                                 type="text"
                                 value={situacaoData.cidade_falecimento || ''}
                                 onChange={e => setSituacaoData({ ...situacaoData, cidade_falecimento: e.target.value })}
-                                placeholder="Cidade - UF / País"
+                                placeholder={t('profile.situation.death_city_placeholder', 'Cidade - UF / País')}
                                 disabled={!canEdit}
                               />
                             </div>
                           </div>
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_certidao_obito_path') && (
-                          renderSituacaoDocField('Certidão de Óbito (PDF / JPEG)', 'certidao_obito_path', 'certidao_obito_path')
+                          renderSituacaoDocField(t('profile.situation.obito_certificate', 'Certidão de Óbito (PDF, PNG ou JPG)'), 'certidao_obito_path', 'certidao_obito_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_falecido_sepultamento') && (
                           <div id="falecido_sepultamento" className="form-group full">
-                            <label>Local de Sepultamento</label>
+                            <label>{t('profile.situation.burial_place', 'Local de Sepultamento')}</label>
                             <input
                               type="text"
                               value={situacaoData.local_sepultamento || ''}
                               onChange={e => setSituacaoData({ ...situacaoData, local_sepultamento: e.target.value })}
-                              placeholder="Cemitério, Jazigo, Cidade..."
+                              placeholder={t('profile.situation.burial_placeholder', 'Cemitério, Jazigo, Cidade...')}
                               disabled={!canEdit}
                             />
                           </div>
@@ -2113,26 +2366,26 @@ const PerfilMissionario: React.FC = () => {
                     {currentSituacao === 'Egresso' && (
                       <div style={{ background: '#fefce8', border: '1px solid #fef08a', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
                         <h4 style={{ margin: '0 0 16px 0', color: '#854d0e', fontSize: '1rem', borderBottom: '2px solid #fde047', paddingBottom: '8px' }}>
-                          📋 Documentos e Informações de Egresso
+                          📋 {t('profile.situation.egresso_title', 'Documentos e Informações de Egresso')}
                         </h4>
 
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_incardinado_path') && (
-                          renderSituacaoDocField('1. Incardinados (Documento PDF / JPEG)', 'egresso_incardinado_path', 'egresso_incardinado_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_incardinado', '1. Incardinados (Documento PDF / JPEG)'), 'egresso_incardinado_path', 'egresso_incardinado_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_desistencia_path') && (
-                          renderSituacaoDocField('2. Desistência ou em outro instituto (Documento PDF / JPEG)', 'egresso_desistencia_path', 'egresso_desistencia_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_desistencia', '2. Desistência ou em outro instituto (Documento PDF / JPEG)'), 'egresso_desistencia_path', 'egresso_desistencia_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_laicizado_path') && (
-                          renderSituacaoDocField('3. Laicizados (Documento PDF / JPEG)', 'egresso_laicizado_path', 'egresso_laicizado_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_laicizado', '3. Laicizados (Documento PDF / JPEG)'), 'egresso_laicizado_path', 'egresso_laicizado_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_sacerdotes_path') && (
-                          renderSituacaoDocField('4. Sacerdotes e Religiosos Transferidos (Documento PDF / JPEG)', 'egresso_transf_sacerdotes_path', 'egresso_transf_sacerdotes_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_transf_sacerdotes', '4. Sacerdotes e Religiosos Transferidos (Documento PDF / JPEG)'), 'egresso_transf_sacerdotes_path', 'egresso_transf_sacerdotes_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_para_regiao_path') && (
-                          renderSituacaoDocField('4.1 Para a Região (Documento PDF / JPEG)', 'egresso_transf_para_regiao_path', 'egresso_transf_para_regiao_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_transf_para_regiao', '4.1 Para a Região (Documento PDF / JPEG)'), 'egresso_transf_para_regiao_path', 'egresso_transf_para_regiao_path')
                         )}
                         {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_da_regiao_path') && (
-                          renderSituacaoDocField('4.2 Da Região para outras Províncias / Região (Documento PDF / JPEG)', 'egresso_transf_da_regiao_path', 'egresso_transf_da_regiao_path')
+                          renderSituacaoDocField(t('profile.situation.egresso_transf_da_regiao', '4.2 Da Região para outras Províncias / Região (Documento PDF / JPEG)'), 'egresso_transf_da_regiao_path', 'egresso_transf_da_regiao_path')
                         )}
                       </div>
                     )}
@@ -2141,12 +2394,12 @@ const PerfilMissionario: React.FC = () => {
                     {currentSituacao === 'Exclaustrado' && (
                       <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
                         <h4 style={{ margin: '0 0 16px 0', color: '#991b1b', fontSize: '1rem', borderBottom: '2px solid #fca5a5', paddingBottom: '8px' }}>
-                          📜 Informações de Exclaustração
+                          📜 {t('profile.situation.exclaustrado_title', 'Informações de Exclaustração')}
                         </h4>
                         <div className="form-grid-2">
                           {(activeTab === 'situacao' || activeTab === 'situacao_exclaustrado_data') && (
                             <div id="exclaustrado_data" className="form-group">
-                              <label>Data de Exclaustração</label>
+                              <label>{t('profile.situation.exclaustrado_date', 'Data de Exclaustração')}</label>
                               <input
                                 type="date"
                                 value={situacaoData.exclaustrado_data || ''}
@@ -2157,12 +2410,12 @@ const PerfilMissionario: React.FC = () => {
                           )}
                           {(activeTab === 'situacao' || activeTab === 'situacao_exclaustrado_processo') && (
                             <div id="exclaustrado_processo" className="form-group">
-                              <label>Processo / Decreto</label>
+                              <label>{t('profile.situation.exclaustrado_process', 'Processo / Decreto')}</label>
                               <input
                                 type="text"
                                 value={situacaoData.exclaustrado_processo || ''}
                                 onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_processo: e.target.value })}
-                                placeholder="Número do processo ou decreto..."
+                                placeholder={t('profile.situation.exclaustrado_process_placeholder', 'Número do processo ou decreto...')}
                                 disabled={!canEdit}
                               />
                             </div>
@@ -2174,11 +2427,72 @@ const PerfilMissionario: React.FC = () => {
                       </div>
                     )}
 
+                    {/* ── TRANSFERIDO ── */}
+                    {currentSituacao === 'Transferido' && (
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+                        <h4 style={{ margin: '0 0 16px 0', color: '#1e40af', fontSize: '1rem', borderBottom: '2px solid #93c5fd', paddingBottom: '8px' }}>
+                          🔁 {t('profile.situation.transferido_title', 'Informações de Transferência')}
+                        </h4>
+                        <div className="form-grid-2">
+                          <div id="transferido_periodo" className="form-group">
+                            <label>{t('profile.situation.period_start', 'Período — Início')}</label>
+                            <input
+                              type="date"
+                              value={situacaoData.transferido_data_inicio || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, transferido_data_inicio: e.target.value })}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>{t('profile.situation.period_end', 'Período — Fim')}</label>
+                            <input
+                              type="date"
+                              value={situacaoData.transferido_data_fim || ''}
+                              min={situacaoData.transferido_data_inicio || undefined}
+                              onChange={e => setSituacaoData({ ...situacaoData, transferido_data_fim: e.target.value })}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                          <div id="transferido_origem" className="form-group">
+                            <label>{t('profile.situation.origin', 'Região/Província de Origem')}</label>
+                            <input
+                              type="text"
+                              value={situacaoData.transferido_origem || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, transferido_origem: e.target.value })}
+                              placeholder={t('profile.situation.origin_placeholder', 'Região ou província de origem')}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                          <div id="transferido_destino" className="form-group">
+                            <label>{t('profile.situation.destination', 'Região/Província de Destino')}</label>
+                            <input
+                              type="text"
+                              value={situacaoData.transferido_destino || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, transferido_destino: e.target.value })}
+                              placeholder={t('profile.situation.destination_placeholder', 'Região ou província de destino')}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                          {renderTransferidoDocs()}
+                          <div id="transferido_observacao" className="form-group full">
+                            <label>{t('profile.ui.observation', 'Observação')}</label>
+                            <textarea
+                              rows={3}
+                              value={situacaoData.transferido_observacao || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, transferido_observacao: e.target.value })}
+                              placeholder={t('profile.situation.transferido_obs_placeholder', 'Informações adicionais sobre a transferência...')}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {canEdit && (
                       <div className="section-actions" style={{ marginTop: '20px' }}>
                         <button className="btn-save-perfil" onClick={handleSaveSituacao} disabled={isSaving}>
                           {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          Salvar Situação
+                          {t('profile.situation.save_btn', 'Salvar Situação')}
                         </button>
                       </div>
                     )}
@@ -2188,42 +2502,42 @@ const PerfilMissionario: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
                         <Activity size={18} style={{ color: '#013375' }} />
                         <h4 style={{ margin: 0, fontSize: '1rem', color: '#1e293b', fontWeight: 700 }}>
-                          Histórico de Alterações de Situação
+                          {t('profile.situation.history_title', 'Histórico de Alterações de Situação')}
                         </h4>
                       </div>
 
                       {historicoSituacao.length === 0 ? (
                         <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.88rem', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
-                          Nenhuma alteração de situação registrada até o momento.
+                          {t('profile.situation.history_empty', 'Nenhuma alteração de situação registrada até o momento.')}
                         </div>
                       ) : (
                         <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <table style={{ width: '100%', minWidth: '560px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                             <thead>
                               <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
-                                <th style={{ padding: '10px 12px' }}>Data / Hora</th>
-                                <th style={{ padding: '10px 12px' }}>Mudança de Situação</th>
-                                <th style={{ padding: '10px 12px' }}>Alterado Por</th>
-                                <th style={{ padding: '10px 12px' }}>Motivo / Observação</th>
+                                <th style={{ padding: '10px 12px' }}>{t('profile.history.date_time', 'Data / Hora')}</th>
+                                <th style={{ padding: '10px 12px' }}>{t('profile.situation.history_change', 'Mudança de Situação')}</th>
+                                <th style={{ padding: '10px 12px' }}>{t('profile.history.changed_by', 'Alterado Por')}</th>
+                                <th style={{ padding: '10px 12px' }}>{t('profile.history.reason', 'Motivo / Observação')}</th>
                               </tr>
                             </thead>
                             <tbody>
                               {historicoSituacao.map(item => (
                                 <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: '#64748b' }}>
-                                    {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '—'}
+                                    {item.created_at ? new Date(item.created_at).toLocaleString(getDateLocale()) : '—'}
                                   </td>
                                   <td style={{ padding: '10px 12px' }}>
                                     <span className={`situacao-tag-premium ${(item.situacao_anterior || '').toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
-                                      {item.situacao_anterior || '—'}
+                                      {situacaoLabel(item.situacao_anterior) || '—'}
                                     </span>
                                     <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
                                     <span className={`situacao-tag-premium ${(item.situacao_nova || '').toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
-                                      {item.situacao_nova}
+                                      {situacaoLabel(item.situacao_nova)}
                                     </span>
                                   </td>
                                   <td style={{ padding: '10px 12px', fontWeight: 600, color: '#334155' }}>
-                                    {item.alterado_por_nome || 'Sistema'}
+                                    {item.alterado_por_nome || t('profile.history.system', 'Sistema')}
                                   </td>
                                   <td style={{ padding: '10px 12px', color: '#64748b' }}>
                                     {item.motivo || '—'}
@@ -2247,8 +2561,8 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><User size={16} /> {t('profile.sections.civil')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('1. Dados Civis', 'print-dados-civis')}>
-                        <Printer size={15} /> <span>Imprimir</span>
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.personal', '1. Dados Civis'), 'print-dados-civis')}>
+                        <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                       </button>
                     )}
                   </div>
@@ -2301,7 +2615,7 @@ const PerfilMissionario: React.FC = () => {
                           setCivilData({ ...civilData, cidade_estado: v });
                         }}
                         disabled={!canEdit}
-                        placeholder="Ex: São Paulo, SP"
+                        placeholder={t('profile.civil.city_placeholder', 'Ex: São Paulo, SP')}
                       />
                     </div>
 
@@ -2317,7 +2631,7 @@ const PerfilMissionario: React.FC = () => {
                           setCivilData({ ...civilData, pais: v });
                         }}
                         disabled={!canEdit}
-                        placeholder="Ex: Brasil"
+                        placeholder={t('profile.civil.country_placeholder', 'Ex: Brasil')}
                       />
                       <datalist id="paises">{PAISES_COMMON.map(p => <option key={p} value={p} />)}</datalist>
                     </div>
@@ -2333,7 +2647,7 @@ const PerfilMissionario: React.FC = () => {
                           setCivilData({ ...civilData, diocese: v });
                         }}
                         disabled={!canEdit}
-                        placeholder="Ex: Diocese de São Paulo"
+                        placeholder={t('profile.civil.diocese_placeholder', 'Ex: Diocese de São Paulo')}
                       />
                     </div>
 
@@ -2350,7 +2664,7 @@ const PerfilMissionario: React.FC = () => {
                           setCivilData({ ...civilData, rnm: e.target.value });
                         }}
                         disabled={!canEdit}
-                        placeholder="Ex: 12.345.678-9, V123456-X..."
+                        placeholder={t('profile.civil.rg_placeholder', 'Ex: 12.345.678-9, V123456-X...')}
                       />
                     </div>
 
@@ -2376,7 +2690,7 @@ const PerfilMissionario: React.FC = () => {
                     {/* Título de Eleitor — exatamente 12 dígitos */}
                     <div className="form-group">
                       <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        Título Eleitor <FileText size={14} style={{ opacity: 0.5 }} />
+                        {t('profile.civil.voter_id', 'Título Eleitor')} <FileText size={14} style={{ opacity: 0.5 }} />
                       </label>
                       <input
                         type="text"
@@ -2414,7 +2728,7 @@ const PerfilMissionario: React.FC = () => {
                     {/* Passaporte — alfanumérico, até 9 chars, letras maiúsculas */}
                     <div className="form-group">
                       <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        Passaporte <FileText size={14} style={{ opacity: 0.5 }} />
+                        {t('profile.civil.passport', 'Passaporte')} <FileText size={14} style={{ opacity: 0.5 }} />
                       </label>
                       <input
                         type="text"
@@ -2440,14 +2754,14 @@ const PerfilMissionario: React.FC = () => {
                       </button>
                     )}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div className="pm-grid-2" style={{ gap: '10px' }}>
                     {nacionalidades.map((nac, idx) => (
                       <div key={idx} style={{ display: 'flex', gap: '5px' }}>
                         <input type="text" value={nac} onChange={e => {
                           const nn = [...nacionalidades];
                           nn[idx] = e.target.value;
                           setNacionalidades(nn);
-                        }} placeholder="Nacionalidade..." style={{ flex: 1 }} disabled={!canEdit} />
+                        }} placeholder={t('profile.civil.nationality_placeholder', 'Nacionalidade...')} style={{ flex: 1 }} disabled={!canEdit} />
                         {canEdit && idx > 0 && <button onClick={() => setNacionalidades(nacionalidades.filter((_, i) => i !== idx))} className="btn-action-lite delete"><Trash2 size={16} /></button>}
                       </div>
                     ))}
@@ -2478,7 +2792,7 @@ const PerfilMissionario: React.FC = () => {
                           <label>{t('missionaries.wizard.docs.placeholder')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: RG, Passaporte, CPF..."
+                            placeholder={t('profile.civil.doc_desc_placeholder', 'Ex: RG, Passaporte, CPF...')}
                             value={pendingDocDesc}
                             onChange={e => setPendingDocDesc(e.target.value)}
                           />
@@ -2490,15 +2804,15 @@ const PerfilMissionario: React.FC = () => {
                           disabled={isSaving}
                         >
                           {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                          {isSaving ? 'Enviando...' : t('profile.actions.upload_btn')}
+                          {isSaving ? t('profile.ui.sending', 'Enviando...') : t('profile.actions.upload_btn')}
                         </button>
                       </div>
-                      <p className="doc-upload-hint">PDF, JPG ou PNG · máx. 20MB</p>
+                      <p className="doc-upload-hint">{t('profile.ui.upload_hint', 'PDF, JPG ou PNG · máx. 20MB')}</p>
                     </div>
                   )}
 
                   {documentos.length === 0 ? (
-                    <p className="empty-msg">Nenhum documento anexado.</p>
+                    <p className="empty-msg">{t('profile.ui.no_doc_attached', 'Nenhum documento anexado.')}</p>
                   ) : (
                     <div className="docs-grid">
                       {documentos.map(doc => {
@@ -2515,18 +2829,18 @@ const PerfilMissionario: React.FC = () => {
                               <span className="doc-card-name" title={doc.descricao}>{doc.descricao}</span>
                               <span className="doc-card-meta">
                                 {doc.arquivo_nome && <span className="doc-filename" title={doc.arquivo_nome}>{doc.arquivo_nome}</span>}
-                                <span className="doc-date">· {new Date(doc.data_upload).toLocaleDateString('pt-BR')}</span>
+                                <span className="doc-date">· {new Date(doc.data_upload).toLocaleDateString(getDateLocale())}</span>
                               </span>
                             </div>
                             <div className="doc-card-actions">
-                              <a href={getFileUrl(doc.url) || '#'} target="_blank" rel="noreferrer" className="doc-btn view" title="Visualizar">
+                              <a href={getFileUrl(doc.url) || '#'} target="_blank" rel="noreferrer" className="doc-btn view" title={t('profile.ui.view', 'Visualizar')}>
                                 <Eye size={15} />
                               </a>
-                              <a href={getFileUrl(doc.url) || '#'} download={doc.arquivo_nome} className="doc-btn download" title="Download">
+                              <a href={getFileUrl(doc.url) || '#'} download={doc.arquivo_nome} className="doc-btn download" title={t('profile.ui.download', 'Download')}>
                                 <Download size={15} />
                               </a>
                               {canEdit && (
-                                <button className="doc-btn delete" onClick={() => removeDocument(doc.id)} title="Excluir">
+                                <button className="doc-btn delete" onClick={() => removeDocument(doc.id)} title={t('common.delete', 'Excluir')}>
                                   <Trash2 size={15} />
                                 </button>
                               )}
@@ -2545,24 +2859,56 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-contatos">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><MapPin size={16} /> 2. Contatos</h3>
+                    <h3 className="section-title"><MapPin size={16} /> {t('profile.tabs.contact', '2. Contatos')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('2. Contatos', 'print-contatos')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.contact', '2. Contatos'), 'print-contatos')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
                       {canEdit && contatos.length < 3 && (
                         <button className="btn-action-lite-text" onClick={() => setContatos([...contatos, { parentesco: '', nome: '', endereco: '', telefone: '', email: '' }])}>
-                          <Plus size={16} /> <span>Adicionar Contato</span>
+                          <Plus size={16} /> <span>{t('profile.contacts.add_btn', 'Adicionar Contato')}</span>
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="contatos-list" style={{ marginTop: '20px' }}>
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.address.main_address', 'Endereço Principal')}</h4>
+                  <div className="form-grid-3 religious-grid-2">
+                    <div className="form-group">
+                      <label>{t('missionaries.wizard.address.cep')} {cepLoading && <Loader2 size={12} className="animate-spin" style={{ marginLeft: 4 }} />}</label>
+                      <input type="text" value={enderecoData.cep || ''} onChange={e => handleCepChange(e.target.value)} placeholder="00000-000" disabled={!canEdit} />
+                    </div>
+                    <div className="form-group">
+                      <label>{t('missionaries.wizard.address.neighborhood')}</label>
+                      <input type="text" value={enderecoData.bairro || ''} onChange={e => setEnderecoData({ ...enderecoData, bairro: e.target.value })} placeholder={t('missionaries.wizard.address.neighborhood_placeholder', 'Bairro...')} disabled={!canEdit} />
+                    </div>
+                    <div className="form-group full">
+                      <label>{t('missionaries.wizard.address.street')}</label>
+                      <input type="text" value={enderecoData.logradouro || ''} onChange={e => setEnderecoData({ ...enderecoData, logradouro: e.target.value })} placeholder={t('missionaries.wizard.address.street_placeholder', 'Rua, Av., número...')} disabled={!canEdit} />
+                    </div>
+                    <div className="form-group">
+                      <label>{t('missionaries.wizard.address.complement')}</label>
+                      <input type="text" value={enderecoData.complemento || ''} onChange={e => setEnderecoData({ ...enderecoData, complemento: e.target.value })} placeholder={t('missionaries.wizard.address.complement_placeholder', 'Apto, Bloco...')} disabled={!canEdit} />
+                    </div>
+                    <div className="form-group">
+                      <label>{t('missionaries.wizard.address.city_state')}</label>
+                      <input type="text" value={enderecoData.cidade_estado || ''} onChange={e => setEnderecoData({ ...enderecoData, cidade_estado: e.target.value })} placeholder={t('missionaries.wizard.address.city_state_placeholder', 'Cidade - UF')} disabled={!canEdit} />
+                    </div>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.address.missionary_contacts', 'Contatos do Missionário')}</h4>
+                  <div className="form-grid-3">
+                    <div className="form-group"><label>{t('missionaries.wizard.address.cellphone')}</label><input type="text" value={enderecoData.celular_whatsapp || ''} onChange={e => setEnderecoData({ ...enderecoData, celular_whatsapp: e.target.value })} placeholder="(00) 90000-0000" disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('missionaries.wizard.address.phone')}</label><input type="text" value={enderecoData.telefone_fixo || ''} onChange={e => setEnderecoData({ ...enderecoData, telefone_fixo: e.target.value })} placeholder="(00) 0000-0000" disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('missionaries.wizard.address.personal_email')}</label><input type="email" value={enderecoData.email_pessoal || ''} onChange={e => setEnderecoData({ ...enderecoData, email_pessoal: e.target.value })} placeholder={t('missionaries.wizard.address.personal_email_placeholder', 'email@pessoal.com')} disabled={!canEdit} /></div>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.contacts.family_title', 'Contatos de Familiares / Parentes')}</h4>
+                  <div className="contatos-list" style={{ marginTop: '12px' }}>
                     {contatos.length === 0 && (
-                      <p style={{ opacity: 0.6, textAlign: 'center', padding: '20px' }}>Nenhum contato cadastrado. Adicione até 3 contatos.</p>
+                      <p style={{ opacity: 0.6, textAlign: 'center', padding: '20px' }}>{t('profile.contacts.empty', 'Nenhum contato cadastrado. Adicione até 3 contatos.')}</p>
                     )}
                     {contatos.map((contato, idx) => (
                       <div key={idx} className="contato-item-premium" style={{
@@ -2582,7 +2928,7 @@ const PerfilMissionario: React.FC = () => {
                         </div>
                         <div className="form-grid-3">
                           <div className="form-group">
-                            <label>Parentesco</label>
+                            <label>{t('profile.labels.relationship', 'Parentesco')}</label>
                             <select
                               value={['Pai', 'Mãe', 'Irmão(a)'].includes(contato.parentesco) || contato.parentesco === '' ? contato.parentesco : 'Outros'}
                               onChange={e => {
@@ -2600,17 +2946,17 @@ const PerfilMissionario: React.FC = () => {
                                 background: 'white'
                               }}
                             >
-                              <option value="">Selecione...</option>
-                              <option value="Pai">Pai</option>
-                              <option value="Mãe">Mãe</option>
-                              <option value="Irmão(a)">Irmão(a)</option>
-                              <option value="Outros">Outros</option>
+                              <option value="">{t('profile.ui.select', 'Selecione...')}</option>
+                              <option value="Pai">{t('profile.contacts.rel_father', 'Pai')}</option>
+                              <option value="Mãe">{t('profile.contacts.rel_mother', 'Mãe')}</option>
+                              <option value="Irmão(a)">{t('profile.contacts.rel_sibling', 'Irmão(a)')}</option>
+                              <option value="Outros">{t('profile.contacts.rel_others', 'Outros')}</option>
                             </select>
 
                             {(!['Pai', 'Mãe', 'Irmão(a)'].includes(contato.parentesco) && contato.parentesco !== '') || contato.parentesco === 'Outros' ? (
                               <input
                                 type="text"
-                                placeholder="Qual parentesco? (ex: Padrasto)"
+                                placeholder={t('profile.contacts.other_rel_placeholder', 'Qual parentesco? (ex: Padrasto)')}
                                 value={contato.parentesco === 'Outros' ? '' : contato.parentesco}
                                 onChange={e => {
                                   const newC = [...contatos];
@@ -2623,10 +2969,10 @@ const PerfilMissionario: React.FC = () => {
                             ) : null}
                           </div>
                           <div className="form-group">
-                            <label>Nome</label>
+                            <label>{t('profile.labels.name', 'Nome')}</label>
                             <input
                               type="text"
-                              placeholder="Nome..."
+                              placeholder={t('profile.contacts.name_placeholder', 'Nome...')}
                               value={contato.nome}
                               onChange={e => {
                                 const newC = [...contatos];
@@ -2637,7 +2983,7 @@ const PerfilMissionario: React.FC = () => {
                             />
                           </div>
                           <div className="form-group">
-                            <label>Telefone</label>
+                            <label>{t('profile.labels.phone', 'Telefone')}</label>
                             <input
                               type="text"
                               placeholder="(00) 00000-0000"
@@ -2651,10 +2997,10 @@ const PerfilMissionario: React.FC = () => {
                             />
                           </div>
                           <div className="form-group full">
-                            <label>Endereço</label>
+                            <label>{t('profile.labels.address', 'Endereço')}</label>
                             <input
                               type="text"
-                              placeholder="Endereço completo..."
+                              placeholder={t('profile.contacts.address_placeholder', 'Endereço completo...')}
                               value={contato.endereco}
                               onChange={e => {
                                 const newC = [...contatos];
@@ -2665,10 +3011,10 @@ const PerfilMissionario: React.FC = () => {
                             />
                           </div>
                           <div className="form-group">
-                            <label>E-mail</label>
+                            <label>{t('profile.labels.email', 'E-mail')}</label>
                             <input
                               type="email"
-                              placeholder="email@exemplo.com"
+                              placeholder={t('profile.ui.email_placeholder', 'email@exemplo.com')}
                               value={contato.email}
                               onChange={e => {
                                 const newC = [...contatos];
@@ -2687,7 +3033,7 @@ const PerfilMissionario: React.FC = () => {
                     <div className="section-actions" style={{ marginTop: '20px' }}>
                       <button className="btn-save-perfil" onClick={saveEndereco} disabled={isSaving}>
                         {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                        Salvar Contatos
+                        {t('profile.contacts.save_btn', 'Salvar Contatos')}
                       </button>
                     </div>
                   )}
@@ -2700,14 +3046,14 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
-                    <h3 className="section-title" style={{ margin: 0 }}><ShieldCheck size={16} /> Acesso ao Sistema</h3>
+                    <h3 className="section-title" style={{ margin: 0 }}><ShieldCheck size={16} /> {t('profile.access.title', 'Acesso ao Sistema')}</h3>
                     <div style={{ fontSize: '0.85rem', color: '#64748b', background: '#f8fafc', padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <strong>Data de Cadastro:</strong> {missionario.created_at ? new Date(missionario.created_at).toLocaleString('pt-BR') : '—'}
+                      <strong>{t('profile.access.created_at', 'Data de Cadastro')}:</strong> {missionario.created_at ? new Date(missionario.created_at).toLocaleString(getDateLocale()) : '—'}
                     </div>
                   </div>
                   <div className="form-grid-2">
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label>Nome</label>
+                      <label>{t('profile.labels.name', 'Nome')}</label>
                       <input
                         type="text"
                         value={missionario.nome}
@@ -2716,21 +3062,21 @@ const PerfilMissionario: React.FC = () => {
                           setMissionario({ ...missionario, nome: v });
                         }}
                         disabled={!canEdit}
-                        placeholder="Nome completo"
+                        placeholder={t('profile.access.full_name_placeholder', 'Nome completo')}
                       />
                     </div>
                     <div className="form-group">
-                      <label>E-mail de Login</label>
+                      <label>{t('profile.labels.login_email', 'E-mail de Login')}</label>
                       <input
                         type="email"
                         value={missionario.login}
                         onChange={e => setMissionario({ ...missionario, login: e.target.value })}
                         disabled={!canEdit}
-                        placeholder="email@exemplo.com"
+                        placeholder={t('profile.ui.email_placeholder', 'email@exemplo.com')}
                       />
                     </div>
                     <div className="form-group">
-                      <label>Nova Senha (deixe em branco para não alterar)</label>
+                      <label>{t('profile.labels.new_password_hint', 'Nova Senha (deixe em branco para não alterar)')}</label>
                       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -2754,7 +3100,7 @@ const PerfilMissionario: React.FC = () => {
                     <div className="section-actions" style={{ marginTop: '20px' }}>
                       <button className="btn-save-perfil" onClick={saveBasicInfo} disabled={isSaving}>
                         {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        Atualizar Acesso
+                        {t('profile.access.update_btn', 'Atualizar Acesso')}
                       </button>
                     </div>
                   )}
@@ -2764,42 +3110,42 @@ const PerfilMissionario: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
                       <Activity size={18} style={{ color: '#013375' }} />
                       <h4 style={{ margin: 0, fontSize: '1rem', color: '#1e293b', fontWeight: 700 }}>
-                        Histórico de Alterações de Perfil / Cargo
+                        {t('profile.access.history_title', 'Histórico de Alterações de Perfil / Cargo')}
                       </h4>
                     </div>
 
                     {historicoPerfil.length === 0 ? (
                       <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.88rem', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
-                        Nenhuma troca de perfil/cargo registrada até o momento.
+                        {t('profile.access.history_empty', 'Nenhuma troca de perfil/cargo registrada até o momento.')}
                       </div>
                     ) : (
                       <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <table style={{ width: '100%', minWidth: '560px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                           <thead>
                             <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>
-                              <th style={{ padding: '10px 12px' }}>Data / Hora</th>
-                              <th style={{ padding: '10px 12px' }}>Mudança de Perfil</th>
-                              <th style={{ padding: '10px 12px' }}>Alterado Por</th>
-                              <th style={{ padding: '10px 12px' }}>Motivo / Observação</th>
+                              <th style={{ padding: '10px 12px' }}>{t('profile.history.date_time', 'Data / Hora')}</th>
+                              <th style={{ padding: '10px 12px' }}>{t('profile.access.history_change', 'Mudança de Perfil')}</th>
+                              <th style={{ padding: '10px 12px' }}>{t('profile.history.changed_by', 'Alterado Por')}</th>
+                              <th style={{ padding: '10px 12px' }}>{t('profile.history.reason', 'Motivo / Observação')}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {historicoPerfil.map(item => (
                               <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                 <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: '#64748b' }}>
-                                  {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '—'}
+                                  {item.created_at ? new Date(item.created_at).toLocaleString(getDateLocale()) : '—'}
                                 </td>
                                 <td style={{ padding: '10px 12px' }}>
                                   <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontSize: '0.78rem', fontWeight: 600 }}>
-                                    {item.perfil_anterior || '—'}
+                                    {item.perfil_anterior ? t(`roles.${item.perfil_anterior.toLowerCase()}`, item.perfil_anterior) : '—'}
                                   </span>
                                   <span style={{ margin: '0 6px', color: '#94a3b8' }}>➔</span>
                                   <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#e0e7ff', color: '#3730a3', fontSize: '0.78rem', fontWeight: 700 }}>
-                                    {item.perfil_novo}
+                                    {item.perfil_novo ? t(`roles.${item.perfil_novo.toLowerCase()}`, item.perfil_novo) : '—'}
                                   </span>
                                 </td>
                                 <td style={{ padding: '10px 12px', fontWeight: 600, color: '#334155' }}>
-                                  {item.alterado_por_nome || 'Sistema'}
+                                  {item.alterado_por_nome || t('profile.history.system', 'Sistema')}
                                 </td>
                                 <td style={{ padding: '10px 12px', color: '#64748b' }}>
                                   {item.motivo || '—'}
@@ -2822,39 +3168,90 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><BookOpen size={16} /> {t('profile.sections.religious')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('3. Dados Religiosos', 'print-dados-religiosos')}>
-                        <Printer size={15} /> <span>Imprimir</span>
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.religious', '3. Dados Religiosos'), 'print-dados-religiosos')}>
+                        <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                       </button>
                     )}
                   </div>
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.religious.sacraments', 'Sacramentos')}</h4>
                   <div className="form-grid-3">
-                    <div className="form-group"><label>Batismo</label><input type="date" value={religiososData.data_batismo} onChange={e => setReligiososData({ ...religiososData, data_batismo: e.target.value })} disabled={!canEdit} /></div>
-                    <div className="form-group"><label>Crisma</label><input type="date" value={religiososData.data_crisma} onChange={e => setReligiososData({ ...religiososData, data_crisma: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('profile.labels.baptism', 'Batismo')}</label><input type="date" value={religiososData.data_batismo || ''} onChange={e => setReligiososData({ ...religiososData, data_batismo: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('profile.labels.first_communion', 'Primeira Comunhão')}</label><input type="date" value={religiososData.data_primeira_comunhao || ''} onChange={e => setReligiososData({ ...religiososData, data_primeira_comunhao: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('profile.labels.confirmation', 'Crisma')}</label><input type="date" value={religiososData.data_crisma || ''} onChange={e => setReligiososData({ ...religiososData, data_crisma: e.target.value })} disabled={!canEdit} /></div>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.religious.vows_title', 'Consagração e Votos')}</h4>
+                  <div className="form-grid-3 religious-grid-2">
+                    <div className="form-group"><label>{t('missionaries.wizard.religious.first_vows_date', 'Primeiros Votos (Data)')}</label><input type="date" value={religiososData.primeiros_votos_data || ''} onChange={e => setReligiososData({ ...religiososData, primeiros_votos_data: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('missionaries.wizard.religious.perpetual_vows_date', 'Votos Perpétuos (Data)')}</label><input type="date" value={religiososData.votos_perpetuos_data || ''} onChange={e => setReligiososData({ ...religiososData, votos_perpetuos_data: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group full"><label>{t('missionaries.wizard.religious.profession_place', 'Lugar de Profissão')}</label><input type="text" value={religiososData.lugar_profissao || ''} onChange={e => setReligiososData({ ...religiososData, lugar_profissao: e.target.value })} placeholder={t('missionaries.wizard.religious.profession_place_placeholder', 'Lugar de profissão...')} disabled={!canEdit} /></div>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.religious.ordination_title', 'Ordenação')}</h4>
+                  <div className="form-grid-3 religious-grid-2">
+                    <div className="form-group"><label>{t('missionaries.wizard.religious.diaconate_date', 'Diaconato (Data)')}</label><input type="date" value={religiososData.diaconato_data || ''} onChange={e => setReligiososData({ ...religiososData, diaconato_data: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group"><label>{t('missionaries.wizard.religious.presbyterate_date', 'Presbiterato (Data)')}</label><input type="date" value={religiososData.presbiterato_data || ''} onChange={e => setReligiososData({ ...religiososData, presbiterato_data: e.target.value })} disabled={!canEdit} /></div>
+                    <div className="form-group full"><label>{t('missionaries.wizard.religious.ordaining_bishop', 'Bispo Ordenante')}</label><input type="text" value={religiososData.bispo_ordenante || ''} onChange={e => setReligiososData({ ...religiososData, bispo_ordenante: e.target.value })} placeholder={t('missionaries.wizard.religious.bishop_placeholder', 'Nome do Bispo ordenante...')} disabled={!canEdit} /></div>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.religious.admin_functions', 'Funções Administrativas')}</h4>
+                  <div className="religious-checkbox-row">
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={!!missionario.is_oconomo} onChange={e => setMissionario({ ...missionario, is_oconomo: e.target.checked })} disabled={!canEdit} />
+                      <span>{t('profile.oconomo_badge', 'É Ecônomo')}</span>
+                    </label>
+                    <label className="checkbox-label">
+                      <input type="checkbox" checked={!!missionario.is_superior} onChange={e => setMissionario({ ...missionario, is_superior: e.target.checked })} disabled={!canEdit} />
+                      <span>{t('profile.superior_badge', 'É Superior Local')}</span>
+                    </label>
+                  </div>
+
+                  <h4 className="religious-subtitle">{t('missionaries.wizard.religious.attach_certificates', 'Anexar Certidões')}</h4>
+                  <div className="form-grid-3">
+                    {([
+                      ['doc_batismo', t('missionaries.wizard.religious.baptism_certificate', 'Certidão de Batismo')],
+                      ['doc_primeira_comunhao', t('missionaries.wizard.religious.communion_certificate', 'Certidão 1ª Comunhão')],
+                      ['doc_crisma', t('missionaries.wizard.religious.confirmation_certificate', 'Certidão de Crisma')],
+                    ] as const).map(([campo, label]) => (
+                      <div key={campo} className="form-group">
+                        <label>{label}</label>
+                        {religiososData[campo] && (
+                          <a href={getFileUrl(religiososData[campo]) || '#'} target="_blank" rel="noreferrer" className="religious-doc-link">
+                            <FileText size={14} /> {t('profile.ui.view_doc', 'Ver Documento')}
+                          </a>
+                        )}
+                        {canEdit ? (
+                          <FileInputButton accept=".pdf,.jpg,.jpeg,.png" onChange={e => uploadSacramentoDoc(campo, e)} disabled={isSaving} />
+                        ) : !religiososData[campo] && (
+                          <span className="religious-doc-empty">{t('profile.ui.no_doc_attached', 'Nenhum documento anexado.')}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
                   <div className="section-title mt-4">
-                    <h3>Anexar Certidão</h3>
+                    <h3>{t('profile.labels.attach_certificate', 'Anexar Certidão')}</h3>
                   </div>
                   <div className="form-grid-1">
                     <div className="form-group full">
-                      <label>Descrição do documento</label>
+                      <label>{t('profile.labels.doc_desc', 'Descrição do documento')}</label>
                       <input
                         type="text"
-                        placeholder="Ex: Certidão de Batismo"
+                        placeholder={t('profile.religious.doc_desc_placeholder', 'Ex: Certidão de Batismo')}
                         value={pendingReligiousDocDesc}
                         onChange={e => setPendingReligiousDocDesc(e.target.value)}
                         disabled={!canEdit}
                       />
                     </div>
                     <div className="form-group full">
-                      <label>Anexar arquivo</label>
+                      <label>{t('profile.labels.attach_file', 'Anexar arquivo')}</label>
                       <div className="file-input-wrapper" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <input type="file" ref={religiousFileInputRef} onChange={uploadReligiousDocument} style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png" disabled={!canEdit} />
                         <button type="button" className="btn-upload-doc" onClick={() => religiousFileInputRef.current?.click()} disabled={!canEdit || isSaving}>
                           {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                          {isSaving ? 'Enviando...' : 'Selecionar arquivo'}
+                          {isSaving ? t('profile.ui.sending', 'Enviando...') : t('profile.ui.select_file', 'Selecionar arquivo')}
                         </button>
-                        <span style={{ color: '#555', fontSize: '0.95rem' }}>PDF/JPG/PNG</span>
+                        <span style={{ color: '#555', fontSize: '0.95rem' }}>{t('profile.ui.formats_short', 'PDF/JPG/PNG')}</span>
                       </div>
                     </div>
                   </div>
@@ -2878,21 +3275,21 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-41">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><GraduationCap size={16} /> 4.1 Seminário</h3>
+                    <h3 className="section-title"><GraduationCap size={16} /> {t('profile.itinerary.menu_4_1', '4.1 Seminário')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('4.1 Seminário', 'print-itinerario-41')}>
-                        <Printer size={15} /> Imprimir
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.itinerary.menu_4_1', '4.1 Seminário'), 'print-itinerario-41')}>
+                        <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                       </button>
                     )}
                   </div>
                   {renderItinSubItems([
-                    { label: '4.1.1 Seminário Menor', etapaKey: '4.1.1' },
-                    { label: '4.1.2 Propedêutico', etapaKey: '4.1.2' },
-                    { label: '4.1.3 Filosofia', etapaKey: '4.1.3' },
-                    { label: '4.1.4 Postulado', etapaKey: '4.1.4' },
-                    { label: '4.1.5 Noviciado', etapaKey: '4.1.5' },
-                    { label: '4.1.6 Teologia', etapaKey: '4.1.6' },
-                    { label: '4.1.7 Tirocínio', etapaKey: '4.1.7' },
+                    { label: t('profile.itinerary.stages.s4_1_1', '4.1.1 Seminário Menor'), etapaKey: '4.1.1' },
+                    { label: t('profile.itinerary.stages.s4_1_2', '4.1.2 Propedêutico'), etapaKey: '4.1.2' },
+                    { label: t('profile.itinerary.stages.s4_1_3', '4.1.3 Filosofia'), etapaKey: '4.1.3' },
+                    { label: t('profile.itinerary.stages.s4_1_4', '4.1.4 Postulado'), etapaKey: '4.1.4' },
+                    { label: t('profile.itinerary.stages.s4_1_5', '4.1.5 Noviciado'), etapaKey: '4.1.5' },
+                    { label: t('profile.itinerary.stages.s4_1_6', '4.1.6 Teologia'), etapaKey: '4.1.6' },
+                    { label: t('profile.itinerary.stages.s4_1_7', '4.1.7 Tirocínio'), etapaKey: '4.1.7' },
                   ], 'icon-itin-seminario', <GraduationCap size={20} />)}
                 </div>
               </div>
@@ -2903,42 +3300,44 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-42">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Heart size={16} /> 4.2 Vida Religiosa</h3>
+                    <h3 className="section-title"><Heart size={16} /> {t('profile.itinerary.menu_4_2', '4.2 Vida Religiosa')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('4.2 Vida Religiosa', 'print-itinerario-42')}>
-                        <Printer size={15} /> Imprimir
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.itinerary.menu_4_2', '4.2 Vida Religiosa'), 'print-itinerario-42')}>
+                        <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                       </button>
                     )}
                   </div>
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.1 Primeira Profissão</h4>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_2_1', '4.2.1 Primeira Profissão')}</h4>
                   {renderItinSubItems([
-                    { label: '4.2.1.1 Relatório do Mestre', etapaKey: '4.2.1.1' },
-                    { label: '4.2.1.2 Pedido do noviço', etapaKey: '4.2.1.2' },
-                    { label: '4.2.1.3 Declaração de cessão da administração de bens', etapaKey: '4.2.1.3' },
-                    { label: '4.2.1.4 Admissão', etapaKey: '4.2.1.4' },
-                    { label: '4.2.1.5 Fórmula manuscrita', etapaKey: '4.2.1.5' },
-                    { label: '4.2.1.6 Delegação para receber os votos', etapaKey: '4.2.1.6' },
+                    { label: t('profile.itinerary.stages.s4_2_1_1', '4.2.1.1 Relatório do Mestre'), etapaKey: '4.2.1.1' },
+                    { label: t('profile.itinerary.stages.s4_2_1_2', '4.2.1.2 Pedido do noviço'), etapaKey: '4.2.1.2' },
+                    { label: t('profile.itinerary.stages.s4_2_1_3', '4.2.1.3 Declaração de cessão da administração de bens'), etapaKey: '4.2.1.3' },
+                    { label: t('profile.itinerary.stages.s4_2_1_4', '4.2.1.4 Admissão'), etapaKey: '4.2.1.4' },
+                    { label: t('profile.itinerary.stages.s4_2_1_5', '4.2.1.5 Fórmula manuscrita'), etapaKey: '4.2.1.5' },
+                    { label: t('profile.itinerary.stages.s4_2_1_6', '4.2.1.6 Delegação para receber os votos'), etapaKey: '4.2.1.6' },
+                    { label: t('profile.itinerary.stages.s4_2_1_7', '4.2.1.7 Lugar (Primeira Profissão)'), etapaKey: '4.2.1.7' },
                   ], 'icon-itin-religiosa', <Heart size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.2 Renovação dos Votos</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_2_2', '4.2.2 Renovação dos Votos')}</h4>
                   {renderItinSubItems([
-                    { label: '4.2.2.1 Relatório do Formador', etapaKey: '4.2.2.1' },
-                    { label: '4.2.2.2 Pedido do religioso', etapaKey: '4.2.2.2' },
-                    { label: '4.2.2.3 Admissão Fórmula manuscrita', etapaKey: '4.2.2.3' },
-                    { label: '4.2.2.4 Delegação para receber os votos', etapaKey: '4.2.2.4' },
+                    { label: t('profile.itinerary.stages.s4_2_2_1', '4.2.2.1 Relatório do Formador'), etapaKey: '4.2.2.1' },
+                    { label: t('profile.itinerary.stages.s4_2_2_2', '4.2.2.2 Pedido do religioso'), etapaKey: '4.2.2.2' },
+                    { label: t('profile.itinerary.stages.s4_2_2_3', '4.2.2.3 Admissão Fórmula manuscrita'), etapaKey: '4.2.2.3' },
+                    { label: t('profile.itinerary.stages.s4_2_2_4', '4.2.2.4 Delegação para receber os votos'), etapaKey: '4.2.2.4' },
                   ], 'icon-itin-religiosa', <Heart size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.2.3 Profissão Perpétua</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_2_3', '4.2.3 Profissão Perpétua')}</h4>
                   {renderItinSubItems([
-                    { label: '4.2.3.1 Relatório do Formador', etapaKey: '4.2.3.1' },
-                    { label: '4.2.3.2 Pedido do religioso', etapaKey: '4.2.3.2' },
-                    { label: '4.2.3.3 Declaração de nada exigir', etapaKey: '4.2.3.3' },
-                    { label: '4.2.3.4 Testamento particular', etapaKey: '4.2.3.4' },
-                    { label: '4.2.3.5 Declaração Nada Obsta', etapaKey: '4.2.3.5' },
-                    { label: '4.2.3.6 Admissão', etapaKey: '4.2.3.6' },
-                    { label: '4.2.3.7 Fórmula manuscrita', etapaKey: '4.2.3.7' },
-                    { label: '4.2.3.8 Delegação para receber os votos', etapaKey: '4.2.3.8' },
-                    { label: '4.2.3.9 Notificação à paróquia de batismo', etapaKey: '4.2.3.9' },
+                    { label: t('profile.itinerary.stages.s4_2_3_1', '4.2.3.1 Relatório do Formador'), etapaKey: '4.2.3.1' },
+                    { label: t('profile.itinerary.stages.s4_2_3_2', '4.2.3.2 Pedido do religioso'), etapaKey: '4.2.3.2' },
+                    { label: t('profile.itinerary.stages.s4_2_3_3', '4.2.3.3 Declaração de nada exigir'), etapaKey: '4.2.3.3' },
+                    { label: t('profile.itinerary.stages.s4_2_3_4', '4.2.3.4 Testamento particular'), etapaKey: '4.2.3.4' },
+                    { label: t('profile.itinerary.stages.s4_2_3_5', '4.2.3.5 Declaração Nada Obsta'), etapaKey: '4.2.3.5' },
+                    { label: t('profile.itinerary.stages.s4_2_3_6', '4.2.3.6 Admissão'), etapaKey: '4.2.3.6' },
+                    { label: t('profile.itinerary.stages.s4_2_3_7', '4.2.3.7 Fórmula manuscrita'), etapaKey: '4.2.3.7' },
+                    { label: t('profile.itinerary.stages.s4_2_3_8', '4.2.3.8 Delegação para receber os votos'), etapaKey: '4.2.3.8' },
+                    { label: t('profile.itinerary.stages.s4_2_3_9', '4.2.3.9 Notificação à paróquia de batismo'), etapaKey: '4.2.3.9' },
+                    { label: t('profile.itinerary.stages.s4_2_3_10', '4.2.3.10 Lugar (Profissão Perpétua)'), etapaKey: '4.2.3.10' },
                   ], 'icon-itin-religiosa', <Heart size={20} />)}
                 </div>
               </div>
@@ -2949,58 +3348,58 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-43">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Church size={16} /> 4.3 Ministérios</h3>
+                    <h3 className="section-title"><Church size={16} /> {t('profile.itinerary.menu_4_3', '4.3 Ministérios')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('4.3 Ministérios', 'print-itinerario-43')}>
-                        <Printer size={15} /> Imprimir
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.itinerary.menu_4_3', '4.3 Ministérios'), 'print-itinerario-43')}>
+                        <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                       </button>
                     )}
                   </div>
-                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.1 Leitorado</h4>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_3_1', '4.3.1 Leitorado')}</h4>
                   {renderItinSubItems([
-                    { label: '4.3.1.1 Apresentação', etapaKey: '4.3.1.1' },
-                    { label: '4.3.1.2 Pedido', etapaKey: '4.3.1.2' },
-                    { label: '4.3.1.3 Admissão', etapaKey: '4.3.1.3' },
-                    { label: '4.3.1.4 Certificado', etapaKey: '4.3.1.4' },
+                    { label: t('profile.itinerary.stages.s4_3_1_1', '4.3.1.1 Apresentação'), etapaKey: '4.3.1.1' },
+                    { label: t('profile.itinerary.stages.s4_3_1_2', '4.3.1.2 Pedido'), etapaKey: '4.3.1.2' },
+                    { label: t('profile.itinerary.stages.s4_3_1_3', '4.3.1.3 Admissão'), etapaKey: '4.3.1.3' },
+                    { label: t('profile.itinerary.stages.s4_3_1_4', '4.3.1.4 Certificado'), etapaKey: '4.3.1.4' },
                   ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.2 Acolitado</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_3_2', '4.3.2 Acolitado')}</h4>
                   {renderItinSubItems([
-                    { label: '4.3.2.1 Apresentação', etapaKey: '4.3.2.1' },
-                    { label: '4.3.2.2 Pedido', etapaKey: '4.3.2.2' },
-                    { label: '4.3.2.3 Admissão', etapaKey: '4.3.2.3' },
-                    { label: '4.3.2.4 Certificado', etapaKey: '4.3.2.4' },
+                    { label: t('profile.itinerary.stages.s4_3_2_1', '4.3.2.1 Apresentação'), etapaKey: '4.3.2.1' },
+                    { label: t('profile.itinerary.stages.s4_3_2_2', '4.3.2.2 Pedido'), etapaKey: '4.3.2.2' },
+                    { label: t('profile.itinerary.stages.s4_3_2_3', '4.3.2.3 Admissão'), etapaKey: '4.3.2.3' },
+                    { label: t('profile.itinerary.stages.s4_3_2_4', '4.3.2.4 Certificado'), etapaKey: '4.3.2.4' },
                   ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.3 Diaconato</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_3_3', '4.3.3 Diaconato')}</h4>
                   {renderItinSubItems([
-                    { label: '4.3.3.1 Relatório do Formador', etapaKey: '4.3.3.1' },
-                    { label: '4.3.3.2 Pedido do religioso', etapaKey: '4.3.3.2' },
-                    { label: '4.3.3.3 Declaração dos estudos teológicos', etapaKey: '4.3.3.3' },
-                    { label: '4.3.3.4 Declaração Nada Obsta', etapaKey: '4.3.3.4' },
-                    { label: '4.3.3.5 Admissão', etapaKey: '4.3.3.5' },
-                    { label: '4.3.3.6 Cartas dimissórias', etapaKey: '4.3.3.6' },
-                    { label: '4.3.3.7 Ata de ordenação', etapaKey: '4.3.3.7' },
-                    { label: '4.3.3.8 Notificação à paróquia de batismo', etapaKey: '4.3.3.8' },
+                    { label: t('profile.itinerary.stages.s4_3_3_1', '4.3.3.1 Relatório do Formador'), etapaKey: '4.3.3.1' },
+                    { label: t('profile.itinerary.stages.s4_3_3_2', '4.3.3.2 Pedido do religioso'), etapaKey: '4.3.3.2' },
+                    { label: t('profile.itinerary.stages.s4_3_3_3', '4.3.3.3 Declaração dos estudos teológicos'), etapaKey: '4.3.3.3' },
+                    { label: t('profile.itinerary.stages.s4_3_3_4', '4.3.3.4 Declaração Nada Obsta'), etapaKey: '4.3.3.4' },
+                    { label: t('profile.itinerary.stages.s4_3_3_5', '4.3.3.5 Admissão'), etapaKey: '4.3.3.5' },
+                    { label: t('profile.itinerary.stages.s4_3_3_6', '4.3.3.6 Cartas dimissórias'), etapaKey: '4.3.3.6' },
+                    { label: t('profile.itinerary.stages.s4_3_3_7', '4.3.3.7 Ata de ordenação'), etapaKey: '4.3.3.7' },
+                    { label: t('profile.itinerary.stages.s4_3_3_8', '4.3.3.8 Notificação à paróquia de batismo'), etapaKey: '4.3.3.8' },
                   ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.4 Presbiterado</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_3_4', '4.3.4 Presbiterado')}</h4>
                   {renderItinSubItems([
-                    { label: '4.3.4.1 Relatório do Formador', etapaKey: '4.3.4.1' },
-                    { label: '4.3.4.2 Pedido do diácono', etapaKey: '4.3.4.2' },
-                    { label: '4.3.4.3 Declaração dos estudos teológicos', etapaKey: '4.3.4.3' },
-                    { label: '4.3.4.4 Declaração Nada Obsta', etapaKey: '4.3.4.4' },
-                    { label: '4.3.4.5 Admissão', etapaKey: '4.3.4.5' },
-                    { label: '4.3.4.6 Cartas dimissórias', etapaKey: '4.3.4.6' },
-                    { label: '4.3.4.7 Ata de ordenação', etapaKey: '4.3.4.7' },
-                    { label: '4.3.4.8 Notificação à paróquia de batismo', etapaKey: '4.3.4.8' },
+                    { label: t('profile.itinerary.stages.s4_3_4_1', '4.3.4.1 Relatório do Formador'), etapaKey: '4.3.4.1' },
+                    { label: t('profile.itinerary.stages.s4_3_4_2', '4.3.4.2 Pedido do diácono'), etapaKey: '4.3.4.2' },
+                    { label: t('profile.itinerary.stages.s4_3_4_3', '4.3.4.3 Declaração dos estudos teológicos'), etapaKey: '4.3.4.3' },
+                    { label: t('profile.itinerary.stages.s4_3_4_4', '4.3.4.4 Declaração Nada Obsta'), etapaKey: '4.3.4.4' },
+                    { label: t('profile.itinerary.stages.s4_3_4_5', '4.3.4.5 Admissão'), etapaKey: '4.3.4.5' },
+                    { label: t('profile.itinerary.stages.s4_3_4_6', '4.3.4.6 Cartas dimissórias'), etapaKey: '4.3.4.6' },
+                    { label: t('profile.itinerary.stages.s4_3_4_7', '4.3.4.7 Ata de ordenação'), etapaKey: '4.3.4.7' },
+                    { label: t('profile.itinerary.stages.s4_3_4_8', '4.3.4.8 Notificação à paróquia de batismo'), etapaKey: '4.3.4.8' },
                   ], 'icon-itin-ministerios', <Church size={20} />)}
 
-                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>4.3.5 Primeira destinação missionária</h4>
+                  <h4 style={{ marginTop: '25px', marginBottom: '10px', color: '#013375', fontSize: '1rem', fontWeight: 700 }}>{t('profile.itinerary.h_4_3_5', '4.3.5 Primeira destinação missionária')}</h4>
                   {renderItinSubItems([
-                    { label: '4.3.5.1 Carta do religioso', etapaKey: '4.3.5.1' },
-                    { label: '4.3.5.2 Relatório', etapaKey: '4.3.5.2' },
-                    { label: '4.3.5.3 Parecer do Superior Regional', etapaKey: '4.3.5.3' },
+                    { label: t('profile.itinerary.stages.s4_3_5_1', '4.3.5.1 Carta do religioso'), etapaKey: '4.3.5.1' },
+                    { label: t('profile.itinerary.stages.s4_3_5_2', '4.3.5.2 Relatório'), etapaKey: '4.3.5.2' },
+                    { label: t('profile.itinerary.stages.s4_3_5_3', '4.3.5.3 Parecer do Superior Regional'), etapaKey: '4.3.5.3' },
                   ], 'icon-itin-ministerios', <Church size={20} />)}
                 </div>
               </div>
@@ -3011,25 +3410,25 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-44">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><MapPin size={16} /> 4.4 Destinação dada pela Direção</h3>
+                    <h3 className="section-title"><MapPin size={16} /> {t('profile.itinerary.menu_4_4', '4.4 Destinação dada pela Direção')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação dada pela Direção', 'print-itinerario-44')}>
-                          <Printer size={15} /> Imprimir
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.itinerary.menu_4_4', '4.4 Destinação dada pela Direção'), 'print-itinerario-44')}>
+                          <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                         </button>
                       )}
                       {canEdit && (
                         <button
                           className="btn-action-lite-text"
-                          onClick={() => openItinEditModal('4.4 Destinação dada pela Direção', `4.4-${Date.now()}`, { etapa: `4.4-${Date.now()}`, is_sub_etapa: true })}
+                          onClick={() => openItinEditModal(t('profile.itinerary.menu_4_4', '4.4 Destinação dada pela Direção'), `4.4-${Date.now()}`, { etapa: `4.4-${Date.now()}`, is_sub_etapa: true })}
                         >
-                          <Plus size={14} /> <span>Adicionar</span>
+                          <Plus size={14} /> <span>{t('profile.labels.add_item', 'Adicionar')}</span>
                         </button>
                       )}
                     </div>
                   </div>
                   {renderItinSubItems([
-                    { label: '4.4 Destinação dada pela Direção', etapaKey: '4.4' },
+                    { label: t('profile.itinerary.menu_4_4', '4.4 Destinação dada pela Direção'), etapaKey: '4.4' },
                   ], 'icon-itin-destinacao', <MapPin size={20} />)}
                 </div>
               </div>
@@ -3042,16 +3441,16 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-formacao">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><GraduationCap size={16} /> 5. Formação Acadêmica</h3>
+                    <h3 className="section-title"><GraduationCap size={16} /> {t('profile.tabs.formacao_academica', '5. Formação Acadêmica')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('5. Formação Acadêmica', 'print-formacao')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.formacao_academica', '5. Formação Acadêmica'), 'print-formacao')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingFormacao(null); setTempForm({}); setShowAddForm('formacao'); }}>
-                          <Plus size={14} /> <span>Adicionar</span>
+                          <Plus size={14} /> <span>{t('profile.labels.add_item', 'Adicionar')}</span>
                         </button>
                       )}
                     </div>
@@ -3078,7 +3477,7 @@ const PerfilMissionario: React.FC = () => {
                             <div className="item-subtitle">{f.faculdade} • {f.periodo}</div>
                             {f.observacoes && (
                               <div className="item-description" style={{ marginTop: '6px', fontSize: '0.85rem', color: '#475569' }}>
-                                <strong>Obs:</strong> {f.observacoes}
+                                <strong>{t('profile.ui.obs_short', 'Obs')}:</strong> {f.observacoes}
                               </div>
                             )}
                             {f.doc_path && (
@@ -3090,14 +3489,14 @@ const PerfilMissionario: React.FC = () => {
                                   className="btn-itin-doc success"
                                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 600 }}
                                 >
-                                  <FileText size={14} /> Visualizar Comprovante / Anexo
+                                  <FileText size={14} /> {t('profile.ui.view_proof_attachment', 'Visualizar Comprovante / Anexo')}
                                 </a>
                               </div>
                             )}
                           </div>
                           <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
                             {f.doc_path && (
-                              <a href={getFileUrl(f.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Visualizar Documento">
+                              <a href={getFileUrl(f.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title={t('profile.ui.view_doc', 'Visualizar Documento')}>
                                 <Eye size={14} />
                               </a>
                             )}
@@ -3110,11 +3509,11 @@ const PerfilMissionario: React.FC = () => {
                                     setTempForm({ ...f });
                                     setShowAddForm('formacao');
                                   }}
-                                  title="Editar"
+                                  title={t('common.edit', 'Editar')}
                                 >
                                   <Edit size={14} />
                                 </button>
-                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('formacao-academica', f.id)} title="Excluir">
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('formacao-academica', f.id)} title={t('common.delete', 'Excluir')}>
                                   <Trash2 size={14} />
                                 </button>
                               </>
@@ -3122,7 +3521,7 @@ const PerfilMissionario: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                    {formacaoAcademica.length === 0 && <p className="empty-msg">Nenhuma formação acadêmica registrada.</p>}
+                    {formacaoAcademica.length === 0 && <p className="empty-msg">{t('profile.academic.empty', 'Nenhuma formação acadêmica registrada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3133,16 +3532,16 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-atividade">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><MapPin size={16} /> 6. Atividade Missionária</h3>
+                    <h3 className="section-title"><MapPin size={16} /> {t('profile.tabs.atividade_missionaria', '6. Atividade Missionária')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('6. Atividade Missionária', 'print-atividade')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.atividade_missionaria', '6. Atividade Missionária'), 'print-atividade')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingAtividade(null); setTempForm({}); setShowAddForm('atividade'); }}>
-                          <Plus size={14} /> <span>Adicionar</span>
+                          <Plus size={14} /> <span>{t('profile.labels.add_item', 'Adicionar')}</span>
                         </button>
                       )}
                     </div>
@@ -3167,7 +3566,7 @@ const PerfilMissionario: React.FC = () => {
                               <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {parseFuncoesAtividade(a.funcao_atividade).map((fun: string, fIdx: number) => (
                                   <span key={fIdx} style={{ background: '#eef2ff', color: '#1e3a8a', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                                    {fun.trim()}
+                                    {funcaoLabel(fun.trim())}
                                   </span>
                                 ))}
                               </div>
@@ -3199,11 +3598,11 @@ const PerfilMissionario: React.FC = () => {
                                     });
                                     setShowAddForm('atividade');
                                   }}
-                                  title="Editar"
+                                  title={t('common.edit', 'Editar')}
                                 >
                                   <Edit size={14} />
                                 </button>
-                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('atividade-missionaria', a.id)} title="Excluir">
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('atividade-missionaria', a.id)} title={t('common.delete', 'Excluir')}>
                                   <Trash2 size={14} />
                                 </button>
                               </>
@@ -3211,7 +3610,7 @@ const PerfilMissionario: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                    {atividadesMissionarias.length === 0 && <p className="empty-msg">Nenhuma atividade missionária registrada.</p>}
+                    {atividadesMissionarias.length === 0 && <p className="empty-msg">{t('profile.activity.empty', 'Nenhuma atividade missionária registrada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3222,16 +3621,16 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-saude">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 7. Saúde</h3>
+                    <h3 className="section-title"><Activity size={16} /> {t('profile.tabs.saude_individual', '7. Saúde')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('7. Saúde', 'print-saude')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.saude_individual', '7. Saúde'), 'print-saude')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => setShowAddForm('saude')}>
-                          <Plus size={14} /> <span>Adicionar Registro</span>
+                          <Plus size={14} /> <span>{t('profile.ui.add_record', 'Adicionar Registro')}</span>
                         </button>
                       )}
                     </div>
@@ -3243,8 +3642,23 @@ const PerfilMissionario: React.FC = () => {
                           <Activity size={20} />
                         </div>
                         <div className="item-main-content">
-                          <strong>{s.seguradora || 'Seguradora não informada'}</strong>
-                          <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • Carteira: {s.numero_carteira || 'N/A'}</div>
+                          <strong>{s.seguradora || t('profile.health.insurer_not_informed', 'Seguradora não informada')}</strong>
+                          <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • {t('profile.health.card', 'Carteira')}: {s.numero_carteira || 'N/A'}</div>
+                          {s.doc_path && (
+                            <a
+                              href={getFileUrl(s.doc_path) || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '0.8rem', fontWeight: 600, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '4px 10px', textDecoration: 'none' }}
+                            >
+                              {/\.(jpe?g|png|webp)$/i.test(s.doc_path) ? (
+                                <img src={getFileUrl(s.doc_path) || ''} alt="" style={{ height: '28px', width: 'auto', borderRadius: '4px', objectFit: 'cover' }} />
+                              ) : (
+                                <FileText size={14} />
+                              )}
+                              {t('profile.health.view_card_attachment', 'Ver cartão do SUS / convênio')}
+                            </a>
+                          )}
                         </div>
                         <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
                           {s.doc_path && (
@@ -3253,7 +3667,7 @@ const PerfilMissionario: React.FC = () => {
                               target="_blank"
                               rel="noreferrer"
                               className="btn-action-lite"
-                              title="Visualizar Carteirinha / Documento"
+                              title={t('profile.health.view_card', 'Visualizar Carteirinha / Documento')}
                               style={{ color: '#013375', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               <FileText size={14} />
@@ -3268,11 +3682,11 @@ const PerfilMissionario: React.FC = () => {
                                   setTempForm(s);
                                   setShowAddForm('saude');
                                 }}
-                                title="Editar"
+                                title={t('common.edit', 'Editar')}
                               >
                                 <Edit size={14} />
                               </button>
-                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title="Excluir">
+                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title={t('common.delete', 'Excluir')}>
                                 <Trash2 size={14} />
                               </button>
                             </>
@@ -3280,7 +3694,7 @@ const PerfilMissionario: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    {saudeRecords.length === 0 && <p className="empty-msg">Nenhum registro de saúde cadastrado.</p>}
+                    {saudeRecords.length === 0 && <p className="empty-msg">{t('profile.health.empty', 'Nenhum registro de saúde cadastrado.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3291,18 +3705,18 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-previdenciario">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><ShieldCheck size={16} /> 8. Previdenciário / IR</h3>
+                    <h3 className="section-title"><ShieldCheck size={16} /> {t('profile.tabs.previdenciario', '8. Previdenciário / IR')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('8. Previdenciário / IR', 'print-previdenciario')}>
-                        <Printer size={15} /> Imprimir
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.previdenciario', '8. Previdenciário / IR'), 'print-previdenciario')}>
+                        <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                       </button>
                     )}
                   </div>
                   <div className="form-group" style={{ maxWidth: '400px', marginTop: '15px' }}>
-                    <label>NIT (Número de Identificação do Trabalhador)</label>
+                    <label>{t('profile.labels.nit', 'NIT (Número de Identificação do Trabalhador)')}</label>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="text" value={nit} onChange={e => setNit(e.target.value)} disabled={!canEdit} placeholder="Digite o NIT..." />
-                      {canEdit && <button className="btn-save-perfil" onClick={saveCivil} style={{ padding: '0 15px' }} title="Salvar NIT"><Save size={16} /></button>}
+                      <input type="text" value={nit} onChange={e => setNit(e.target.value)} disabled={!canEdit} placeholder={t('profile.social.nit_placeholder', 'Digite o NIT...')} />
+                      {canEdit && <button className="btn-save-perfil" onClick={saveCivil} style={{ padding: '0 15px' }} title={t('profile.social.save_nit', 'Salvar NIT')}><Save size={16} /></button>}
                     </div>
                   </div>
                 </div>
@@ -3314,14 +3728,14 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-banco">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><DollarSign size={16} /> 9. Contas Bancárias</h3>
+                    <h3 className="section-title"><DollarSign size={16} /> {t('profile.tabs.contas_bancarias', '9. Contas Bancárias')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('9. Contas Bancárias', 'print-banco')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.contas_bancarias', '9. Contas Bancárias'), 'print-banco')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
-                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> <span>Adicionar</span></button>}
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> <span>{t('profile.labels.add_item', 'Adicionar')}</span></button>}
                     </div>
                   </div>
                   <div className="generic-list">
@@ -3334,12 +3748,12 @@ const PerfilMissionario: React.FC = () => {
                             </div>
                             <div className="item-main-content">
                               <strong style={{ fontSize: '1rem', color: '#0f172a' }}>
-                                {b.banco ? b.banco : (b.tipo_conta || 'Conta Bancária')}
+                                {b.banco ? b.banco : (b.tipo_conta || t('profile.bank.account_fallback', 'Conta Bancária'))}
                               </strong>
                               <div className="item-subtitle" style={{ marginTop: '2px', color: '#475569' }}>
                                 {b.banco && <span style={{ fontWeight: 600, marginRight: '6px' }}>{b.tipo_conta} •</span>}
-                                <span>Titular: <strong>{b.titularidade || 'Não informada'}</strong></span>
-                                <span style={{ marginLeft: '10px' }}>Ag: <strong>{b.agencia || '---'}</strong> • Conta: <strong>{b.numero || '---'}</strong></span>
+                                <span>{t('profile.bank.holder', 'Titular')}: <strong>{b.titularidade || t('profile.bank.not_informed_f', 'Não informada')}</strong></span>
+                                <span style={{ marginLeft: '10px' }}>{t('profile.bank.agency_short', 'Ag')}: <strong>{b.agencia || '---'}</strong> • {t('profile.bank.account_short', 'Conta')}: <strong>{b.numero || '---'}</strong></span>
                               </div>
                             </div>
                           </div>
@@ -3353,11 +3767,11 @@ const PerfilMissionario: React.FC = () => {
                                     setTempForm(b);
                                     setShowAddForm('banco');
                                   }}
-                                  title="Editar"
+                                  title={t('common.edit', 'Editar')}
                                 >
                                   <Edit size={14} />
                                 </button>
-                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir">
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title={t('common.delete', 'Excluir')}>
                                   <Trash2 size={14} />
                                 </button>
                               </>
@@ -3376,13 +3790,13 @@ const PerfilMissionario: React.FC = () => {
                             marginTop: '2px',
                             marginLeft: '44px'
                           }}>
-                            <span style={{ fontWeight: 600, color: '#64748b', marginRight: '6px' }}>Observações:</span>
+                            <span style={{ fontWeight: 600, color: '#64748b', marginRight: '6px' }}>{t('profile.ui.observations', 'Observações')}:</span>
                             {b.observacoes}
                           </div>
                         )}
                       </div>
                     ))}
-                    {contasBancarias.length === 0 && <p className="empty-msg">Nenhuma conta bancária registrada.</p>}
+                    {contasBancarias.length === 0 && <p className="empty-msg">{t('profile.bank.empty', 'Nenhuma conta bancária registrada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3393,14 +3807,14 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-obras">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Star size={16} /> 10. Obras Realizadas</h3>
+                    <h3 className="section-title"><Star size={16} /> {t('profile.tabs.formacao_missao', '10. Obras Realizadas')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('10. Obras Realizadas', 'print-obras')}>
-                          <Printer size={15} /> <span>Imprimir</span>
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.formacao_missao', '10. Obras Realizadas'), 'print-obras')}>
+                          <Printer size={15} /> <span>{t('profile.ui.print', 'Imprimir')}</span>
                         </button>
                       )}
-                      {canEdit && <button className="btn-action-lite-text" onClick={() => { setEditingObra(null); setTempForm({}); setShowAddForm('obras'); }}><Plus size={14} /> <span>Adicionar</span></button>}
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => { setEditingObra(null); setTempForm({}); setShowAddForm('obras'); }}><Plus size={14} /> <span>{t('profile.labels.add_item', 'Adicionar')}</span></button>}
                     </div>
                   </div>
                   <div className="generic-list">
@@ -3424,11 +3838,11 @@ const PerfilMissionario: React.FC = () => {
                                   setTempForm(o);
                                   setShowAddForm('obras');
                                 }}
-                                title="Editar"
+                                title={t('common.edit', 'Editar')}
                               >
                                 <Edit size={14} />
                               </button>
-                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('obras-realizadas', o.id)} title="Excluir">
+                              <button className="btn-action-lite delete" onClick={() => handleGenericDelete('obras-realizadas', o.id)} title={t('common.delete', 'Excluir')}>
                                 <Trash2 size={14} />
                               </button>
                             </>
@@ -3436,7 +3850,7 @@ const PerfilMissionario: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    {obrasRealizadas.length === 0 && <p className="empty-msg">Nenhuma obra registrada.</p>}
+                    {obrasRealizadas.length === 0 && <p className="empty-msg">{t('profile.works.empty', 'Nenhuma obra registrada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3447,20 +3861,20 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 <div className="section-card" id="print-obs">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><FileText size={16} /> 11. Observações</h3>
+                    <h3 className="section-title"><FileText size={16} /> {t('profile.tabs.obs', '11. Observações')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {canPrint && (
-                        <button className="btn-action-lite-text" onClick={() => printSection('11. Observações', 'print-obs')}>
-                          <Printer size={15} /> Imprimir
+                        <button className="btn-action-lite-text" onClick={() => printSection(t('profile.tabs.obs', '11. Observações'), 'print-obs')}>
+                          <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                         </button>
                       )}
-                      {canEdit && <button className="btn-save-perfil" onClick={() => setShowAddForm('obs')}><Plus size={16} /> Nova Obs</button>}
+                      {canEdit && <button className="btn-save-perfil" onClick={() => setShowAddForm('obs')}><Plus size={16} /> {t('profile.obs.new_btn', 'Nova Obs')}</button>}
                     </div>
                   </div>
                   <div className="obs-list" style={{ marginTop: '20px' }}>
                     {observacoesGerais.map(o => (
                       <div key={o.id} className="obs-entry-card">
-                        <div className="obs-date">{new Date(o.created_at).toLocaleString()}</div>
+                        <div className="obs-date">{new Date(o.created_at).toLocaleString(getDateLocale())}</div>
                         <div className="obs-text">{o.texto}</div>
                         {canEdit && (
                           <div className="obs-actions">
@@ -3469,7 +3883,7 @@ const PerfilMissionario: React.FC = () => {
                         )}
                       </div>
                     ))}
-                    {observacoesGerais.length === 0 && <p className="empty-msg">Nenhuma observação registrada.</p>}
+                    {observacoesGerais.length === 0 && <p className="empty-msg">{t('profile.obs.empty', 'Nenhuma observação registrada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3614,7 +4028,7 @@ const PerfilMissionario: React.FC = () => {
                                 target="_blank"
                                 rel="noreferrer"
                                 className="cv-link-card-main"
-                                title={`Abrir ${item.url}`}
+                                title={`${t('profile.links.open', 'Abrir')} ${item.url}`}
                               >
                                 <div className="cv-link-icon">
                                   <ExternalLink size={16} />
@@ -3659,7 +4073,7 @@ const PerfilMissionario: React.FC = () => {
                 {/* Arquivo do Curriculum Vitae */}
                 <div className="section-card" id="print-quadro">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><FileText size={18} /> Arquivo Anexo do CV</h3>
+                    <h3 className="section-title"><FileText size={18} /> {t('profile.cv.file_title', 'Arquivo Anexo do CV')}</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {quadroPessoal?.cv_path && (
                         <>
@@ -3669,16 +4083,16 @@ const PerfilMissionario: React.FC = () => {
                             rel="noreferrer"
                             className="btn-action-lite-text"
                             style={{ textDecoration: 'none' }}
-                            title="Abrir arquivo em nova aba"
+                            title={t('profile.cv.open_new_tab', 'Abrir arquivo em nova aba')}
                           >
-                            <Eye size={15} /> Visualizar Arquivo
+                            <Eye size={15} /> {t('profile.cv.view_file', 'Visualizar Arquivo')}
                           </a>
                           <button
                             className="btn-action-lite-text"
                             onClick={() => handlePrintCvFile(quadroPessoal.cv_path || '')}
-                            title="Imprimir arquivo anexado"
+                            title={t('profile.cv.print_attached', 'Imprimir arquivo anexado')}
                           >
-                            <Printer size={15} /> Imprimir CV
+                            <Printer size={15} /> {t('profile.cv.print_cv', 'Imprimir CV')}
                           </button>
                         </>
                       )}
@@ -3689,7 +4103,7 @@ const PerfilMissionario: React.FC = () => {
                           disabled={cvUploadLoading}
                         >
                           {cvUploadLoading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
-                          {quadroPessoal?.cv_path ? 'Substituir CV' : 'Anexar CV'}
+                          {quadroPessoal?.cv_path ? t('profile.cv.replace_cv', 'Substituir CV') : t('profile.cv.attach_cv', 'Anexar CV')}
                         </button>
                       )}
                     </div>
@@ -3710,12 +4124,12 @@ const PerfilMissionario: React.FC = () => {
                           <FileText size={30} />
                         </div>
                         <div className="cv-file-info">
-                          <h4>Curriculum Vitae do Missionário</h4>
+                          <h4>{t('profile.cv.heading', 'Curriculum Vitae do Missionário')}</h4>
                           <p className="cv-filename">
                             {quadroPessoal.cv_path.split('/').pop() || 'Curriculum_Vitae.pdf'}
                           </p>
                           <div className="cv-badges">
-                            <span className="cv-status-badge">✓ Arquivo Anexado</span>
+                            <span className="cv-status-badge">✓ {t('profile.cv.attached_badge', 'Arquivo Anexado')}</span>
                             <span className="cv-type-badge">
                               {(quadroPessoal.cv_path.split('.').pop() || 'PDF').toUpperCase()}
                             </span>
@@ -3727,32 +4141,32 @@ const PerfilMissionario: React.FC = () => {
                             target="_blank"
                             rel="noreferrer"
                             className="cv-btn-view"
-                            title="Abrir em nova aba"
+                            title={t('profile.cv.open_tab', 'Abrir em nova aba')}
                           >
-                            <Eye size={15} /> Visualizar
+                            <Eye size={15} /> {t('profile.ui.view', 'Visualizar')}
                           </a>
                           <button
                             className="cv-btn-print"
                             onClick={() => handlePrintCvFile(quadroPessoal.cv_path || '')}
-                            title="Imprimir documento"
+                            title={t('profile.cv.print_doc', 'Imprimir documento')}
                           >
-                            <Printer size={15} /> Imprimir
+                            <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                           </button>
                           {canEdit && (
                             <>
                               <button
                                 className="cv-btn-replace"
                                 onClick={() => cvFileInputRef.current?.click()}
-                                title="Substituir por outro arquivo"
+                                title={t('profile.cv.replace_title', 'Substituir por outro arquivo')}
                               >
-                                <Upload size={15} /> Substituir
+                                <Upload size={15} /> {t('profile.cv.replace', 'Substituir')}
                               </button>
                               <button
                                 className="cv-btn-delete"
                                 onClick={handleDeleteCv}
-                                title="Excluir arquivo"
+                                title={t('profile.cv.delete_file', 'Excluir arquivo')}
                               >
-                                <Trash2 size={15} /> Excluir
+                                <Trash2 size={15} /> {t('common.delete', 'Excluir')}
                               </button>
                             </>
                           )}
@@ -3764,28 +4178,28 @@ const PerfilMissionario: React.FC = () => {
                         {quadroPessoal.cv_path.toLowerCase().endsWith('.pdf') ? (
                           <iframe
                             src={`${getFileUrl(quadroPessoal.cv_path) || ''}#toolbar=1`}
-                            title="Visualização do Curriculum Vitae"
+                            title={t('profile.cv.preview_title', 'Visualização do Curriculum Vitae')}
                             className="cv-iframe-preview"
                           />
                         ) : /\.(jpe?g|png|webp|gif)$/i.test(quadroPessoal.cv_path) ? (
                           <div className="cv-image-preview-wrapper">
                             <img
                               src={getFileUrl(quadroPessoal.cv_path) || ''}
-                              alt="Curriculum Vitae"
+                              alt={t('profile.modal.cv', 'Curriculum Vitae')}
                               className="cv-image-preview"
                             />
                           </div>
                         ) : (
                           <div className="cv-doc-preview-placeholder">
                             <FileText size={48} />
-                            <p>Documento anexado no formato <strong>{quadroPessoal.cv_path.split('.').pop()?.toUpperCase()}</strong>.</p>
+                            <p>{t('profile.cv.attached_format', 'Documento anexado no formato')} <strong>{quadroPessoal.cv_path.split('.').pop()?.toUpperCase()}</strong>.</p>
                             <a
                               href={getFileUrl(quadroPessoal.cv_path) || '#'}
                               target="_blank"
                               rel="noreferrer"
                               className="cv-btn-view-large"
                             >
-                              <Eye size={18} /> Abrir e Visualizar Arquivo
+                              <Eye size={18} /> {t('profile.cv.open_view_file', 'Abrir e Visualizar Arquivo')}
                             </a>
                           </div>
                         )}
@@ -3799,11 +4213,11 @@ const PerfilMissionario: React.FC = () => {
                       <div className="cv-upload-illustration">
                         <Upload size={36} />
                       </div>
-                      <h4>Nenhum Curriculum Vitae Anexado</h4>
+                      <h4>{t('profile.cv.empty_title', 'Nenhum Curriculum Vitae Anexado')}</h4>
                       <p>
                         {canEdit 
-                          ? 'Clique aqui para anexar o arquivo do Curriculum Vitae (PDF, Imagens ou Documentos).'
-                          : 'Nenhum arquivo de currículo foi disponibilizado para este missionário.'}
+                          ? t('profile.cv.empty_hint_edit', 'Clique aqui para anexar o arquivo do Curriculum Vitae (PDF, Imagens ou Documentos).')
+                          : t('profile.cv.empty_hint_view', 'Nenhum arquivo de currículo foi disponibilizado para este missionário.')}
                       </p>
                       {canEdit && (
                         <button
@@ -3814,7 +4228,7 @@ const PerfilMissionario: React.FC = () => {
                             cvFileInputRef.current?.click();
                           }}
                         >
-                          <Plus size={16} /> Anexar Arquivo do CV
+                          <Plus size={16} /> {t('profile.cv.attach_cv_file', 'Anexar Arquivo do CV')}
                         </button>
                       )}
                     </div>
@@ -3828,40 +4242,40 @@ const PerfilMissionario: React.FC = () => {
               <div className="tab-panel">
                 {canEdit && (
                   <div className="section-card">
-                    <h3 className="section-title"><Plus size={16} /> Presença Missionária</h3>
-                    <div className="form-grid-3">
+                    <h3 className="section-title"><Plus size={16} /> {t('profile.sections.bind_house', 'Presença Missionária')}</h3>
+                    <div className="form-grid-3 casa-bind-grid">
                       <div className="form-group">
                         <label>{t('missionaries.wizard.houses.select_house')}</label>
                         <select value={novaVinculacao.casa_id} onChange={e => setNovaVinculacao(p => ({ ...p, casa_id: e.target.value }))}>
-                          <option value="">Selecione...</option>
+                          <option value="">{t('profile.ui.select', 'Selecione...')}</option>
                           {casasDisponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>Tipo</label>
+                        <label>{t('profile.labels.type', 'Tipo')}</label>
                         <select value={(novaVinculacao as any).tipo || ''} onChange={e => setNovaVinculacao(p => ({ ...p, tipo: e.target.value }))}>
-                          <option value="">Selecione...</option>
-                          <option value="CI">Casas de Idosos – CI</option>
-                          <option value="CR">Casas Religiosas – CR</option>
-                          <option value="M">Obras – M</option>
-                          <option value="P">Paróquia – P</option>
-                          <option value="PV">Pastoral Vocacional - PV</option>
-                          <option value="CS">Seminário - CS</option>
+                          <option value="">{t('profile.ui.select', 'Selecione...')}</option>
+                          <option value="CI">{t('profile.casas.type_ci', 'Casas de Idosos – CI')}</option>
+                          <option value="CR">{t('profile.casas.type_cr', 'Casas Religiosas – CR')}</option>
+                          <option value="M">{t('profile.casas.type_m', 'Obras – M')}</option>
+                          <option value="P">{t('profile.casas.type_p', 'Paróquia – P')}</option>
+                          <option value="PV">{t('profile.casas.type_pv', 'Pastoral Vocacional - PV')}</option>
+                          <option value="CS">{t('profile.casas.type_cs', 'Seminário - CS')}</option>
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>PM</label>
-                        <input type="text" value={(novaVinculacao as any).pm || ''} onChange={e => setNovaVinculacao(p => ({ ...p, pm: e.target.value }))} placeholder="Ex: CR 13" />
+                        <label>{t('profile.labels.pm', 'PM')}</label>
+                        <input type="text" value={(novaVinculacao as any).pm || ''} onChange={e => setNovaVinculacao(p => ({ ...p, pm: e.target.value }))} placeholder={t('profile.casas.pm_placeholder', 'Ex: CR 13')} />
                       </div>
                       <div className="form-group">
-                        <label>País</label>
-                        <input type="text" list="paises-list" value={(novaVinculacao as any).pais || 'Brasil'} onChange={e => setNovaVinculacao(p => ({ ...p, pais: e.target.value }))} placeholder="Selecione ou digite..." />
+                        <label>{t('profile.labels.country', 'País')}</label>
+                        <input type="text" list="paises-list" value={(novaVinculacao as any).pais || 'Brasil'} onChange={e => setNovaVinculacao(p => ({ ...p, pais: e.target.value }))} placeholder={t('profile.ui.select_or_type', 'Selecione ou digite...')} />
                         <datalist id="paises-list">
                           {PAISES_COMMON.map(p => <option key={p} value={p} />)}
                         </datalist>
                       </div>
                       <div className="form-group"><label>{t('missionaries.wizard.houses.start_date')}</label><input type="date" value={novaVinculacao.data_inicio} onChange={e => setNovaVinculacao(p => ({ ...p, data_inicio: e.target.value }))} /></div>
-                      <div className="form-group"><label>Data de Saída (opcional)</label><input type="date" value={novaVinculacao.data_fim} onChange={e => setNovaVinculacao(p => ({ ...p, data_fim: e.target.value }))} /></div>
+                      <div className="form-group"><label>{t('profile.labels.exit_date_optional', 'Data de Saída (opcional)')}</label><input type="date" value={novaVinculacao.data_fim} onChange={e => setNovaVinculacao(p => ({ ...p, data_fim: e.target.value }))} /></div>
                     </div>
                     <button className="btn-save-perfil" onClick={addCasa} style={{ marginTop: '15px' }}><Plus size={16} /> {t('profile.actions.bind_btn')}</button>
                   </div>
@@ -3869,10 +4283,10 @@ const PerfilMissionario: React.FC = () => {
 
                 <div className="section-card" id="print-casas">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><HomeIcon size={16} /> Histórico de Presença</h3>
+                    <h3 className="section-title"><HomeIcon size={16} /> {t('profile.sections.history_house', 'Histórico de Presença')}</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('Histórico de Presença Missionária', 'print-casas')}>
-                        <Printer size={15} /> Imprimir
+                      <button className="btn-action-lite-text" onClick={() => printSection(t('profile.casas.history_title', 'Histórico de Presença Missionária'), 'print-casas')}>
+                        <Printer size={15} /> {t('profile.ui.print', 'Imprimir')}
                       </button>
                     )}
                   </div>
@@ -3882,25 +4296,25 @@ const PerfilMissionario: React.FC = () => {
                       <div key={c.id} className={`casa-item ${!c.data_fim ? 'casa-ativa' : ''}`}>
                         <div className="casa-info">
                           <span className="casa-nome">{c.casa_nome}</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
-                            {c.is_superior && <span className="superior-badge"><Star size={11} /> Superior</span>}
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px', flexWrap: 'wrap' }}>
+                            {c.is_superior && <span className="superior-badge"><Star size={11} /> {t('profile.casas.superior', 'Superior')}</span>}
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: '6px', flexWrap: 'wrap' }}>
                               {Array.isArray(c.funcao) && c.funcao.length > 0 ? (
                                 c.funcao.map((f, idx) => (
-                                  <span key={idx} className="role-badge" style={{ background: '#eef2ff', color: '#1e3a8a', padding: '4px 8px', borderRadius: '8px', fontSize: '12px' }}>{f}</span>
+                                  <span key={idx} className="role-badge" style={{ background: '#eef2ff', color: '#1e3a8a', padding: '4px 8px', borderRadius: '8px', fontSize: '12px' }}>{funcaoLabel(f)}</span>
                                 ))
                               ) : null}
                             </div>
                             <span className="duracao-pill" style={{ background: '#f0f4f8', fontSize: '11px', padding: '2px 6px', borderRadius: '4px' }}>⏱ {calcDuracao(c.data_inicio, c.data_fim)}</span>
                           </div>
                           <span className="casa-periodo" style={{ marginTop: '4px', display: 'block', fontSize: '12px', color: '#666' }}>
-                            {formatDateLocal(c.data_inicio)} → {c.data_fim ? formatDateLocal(c.data_fim) : 'Atual'}
+                            {formatDateLocal(c.data_inicio)} → {c.data_fim ? formatDateLocal(c.data_fim) : t('profile.casas.current', 'Atual')}
                           </span>
                         </div>
                         {canEdit && <button className="btn-action-lite delete" onClick={() => removeCasa(c.id)}><Trash2 size={16} /></button>}
                       </div>
                     ))}
-                    {casasHistorico.length === 0 && <p className="empty-msg">Nenhuma casa vinculada.</p>}
+                    {casasHistorico.length === 0 && <p className="empty-msg">{t('profile.casas.empty', 'Nenhuma casa vinculada.')}</p>}
                   </div>
                 </div>
               </div>
@@ -3911,13 +4325,13 @@ const PerfilMissionario: React.FC = () => {
             {activeTab === 'permissoes' && (
               <div className="tab-panel">
                 <div className="section-card">
-                  <h3 className="section-title"><ShieldCheck size={16} /> Permissões de Visualização</h3>
+                  <h3 className="section-title"><ShieldCheck size={16} /> {t('profile.perms.title', 'Permissões de Visualização')}</h3>
                   <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
-                    Abaixo estão as seções do cadastro que este missionário tem permissão para visualizar no seu próprio perfil.
+                    {t('profile.perms.subtitle', 'Abaixo estão as seções do cadastro que este missionário tem permissão para visualizar no seu próprio perfil.')}
                   </p>
 
-                  <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+                  <div className="pm-permissions-box" style={{ background: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(250px, 100%), 1fr))', gap: '15px' }}>
                       {PERMISSIONS_LIST.map(perm => {
                         const isGranted = !!missionario.permissoes?.[perm.id];
                         return (
@@ -3941,7 +4355,7 @@ const PerfilMissionario: React.FC = () => {
                               fontWeight: isGranted ? 600 : 400,
                               color: isGranted ? '#0f172a' : '#64748b'
                             }}>
-                              {perm.label}
+                              {t(`profile.permissions_list.${perm.id}`, perm.label)}
                             </span>
                           </div>
                         );
@@ -3951,7 +4365,7 @@ const PerfilMissionario: React.FC = () => {
 
                   {(isAdminGeral || canEdit) && (
                     <div style={{ marginTop: '20px', padding: '15px', background: '#eff6ff', borderRadius: '8px', color: '#1e40af', fontSize: '0.85rem' }}>
-                      <strong>Nota de Administrador:</strong> Você pode alterar estas permissões na tela de <a href="#/administradores" style={{ color: '#013375', fontWeight: 700 }}>Gestão de Acessos</a> ou editando o cadastro do missionário.
+                      <strong>{t('profile.perms.admin_note', 'Nota de Administrador')}:</strong> {t('profile.perms.admin_note_text_1', 'Você pode alterar estas permissões na tela de')} <a href="#/administradores" style={{ color: '#013375', fontWeight: 700 }}>{t('profile.perms.access_management', 'Gestão de Acessos')}</a> {t('profile.perms.admin_note_text_2', 'ou editando o cadastro do missionário.')}
                     </div>
                   )}
                 </div>
@@ -3961,51 +4375,51 @@ const PerfilMissionario: React.FC = () => {
             {/* --- MODAL CONFIRMAÇÃO SITUAÇÃO --- */}
             {showSituacaoConfirmModal && (
               <div className="modal-overlay">
-                <div className="modal-content" style={{ maxWidth: '520px', width: '90%' }}>
+                <div className="modal-content perfil-modal" style={{ maxWidth: '520px', width: '90%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                     <div style={{ background: '#fef3c7', color: '#b45309', padding: '10px', borderRadius: '10px' }}>
                       <AlertCircle size={24} />
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>Confirmar Alteração de Situação</h3>
-                      <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>Registro de auditoria permanente</p>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>{t('profile.situation.confirm_title', 'Confirmar Alteração de Situação')}</h3>
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>{t('profile.situation.confirm_audit', 'Registro de auditoria permanente')}</p>
                     </div>
                   </div>
 
                   <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.88rem', color: '#92400e' }}>
-                    <strong>⚠️ Atenção:</strong> Esta alteração será gravada permanentemente no histórico deste perfil, registrando seu usuário e data/hora.
+                    <strong>⚠️ {t('profile.situation.attention', 'Atenção')}:</strong> {t('profile.situation.confirm_warning', 'Esta alteração será gravada permanentemente no histórico deste perfil, registrando seu usuário e data/hora.')}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
                     <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Situação Anterior</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{t('profile.situation.previous', 'Situação Anterior')}</div>
                       <span className={`situacao-tag-premium ${(originalSituacao || 'ativo').toLowerCase()}`} style={{ fontSize: '0.82rem', padding: '4px 10px' }}>
-                        {originalSituacao || 'Ativo'}
+                        {situacaoLabel(originalSituacao || 'Ativo')}
                       </span>
                     </div>
                     <div style={{ fontSize: '1.2rem', color: '#94a3b8' }}>➔</div>
                     <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Nova Situação</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{t('profile.situation.new', 'Nova Situação')}</div>
                       <span className={`situacao-tag-premium ${(missionario.situacao || 'ativo').toLowerCase()}`} style={{ fontSize: '0.82rem', padding: '4px 10px' }}>
-                        {missionario.situacao}
+                        {situacaoLabel(missionario.situacao)}
                       </span>
                     </div>
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '6px', display: 'block' }}>
-                      Motivo / Observação da Mudança (Opcional):
+                      {t('profile.situation.reason_label', 'Motivo / Observação da Mudança (Opcional):')}
                     </label>
                     <textarea
                       rows={3}
-                      placeholder="Ex: Falecimento confirmado, decreto de transferência, laicização..."
+                      placeholder={t('profile.situation.reason_placeholder', 'Ex: Falecimento confirmado, decreto de transferência, laicização...')}
                       value={motivoSituacao}
                       onChange={e => setMotivoSituacao(e.target.value)}
                       style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <div className="modal-actions" style={{ marginTop: 0, display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                     <button
                       type="button"
                       className="btn-cancel"
@@ -4015,7 +4429,7 @@ const PerfilMissionario: React.FC = () => {
                       }}
                       disabled={isSaving}
                     >
-                      Cancelar
+                      {t('common.cancel', 'Cancelar')}
                     </button>
                     <button
                       type="button"
@@ -4024,7 +4438,7 @@ const PerfilMissionario: React.FC = () => {
                       disabled={isSaving}
                     >
                       {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                      Confirmar e Salvar
+                      {t('profile.ui.confirm_save', 'Confirmar e Salvar')}
                     </button>
                   </div>
                 </div>
@@ -4034,57 +4448,57 @@ const PerfilMissionario: React.FC = () => {
             {/* --- MODAL --- */}
             {showAddForm && (
               <div className="modal-overlay">
-                <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
+                <div className="modal-content perfil-modal" style={{ maxWidth: '600px', width: '90%' }}>
                   <h3>
-                    {editingFormacao || editingAtividade || editingSaude || editingBanco || editingObra || (showAddForm === 'itinerario' && (tempForm.local || tempForm.periodo || tempForm.observacoes)) ? 'Editar ' : 'Adicionar '}
-                    {showAddForm === 'itinerario' ? (editingItinLabel || 'Itinerário Formativo') :
-                      showAddForm === 'formacao' ? 'Formação Acadêmica' :
-                        showAddForm === 'atividade' ? 'Atividade Missionária' :
-                          showAddForm === 'obras' ? 'Obras Realizadas' :
-                            showAddForm === 'saude' ? 'Registro de Saúde' :
-                              showAddForm === 'banco' ? 'Conta Bancária' :
-                                showAddForm === 'quadro' ? 'Curriculum Vitae' : 'Observação'}
+                    {editingFormacao || editingAtividade || editingSaude || editingBanco || editingObra || (showAddForm === 'itinerario' && (tempForm.local || tempForm.periodo || tempForm.observacoes)) ? `${t('common.edit', 'Editar')} ` : `${t('profile.labels.add_item', 'Adicionar')} `}
+                    {showAddForm === 'itinerario' ? (editingItinLabel || t('profile.modal.itinerary', 'Itinerário Formativo')) :
+                      showAddForm === 'formacao' ? t('profile.modal.academic', 'Formação Acadêmica') :
+                        showAddForm === 'atividade' ? t('profile.modal.activity', 'Atividade Missionária') :
+                          showAddForm === 'obras' ? t('profile.modal.works', 'Obras Realizadas') :
+                            showAddForm === 'saude' ? t('profile.modal.health', 'Registro de Saúde') :
+                              showAddForm === 'banco' ? t('profile.modal.bank', 'Conta Bancária') :
+                                showAddForm === 'quadro' ? t('profile.modal.cv', 'Curriculum Vitae') : t('profile.ui.observation', 'Observação')}
                   </h3>
 
                   <div className="form-grid-1" style={{ gap: '15px', marginTop: '15px' }}>
                     {showAddForm === 'itinerario' && (
                       <>
                         <div className="form-group">
-                          <label>Período</label>
+                          <label>{t('profile.labels.period', 'Período')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: 01/01/2000 - 31/12/2004 ou 2000-2004"
+                            placeholder={t('profile.modal.itin_period_placeholder', 'Ex: 01/01/2000 - 31/12/2004 ou 2000-2004')}
                             value={tempForm.periodo || ''}
                             onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Local / Instituição</label>
+                          <label>{t('profile.modal.place_institution', 'Local / Instituição')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: Seminário Menor São Carlos, Guaporé, RS"
+                            placeholder={t('profile.modal.itin_place_placeholder', 'Ex: Seminário Menor São Carlos, Guaporé, RS')}
                             value={tempForm.local || ''}
                             onChange={e => setTempForm({ ...tempForm, local: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Observação</label>
+                          <label>{t('profile.ui.observation', 'Observação')}</label>
                           <textarea
                             rows={4}
-                            placeholder="Digite as observações sobre este período/etapa..."
+                            placeholder={t('profile.modal.itin_obs_placeholder', 'Digite as observações sobre este período/etapa...')}
                             value={tempForm.observacoes || ''}
                             onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Anexar Documento / Comprovante (PDF, JPG, PNG)</label>
+                          <label>{t('profile.modal.attach_doc_proof', 'Anexar Documento / Comprovante (PDF, JPG, PNG)')}</label>
                           {tempForm.doc_path ? (
                             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <FileText size={18} style={{ color: '#013375' }} />
                                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                                    Anexo Carregado
+                                    {t('profile.modal.attachment_loaded', 'Anexo Carregado')}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -4094,15 +4508,15 @@ const PerfilMissionario: React.FC = () => {
                                     rel="noreferrer"
                                     style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
                                   >
-                                    <Eye size={14} /> Visualizar
+                                    <Eye size={14} /> {t('profile.ui.view', 'Visualizar')}
                                   </a>
                                   <button
                                     type="button"
                                     onClick={() => setTempForm({ ...tempForm, doc_path: undefined })}
                                     style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                    title="Remover anexo para reenviar"
+                                    title={t('profile.modal.remove_attachment_resend', 'Remover anexo para reenviar')}
                                   >
-                                    <Trash2 size={14} /> Excluir Anexo
+                                    <Trash2 size={14} /> {t('profile.modal.delete_attachment', 'Excluir Anexo')}
                                   </button>
                                 </div>
                               </div>
@@ -4110,7 +4524,7 @@ const PerfilMissionario: React.FC = () => {
                                 <div style={{ marginTop: '10px' }}>
                                   <img
                                     src={getFileUrl(tempForm.doc_path) || ''}
-                                    alt="Preview"
+                                    alt={t('profile.modal.preview', 'Preview')}
                                     style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                   />
                                 </div>
@@ -4118,8 +4532,7 @@ const PerfilMissionario: React.FC = () => {
                             </div>
                           ) : (
                             <div className="file-input-wrapper" style={{ marginTop: '6px' }}>
-                              <input
-                                type="file"
+                              <FileInputButton
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
@@ -4133,7 +4546,7 @@ const PerfilMissionario: React.FC = () => {
                                     const newPath = res.data.url || res.data.arquivo_path;
                                     setTempForm(prev => ({ ...prev, doc_path: newPath }));
                                   } catch {
-                                    alert('Erro ao carregar documento');
+                                    appAlert(t('profile.msgs.doc_load_error', 'Erro ao carregar documento'));
                                   }
                                 }}
                                 accept=".pdf,.jpg,.jpeg,.png"
@@ -4146,50 +4559,50 @@ const PerfilMissionario: React.FC = () => {
                     {showAddForm === 'formacao' && (
                       <>
                         <div className="form-group">
-                          <label>Curso *</label>
+                          <label>{t('profile.modal.course_required', 'Curso *')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: Teologia, Filosofia, História..."
+                            placeholder={t('profile.modal.course_placeholder', 'Ex: Teologia, Filosofia, História...')}
                             value={tempForm.curso || ''}
                             onChange={e => setTempForm({ ...tempForm, curso: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Instituição / Faculdade</label>
+                          <label>{t('profile.modal.institution_faculty', 'Instituição / Faculdade')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: PUC, USP..."
+                            placeholder={t('profile.modal.institution_placeholder', 'Ex: PUC, USP...')}
                             value={tempForm.faculdade || ''}
                             onChange={e => setTempForm({ ...tempForm, faculdade: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Data / Período de Formação</label>
+                          <label>{t('profile.modal.formation_period', 'Data / Período de Formação')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: 2018-2022 ou 2022"
+                            placeholder={t('profile.modal.formation_period_placeholder', 'Ex: 2018-2022 ou 2022')}
                             value={tempForm.periodo || ''}
                             onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Observações</label>
+                          <label>{t('profile.ui.observations', 'Observações')}</label>
                           <textarea
                             rows={3}
-                            placeholder="Observações adicionais..."
+                            placeholder={t('profile.modal.extra_obs_placeholder', 'Observações adicionais...')}
                             value={tempForm.observacoes || ''}
                             onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Anexar Documento / Imagem (Certificado, Diploma, Declaração)</label>
+                          <label>{t('profile.modal.attach_doc_image', 'Anexar Documento / Imagem (Certificado, Diploma, Declaração)')}</label>
                           {tempForm.doc_path ? (
                             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <FileText size={18} style={{ color: '#013375' }} />
                                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                                    Anexo Carregado
+                                    {t('profile.modal.attachment_loaded', 'Anexo Carregado')}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -4199,15 +4612,15 @@ const PerfilMissionario: React.FC = () => {
                                     rel="noreferrer"
                                     style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
                                   >
-                                    <Eye size={14} /> Visualizar
+                                    <Eye size={14} /> {t('profile.ui.view', 'Visualizar')}
                                   </a>
                                   <button
                                     type="button"
                                     onClick={() => setTempForm({ ...tempForm, doc_path: undefined })}
                                     style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                    title="Remover anexo para reenviar"
+                                    title={t('profile.modal.remove_attachment_resend', 'Remover anexo para reenviar')}
                                   >
-                                    <Trash2 size={14} /> Excluir Anexo
+                                    <Trash2 size={14} /> {t('profile.modal.delete_attachment', 'Excluir Anexo')}
                                   </button>
                                 </div>
                               </div>
@@ -4215,7 +4628,7 @@ const PerfilMissionario: React.FC = () => {
                                 <div style={{ marginTop: '10px' }}>
                                   <img
                                     src={getFileUrl(tempForm.doc_path) || ''}
-                                    alt="Preview"
+                                    alt={t('profile.modal.preview', 'Preview')}
                                     style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                   />
                                 </div>
@@ -4223,8 +4636,7 @@ const PerfilMissionario: React.FC = () => {
                             </div>
                           ) : (
                             <div className="file-input-wrapper" style={{ marginTop: '6px' }}>
-                              <input
-                                type="file"
+                              <FileInputButton
                                 onChange={e => uploadGenericDoc(e, 'formacao-academica')}
                                 accept=".pdf,.jpg,.jpeg,.png"
                               />
@@ -4237,19 +4649,19 @@ const PerfilMissionario: React.FC = () => {
                     {showAddForm === 'atividade' && (
                       <>
                         <div className="form-group">
-                          <label>Lugar / Local da Missão *</label>
+                          <label>{t('profile.modal.mission_place_required', 'Lugar / Local da Missão *')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: Paróquia São José - São Paulo, SP"
+                            placeholder={t('profile.modal.mission_place_placeholder', 'Ex: Paróquia São José - São Paulo, SP')}
                             value={tempForm.lugar || ''}
                             onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Período</label>
+                          <label>{t('profile.labels.period', 'Período')}</label>
                           <input
                             type="text"
-                            placeholder="Ex: 2020-2024 ou 2024"
+                            placeholder={t('profile.modal.period_placeholder', 'Ex: 2020-2024 ou 2024')}
                             value={tempForm.periodo || ''}
                             onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
                           />
@@ -4258,9 +4670,9 @@ const PerfilMissionario: React.FC = () => {
                         {/* Função da Atividade (Checkboxes movidos para cá) */}
                         <div className="form-group">
                           <label style={{ fontWeight: 700, color: '#013375', marginBottom: '8px', display: 'block' }}>
-                            Função da Atividade
+                            {t('profile.modal.activity_function', 'Função da Atividade')}
                           </label>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div className="pm-grid-2" style={{ gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                             {[
                               'Superior Local',
                               'Pároco',
@@ -4286,7 +4698,7 @@ const PerfilMissionario: React.FC = () => {
                                       setTempForm({ ...tempForm, funcoes: updated });
                                     }}
                                   />
-                                  {r}
+                                  {funcaoLabel(r)}
                                 </label>
                               );
                             })}
@@ -4294,10 +4706,10 @@ const PerfilMissionario: React.FC = () => {
 
                           {/* Opção Outros */}
                           <div style={{ marginTop: '10px' }}>
-                            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Outras Funções (preenchimento livre)</label>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>{t('profile.modal.other_functions', 'Outras Funções (preenchimento livre)')}</label>
                             <input
                               type="text"
-                              placeholder="Digite outra função se houver..."
+                              placeholder={t('profile.modal.other_function_placeholder', 'Digite outra função se houver...')}
                               value={tempForm.outra_funcao || ''}
                               onChange={e => setTempForm({ ...tempForm, outra_funcao: e.target.value })}
                               style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
@@ -4306,10 +4718,10 @@ const PerfilMissionario: React.FC = () => {
                         </div>
 
                         <div className="form-group">
-                          <label>Descrição da Missão / Atividades</label>
+                          <label>{t('profile.modal.mission_desc_activities', 'Descrição da Missão / Atividades')}</label>
                           <textarea
                             rows={3}
-                            placeholder="Descreva a missão realizada..."
+                            placeholder={t('profile.modal.mission_desc_placeholder', 'Descreva a missão realizada...')}
                             value={tempForm.missao || ''}
                             onChange={e => setTempForm({ ...tempForm, missao: e.target.value })}
                           />
@@ -4319,25 +4731,25 @@ const PerfilMissionario: React.FC = () => {
 
                     {showAddForm === 'obras' && (
                       <>
-                        <div className="form-group"><label>Lugar</label><input type="text" value={tempForm.lugar || ''} onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })} /></div>
-                        <div className="form-group"><label>Período</label><input type="text" value={tempForm.periodo || ''} onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
-                        <div className="form-group"><label>Obra Realizada</label><textarea rows={3} value={tempForm.obra || ''} onChange={e => setTempForm({ ...tempForm, obra: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.place', 'Lugar')}</label><input type="text" value={tempForm.lugar || ''} onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.period', 'Período')}</label><input type="text" value={tempForm.periodo || ''} onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.work_done', 'Obra Realizada')}</label><textarea rows={3} value={tempForm.obra || ''} onChange={e => setTempForm({ ...tempForm, obra: e.target.value })} /></div>
                       </>
                     )}
                     {showAddForm === 'saude' && (
                       <>
-                        <div className="form-group"><label>CNS (Cartão SUS)</label><input type="text" value={tempForm.sus_card || ''} onChange={e => setTempForm({ ...tempForm, sus_card: e.target.value })} /></div>
-                        <div className="form-group"><label>Seguradora</label><input type="text" value={tempForm.seguradora || ''} onChange={e => setTempForm({ ...tempForm, seguradora: e.target.value })} /></div>
-                        <div className="form-group"><label>Nº Carteira</label><input type="text" value={tempForm.numero_carteira || ''} onChange={e => setTempForm({ ...tempForm, numero_carteira: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.cns', 'CNS (Cartão SUS)')}</label><input type="text" value={tempForm.sus_card || ''} onChange={e => setTempForm({ ...tempForm, sus_card: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.insurance', 'Seguradora')}</label><input type="text" value={tempForm.seguradora || ''} onChange={e => setTempForm({ ...tempForm, seguradora: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.wallet_num', 'Nº Carteira')}</label><input type="text" value={tempForm.numero_carteira || ''} onChange={e => setTempForm({ ...tempForm, numero_carteira: e.target.value })} /></div>
                         <div className="form-group">
-                          <label>Anexar Carteirinha / Documento (PDF ou Imagem)</label>
+                          <label>{t('profile.health.card_attachment', 'Cartão do SUS ou Convênio Médico (imagem ou PDF)')}</label>
                           {tempForm.doc_path ? (
                             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <FileText size={18} style={{ color: '#013375' }} />
                                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-                                    Anexo Carregado
+                                    {t('profile.modal.attachment_loaded', 'Anexo Carregado')}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -4347,15 +4759,15 @@ const PerfilMissionario: React.FC = () => {
                                     rel="noreferrer"
                                     style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
                                   >
-                                    <Eye size={14} /> <span>Visualizar</span>
+                                    <Eye size={14} /> <span>{t('profile.ui.view', 'Visualizar')}</span>
                                   </a>
                                   <button
                                     type="button"
                                     onClick={() => setTempForm({ ...tempForm, doc_path: undefined })}
                                     style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                    title="Remover anexo para reenviar"
+                                    title={t('profile.modal.remove_attachment_resend', 'Remover anexo para reenviar')}
                                   >
-                                    <Trash2 size={14} /> <span>Excluir Anexo</span>
+                                    <Trash2 size={14} /> <span>{t('profile.modal.delete_attachment', 'Excluir Anexo')}</span>
                                   </button>
                                 </div>
                               </div>
@@ -4363,7 +4775,7 @@ const PerfilMissionario: React.FC = () => {
                                 <div style={{ marginTop: '10px' }}>
                                   <img
                                     src={getFileUrl(tempForm.doc_path) || ''}
-                                    alt="Preview"
+                                    alt={t('profile.modal.preview', 'Preview')}
                                     style={{ maxHeight: '100px', maxWidth: '100%', objectFit: 'contain', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                                   />
                                 </div>
@@ -4371,10 +4783,9 @@ const PerfilMissionario: React.FC = () => {
                             </div>
                           ) : (
                             <div className="file-input-wrapper" style={{ marginTop: '6px' }}>
-                              <input
-                                type="file"
+                              <FileInputButton
                                 onChange={e => uploadGenericDoc(e, 'saude')}
-                                accept=".pdf,.jpg,.jpeg,.png"
+                                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                               />
                             </div>
                           )}
@@ -4384,40 +4795,40 @@ const PerfilMissionario: React.FC = () => {
                     {showAddForm === 'banco' && (
                       <>
                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                          <label>Instituição Financeira / Banco</label>
+                          <label>{t('profile.modal.bank_institution', 'Instituição Financeira / Banco')}</label>
                           <BankAutocomplete
                             value={tempForm.banco || ''}
                             onChange={val => setTempForm({ ...tempForm, banco: val })}
-                            placeholder="Selecione ou digite o banco (ex: Nubank, Mercado Pago, C6, Inter, Itaú, BB...)"
+                            placeholder={t('profile.modal.bank_placeholder', 'Selecione ou digite o banco (ex: Nubank, Mercado Pago, C6, Inter, Itaú, BB...)')}
                           />
                         </div>
-                        <div className="form-group"><label>Tipo de Conta</label><input type="text" placeholder="Ex: Corrente, Poupança, Salário, Pagamento" value={tempForm.tipo_conta || ''} onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
-                        <div className="form-group"><label>Titularidade</label><input type="text" placeholder="Nome do titular da conta" value={tempForm.titularidade || ''} onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.account_type', 'Tipo de Conta')}</label><input type="text" placeholder={t('profile.modal.account_type_placeholder', 'Ex: Corrente, Poupança, Salário, Pagamento')} value={tempForm.tipo_conta || ''} onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.ownership', 'Titularidade')}</label><input type="text" placeholder={t('profile.modal.holder_placeholder', 'Nome do titular da conta')} value={tempForm.titularidade || ''} onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
                         <div className="form-group">
-                          <label>Agência</label>
+                          <label>{t('profile.labels.agency', 'Agência')}</label>
                           <input
                             type="text"
                             maxLength={10}
-                            placeholder="Ex: 0001 ou 1234-5"
+                            placeholder={t('profile.modal.agency_placeholder', 'Ex: 0001 ou 1234-5')}
                             value={tempForm.agencia || ''}
                             onChange={e => setTempForm({ ...tempForm, agencia: e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 10) })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>Número Conta</label>
+                          <label>{t('profile.labels.account_num', 'Número Conta')}</label>
                           <input
                             type="text"
                             maxLength={16}
-                            placeholder="Ex: 12345678-9"
+                            placeholder={t('profile.modal.account_num_placeholder', 'Ex: 12345678-9')}
                             value={tempForm.numero || ''}
                             onChange={e => setTempForm({ ...tempForm, numero: e.target.value.replace(/[^0-9a-zA-Z\-/.]/g, '').slice(0, 16) })}
                           />
                         </div>
                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                          <label>Observações da Conta</label>
+                          <label>{t('profile.modal.account_obs', 'Observações da Conta')}</label>
                           <textarea
                             rows={3}
-                            placeholder="Observações relativas à conta bancária (chave PIX, finalidade, etc.)..."
+                            placeholder={t('profile.modal.account_obs_placeholder', 'Observações relativas à conta bancária (chave PIX, finalidade, etc.)...')}
                             value={tempForm.observacoes || ''}
                             onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
                           />
@@ -4426,27 +4837,27 @@ const PerfilMissionario: React.FC = () => {
                     )}
                     {showAddForm === 'quadro' && (
                       <>
-                        <div className="form-group"><label>Função Atual</label><input type="text" value={tempForm.funcao_atual || ''} onChange={e => setTempForm({ ...tempForm, funcao_atual: e.target.value })} /></div>
-                        <div className="form-group"><label>Competências / Resumo</label><textarea rows={4} value={tempForm.competencias || ''} onChange={e => setTempForm({ ...tempForm, competencias: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.current_function', 'Função Atual')}</label><input type="text" value={tempForm.funcao_atual || ''} onChange={e => setTempForm({ ...tempForm, funcao_atual: e.target.value })} /></div>
+                        <div className="form-group"><label>{t('profile.labels.competencies_summary', 'Competências / Resumo')}</label><textarea rows={4} value={tempForm.competencias || ''} onChange={e => setTempForm({ ...tempForm, competencias: e.target.value })} /></div>
                         <div className="form-group">
-                          <label>Links Externos (URLs de perfis profissionais/pessoais)</label>
+                          <label>{t('profile.modal.external_links', 'Links Externos (URLs de perfis profissionais/pessoais)')}</label>
                           <textarea
                             rows={3}
-                            placeholder="Ex: https://www.linkedin.com/in/... ou http://lattes.cnpq.br/..."
+                            placeholder={t('profile.modal.external_links_placeholder', 'Ex: https://www.linkedin.com/in/... ou http://lattes.cnpq.br/...')}
                             value={tempForm.links_externos || ''}
                             onChange={e => setTempForm({ ...tempForm, links_externos: e.target.value })}
                           />
                         </div>
                         <div className="form-group">
-                          <label>CV / Documento (PDF ou JPEG)</label>
+                          <label>{t('profile.labels.cv_doc', 'CV / Documento (PDF ou JPEG)')}</label>
                           <div className="file-input-wrapper">
-                            <input type="file" onChange={e => uploadGenericDoc(e, 'quadro-pessoal')} />
+                            <FileInputButton onChange={e => uploadGenericDoc(e, 'quadro-pessoal')} accept=".pdf,.jpg,.jpeg,.png" />
                           </div>
                         </div>
                       </>
                     )}
                     {showAddForm === 'obs' && (
-                      <div className="form-group"><label>Texto da Observação</label><textarea rows={6} value={tempForm.texto || ''} onChange={e => setTempForm({ ...tempForm, texto: e.target.value })} /></div>
+                      <div className="form-group"><label>{t('profile.labels.obs_text', 'Texto da Observação')}</label><textarea rows={6} value={tempForm.texto || ''} onChange={e => setTempForm({ ...tempForm, texto: e.target.value })} /></div>
                     )}
                   </div>
 
@@ -4466,7 +4877,7 @@ const PerfilMissionario: React.FC = () => {
                         setTempForm({});
                       }}
                     >
-                      Cancelar
+                      {t('common.cancel', 'Cancelar')}
                     </button>
                     <button
                       type="button"
@@ -4505,7 +4916,7 @@ const PerfilMissionario: React.FC = () => {
                             setEditingItinLabel(null);
                             setTempForm({});
                           } catch {
-                            alert('Erro ao salvar itinerário');
+                            appAlert(t('profile.msgs.itinerary_save_error', 'Erro ao salvar itinerário'));
                           } finally {
                             setIsSaving(false);
                           }
@@ -4548,7 +4959,7 @@ const PerfilMissionario: React.FC = () => {
                         }
                       }}
                     >
-                      Confirmar
+                      {t('profile.ui.confirm', 'Confirmar')}
                     </button>
                   </div>
                 </div>

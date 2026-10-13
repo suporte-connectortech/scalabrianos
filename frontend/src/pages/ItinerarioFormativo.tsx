@@ -105,8 +105,11 @@ const ItinerarioFormativo: React.FC = () => {
     if (!user?.id) return;
     setIsSaving(true);
     try {
+      // The backend replaces the whole itinerary, so keep stages not managed by this screen (4.x items, observations, docs)
+      const currentResp = await api.get(`/usuarios/${user.id}/itinerario`);
+      const otherStages = (Array.isArray(currentResp.data) ? currentResp.data : []).filter((s: any) => !stages[s.etapa]);
       const stagesArray = Object.values(stages).filter(s => s.local || s.periodo);
-      await api.post(`/usuarios/${user.id}/itinerario`, { stages: stagesArray });
+      await api.post(`/usuarios/${user.id}/itinerario`, { stages: [...otherStages, ...stagesArray] });
       alert(t('common.save'));
     } catch (err) {
       console.error('Error saving itinerary:', err);
@@ -140,7 +143,7 @@ const ItinerarioFormativo: React.FC = () => {
 
     return (
       <div className="page-container">
-        <div className="page-header">
+        <div className="page-header itin-page-header">
           <div className="title-with-badge">
             <Milestone size={24} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -177,7 +180,7 @@ const ItinerarioFormativo: React.FC = () => {
 
           <div className="card-lite" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <div className="search-input" style={{ width: '350px' }}>
+              <div className="search-input" style={{ width: '100%', maxWidth: '350px' }}>
                 <input
                   type="text"
                   placeholder="Buscar missionário ou presença..."
@@ -257,7 +260,7 @@ const ItinerarioFormativo: React.FC = () => {
   // --- Individual View (Missionary) ---
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header itin-page-header">
         <div className="title-with-badge">
           <Milestone size={24} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>

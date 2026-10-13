@@ -604,7 +604,7 @@ const PerfilCasa: React.FC = () => {
             <ArrowLeft size={18} /> Voltar para Presenças
           </button>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="casa-detail-top-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button 
               className="btn-export" 
               onClick={handlePrintReport} 
@@ -623,7 +623,7 @@ const PerfilCasa: React.FC = () => {
           <div className="casa-detail-icon">
             <Building2 size={26} />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h2 className="casa-detail-title">{house.nome}</h2>
             <div className="casa-detail-meta">
               {house.pm_code && <span className="pm-code">{house.pm_code}</span>}
@@ -798,7 +798,7 @@ const PerfilCasa: React.FC = () => {
               <Users size={18} /> Missionários Vinculados ({house.missionarios?.length || 0})
             </h4>
             
-            <div className="data-table" style={{ boxShadow: 'none', border: '1px solid #f1f5f9' }}>
+            <div className="data-table" style={{ boxShadow: 'none', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
               <table style={{ minWidth: '100%' }}>
                 <thead>
                   <tr>
@@ -895,7 +895,7 @@ const PerfilCasa: React.FC = () => {
 
           {/* Documentos Anexados */}
           <div className="card-lite" style={{ padding: '1.5rem', background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div className="casa-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: '#032b57', fontSize: '1rem', fontWeight: 700 }}>
                 <File size={18} /> Documentos Anexados ({documentos.length})
               </h4>

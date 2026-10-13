@@ -239,6 +239,57 @@
   background: #012b63;
 }
 
+/* Touch devices have no hover: keep the camera hint visible */
+@media (hover: none) {
+  .avatar-overlay {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .meu-perfil-page {
+    min-height: 0;
+    flex: 1;
+  }
+  .menu-item-left {
+    min-width: 0;
+  }
+  .menu-icon-wrapper {
+    flex-shrink: 0;
+  }
+  .menu-item-text {
+    min-width: 0;
+  }
+  .menu-item-subtitle {
+    overflow-wrap: anywhere;
+  }
+  .meu-perfil-header h2,
+  .meu-perfil-header p {
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .perfil-modal-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .perfil-modal-close {
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .perfil-modal-content .ReactCrop {
+    max-width: 100%;
+  }
+  .perfil-modal-content .ReactCrop img {
+    max-width: 100%;
+    max-height: 55vh !important;
+    max-height: 55dvh !important;
+  }
+}
+
 @media (max-width: 600px) {
   .meu-perfil-page {
     padding: 20px 10px;

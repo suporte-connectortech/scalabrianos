@@ -147,19 +147,27 @@
 
 @media (max-width: 768px) {
     .header {
-        height: 70px;
+        height: calc(70px + var(--safe-area-top, 0px));
         padding: 0 0.75rem;
-        padding-top: var(--safe-area-top);
+        padding-top: var(--safe-area-top, 0px);
+        padding-left: calc(0.75rem + var(--safe-area-left, 0px));
+        padding-right: calc(0.75rem + var(--safe-area-right, 0px));
     }
     .menu-toggle {
         display: flex;
         padding: 0.4rem;
+        min-width: 40px;
+        min-height: 40px;
     }
     .header-logo {
         height: 44px;
     }
     .header-title {
         display: none; /* too long for mobile */
+    }
+    .header-left,
+    .header-right {
+        min-width: 0;
     }
     .currency-selector {
         display: flex;
@@ -168,20 +176,24 @@
         gap: 2px;
     }
     .currency-btn {
-        padding: 2px 5px;
-        font-size: 10px;
-        border-radius: 10px;
+        padding: 0 6px;
+        min-width: 30px;
+        min-height: 30px;
+        font-size: 11px;
+        border-radius: 15px;
     }
     .language-selector {
         display: flex;
-        margin-right: 0.4rem;
+        margin-right: 0.3rem;
         padding: 2px;
         gap: 2px;
     }
     .lang-btn {
-        padding: 2px 6px;
-        font-size: 10px;
-        border-radius: 10px;
+        padding: 0 6px;
+        min-width: 30px;
+        min-height: 30px;
+        font-size: 11px;
+        border-radius: 15px;
     }
     .user-info span {
         display: none; /* hide name on mobile */
@@ -189,11 +201,29 @@
     .user-info {
         padding: 0.4rem;
         gap: 0.25rem;
+        min-width: 40px;
+        min-height: 40px;
+        justify-content: center;
     }
     .header-left {
         gap: 0.4rem;
     }
     .header-right {
         gap: 0.25rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .header-logo {
+        height: 38px;
+    }
+    .currency-selector,
+    .language-selector {
+        margin-right: 0.15rem;
+    }
+    .currency-btn,
+    .lang-btn {
+        min-width: 28px;
+        padding: 0 4px;
     }
 }

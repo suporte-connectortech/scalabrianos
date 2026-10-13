@@ -180,7 +180,7 @@ const MapaRNSMM: React.FC = () => {
       </div>
 
       <div className="mapa-bottom-grid">
-        <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
+        <div className="card-lite" style={{ padding: 'clamp(1.25rem, 4vw, 2rem)', borderRadius: '20px', minWidth: 0 }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
             <Info size={22} /> {t('mapa.mission_history_title', 'Missão e História')}
           </h4>
@@ -189,7 +189,7 @@ const MapaRNSMM: React.FC = () => {
           </p>
         </div>
 
-        <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
+        <div className="card-lite" style={{ padding: 'clamp(1.25rem, 4vw, 2rem)', borderRadius: '20px', minWidth: 0 }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
             <Globe size={22} /> {t('mapa.region_countries_title', 'Países da Região')}
           </h4>
@@ -203,7 +203,7 @@ const MapaRNSMM: React.FC = () => {
           </div>
         </div>
 
-        <div className="card-lite" style={{ padding: '2rem', borderRadius: '20px' }}>
+        <div className="card-lite" style={{ padding: 'clamp(1.25rem, 4vw, 2rem)', borderRadius: '20px', minWidth: 0 }}>
           <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', color: '#013375', fontSize: '1.1rem' }}>
             <Heart size={22} /> {t('mapa.work_fronts_title', 'Frentes de Trabalho')}
           </h4>

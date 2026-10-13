@@ -27,7 +27,7 @@ const Header: React.FC = () => {
           <Menu size={24} />
         </button>
         <div className="logo-container">
-          <img src={logo} alt="Scalabrianos Logo" className="header-logo" />
+          <img src={logo} alt={t('header.logo_alt', 'Scalabrianos Logo')} className="header-logo" />
         </div>
       </div>
 
@@ -39,14 +39,14 @@ const Header: React.FC = () => {
           <button
             className={`currency-btn ${currency === 'BRL' ? 'active' : ''}`}
             onClick={() => setCurrency('BRL')}
-            title="Real (R$)"
+            title={t('currency.brl', 'Real (R$)')}
           >
             R$
           </button>
           <button
             className={`currency-btn ${currency === 'EUR' ? 'active' : ''}`}
             onClick={() => setCurrency('EUR')}
-            title="Euro (€)"
+            title={t('currency.eur', 'Euro (€)')}
           >
             €
           </button>
@@ -71,7 +71,7 @@ const Header: React.FC = () => {
         </div>
 
         <div className="user-info" onClick={() => navigate('/login')}>
-          <span>{user?.nome || 'Admin'}</span>
+          <span>{user?.nome || t('header.admin_fallback', 'Admin')}</span>
           <LogOut size={20} className="logout-icon" aria-label={t('header.logout')} />
         </div>
       </div>

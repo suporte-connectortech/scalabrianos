@@ -138,7 +138,7 @@ const ExtratosMensais: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="extratos-page" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
         <div style={{ background: '#eef2ff', padding: '12px', borderRadius: '12px', color: '#4f46e5' }}>
           <FileText size={28} />
@@ -157,7 +157,7 @@ const ExtratosMensais: React.FC = () => {
 
       {/* Tab Switcher for Economists */}
       {isOconomo && (
-        <div className="tab-menu" style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+        <div className="tab-menu extratos-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
           <button
             onClick={() => setActiveTab('missionario')}
             style={{
@@ -218,11 +218,11 @@ const ExtratosMensais: React.FC = () => {
             boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
             flexWrap: 'wrap'
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div className="extratos-filter-field" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Calendar size={14} color="#64748b" /> {t('extratos.filter_month', 'Buscar por Mês/Ano:')}
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
+              <div className="extratos-month-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
                 <MonthPicker 
                   value={filterMes} 
                   onChange={setFilterMes} 
@@ -251,7 +251,7 @@ const ExtratosMensais: React.FC = () => {
             </div>
 
             {isOconomo && (user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px' }}>
+              <div className="extratos-filter-field" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
                   {t('extratos.filter_house', 'Casa Religiosa:')}
                 </label>
@@ -287,8 +287,8 @@ const ExtratosMensais: React.FC = () => {
             </div>
           ) : (
             <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table className="extratos-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <th style={{ padding: '16px 20px', color: '#475569', fontWeight: 600, fontSize: '14px' }}>{t('extratos.table.month', 'Mês Referência')}</th>
@@ -352,7 +352,7 @@ const ExtratosMensais: React.FC = () => {
               
               {/* Pagination */}
               {totalPages > 1 && (
-                <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                <div className="extratos-pagination" style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
                   <span style={{ fontSize: '14px', color: '#64748b' }}>
                     {t('common.page', 'Página')} {currentPage} / {totalPages}
                   </span>
@@ -381,9 +381,9 @@ const ExtratosMensais: React.FC = () => {
 
       {/* Detalhes Modal */}
       {selectedExtrato && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }} onClick={(e) => { if (e.target === e.currentTarget) setSelectedExtrato(null); }}>
-          <div style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
+        <div className="extratos-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }} onClick={(e) => { if (e.target === e.currentTarget) setSelectedExtrato(null); }}>
+          <div className="extratos-modal" style={{ background: 'white', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div className="extratos-modal-header" style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', background: '#f8fafc', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Calendar size={20} color="#4f46e5" />
@@ -391,12 +391,12 @@ const ExtratosMensais: React.FC = () => {
                 </h3>
                 <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px', textTransform: 'capitalize' }}>{selectedExtrato.mes_referencia}</p>
               </div>
-              <button onClick={() => setSelectedExtrato(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}>
+              <button onClick={() => setSelectedExtrato(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '8px', flexShrink: 0 }}>
                 <X size={24} />
               </button>
             </div>
             
-            <div style={{ padding: '24px', overflowY: 'auto' }}>
+            <div className="extratos-modal-body" style={{ padding: '24px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               {isModalLoading ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>{t('common.loading', 'Carregando detalhes...')}</div>
               ) : detalhes && detalhes.itens && detalhes.itens.length > 0 ? (
@@ -410,9 +410,9 @@ const ExtratosMensais: React.FC = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').length > 0 ? (
                         detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').map(item => (
-                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
                             <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#059669' }}>{formatCurrency(item.valor)}</span>
+                            <span style={{ fontWeight: 600, color: '#059669', whiteSpace: 'nowrap' }}>{formatCurrency(item.valor)}</span>
                           </div>
                         ))
                       ) : (
@@ -429,9 +429,9 @@ const ExtratosMensais: React.FC = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').length > 0 ? (
                         detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').map(item => (
-                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
+                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
                             <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(item.valor)}</span>
+                            <span style={{ fontWeight: 600, color: '#dc2626', whiteSpace: 'nowrap' }}>{formatCurrency(item.valor)}</span>
                           </div>
                         ))
                       ) : (
@@ -446,7 +446,7 @@ const ExtratosMensais: React.FC = () => {
               )}
             </div>
             
-            <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+            <div className="extratos-modal-footer" style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
               <button onClick={() => setSelectedExtrato(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
                 {t('common.close', 'Fechar')}
               </button>

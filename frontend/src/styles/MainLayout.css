@@ -48,13 +48,16 @@
         margin-left: 0;
         width: 100%;
         min-height: calc(100vh - 70px);
-        min-height: calc(100dvh - 70px);
+        min-height: calc(100dvh - 70px - var(--safe-area-top, 0px));
     }
     .layout-body {
-        margin-top: 70px;
+        margin-top: calc(70px + var(--safe-area-top, 0px));
     }
     .page-container {
         padding: 0.85rem;
+        padding-left: calc(0.85rem + var(--safe-area-left, 0px));
+        padding-right: calc(0.85rem + var(--safe-area-right, 0px));
+        padding-bottom: calc(0.85rem + var(--safe-area-bottom, 0px));
         gap: 1rem;
     }
 }

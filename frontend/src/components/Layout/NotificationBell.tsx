@@ -3,6 +3,7 @@ import { Bell, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../api';
+import CorrecaoModal, { getCorrecaoIdFromLink } from '../Common/CorrecaoModal';
 import '../../styles/NotificationBell.css';
 
 interface Notificacao {
@@ -19,6 +20,7 @@ const NotificationBell: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [correcaoId, setCorrecaoId] = useState<number | null>(null);
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +93,13 @@ const NotificationBell: React.FC = () => {
 
   const handleNotificationClick = (n: Notificacao) => {
     if (!n.lida) markAsRead(n.id);
+    // Solicitação de correção de dados: abre o detalhe em modal antes de redirecionar
+    const solicitacaoId = getCorrecaoIdFromLink(n.link_path);
+    if (solicitacaoId) {
+      setCorrecaoId(solicitacaoId);
+      setIsOpen(false);
+      return;
+    }
     if (n.link_path) {
       navigate(n.link_path);
       setIsOpen(false);
@@ -141,6 +150,8 @@ const NotificationBell: React.FC = () => {
           </div>
         </div>
       )}
+
+      {correcaoId && <CorrecaoModal correcaoId={correcaoId} onClose={() => setCorrecaoId(null)} />}
     </div>
   );
 };

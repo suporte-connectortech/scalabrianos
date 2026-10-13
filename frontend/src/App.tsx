@@ -1,32 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import Home from './pages/Home';
-import CasasReligiosas from './pages/CasasReligiosas';
-import ItinerarioFormativo from './pages/ItinerarioFormativo';
-import Seminario from './pages/Seminario';
-import Propedeutico from './pages/Propedeutico';
-import Filosofia from './pages/Filosofia';
-import Postulado from './pages/Postulado';
-import Perfis from './pages/Perfis';
-import Administradores from './pages/Administradores';
-import Missionarios from './pages/Missionarios';
-import PerfilMissionario from './pages/PerfilMissionario';
-import PerfilCasa from './pages/PerfilCasa';
-import Logs from './pages/Logs';
-import LogsAcesso from './pages/LogsAcesso';
-import Relatorios from './pages/Relatorios';
-import Financeiro from './pages/Financeiro';
-import ExtratosMensais from './pages/ExtratosMensais';
-import MeuPerfil from './pages/MeuPerfil';
-import GestaoFinanceira from './pages/GestaoFinanceira';
-import MapaRNSMM from './pages/MapaRNSMM';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
 import MainLayout from './components/Layout/MainLayout';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import { AppDialogHost } from './components/Common/AppDialog';
+
+// Pages are loaded on demand so the first load (login) stays light on mobile
+const Home = lazy(() => import('./pages/Home'));
+const CasasReligiosas = lazy(() => import('./pages/CasasReligiosas'));
+const ItinerarioFormativo = lazy(() => import('./pages/ItinerarioFormativo'));
+const Seminario = lazy(() => import('./pages/Seminario'));
+const Propedeutico = lazy(() => import('./pages/Propedeutico'));
+const Filosofia = lazy(() => import('./pages/Filosofia'));
+const Postulado = lazy(() => import('./pages/Postulado'));
+const Perfis = lazy(() => import('./pages/Perfis'));
+const Administradores = lazy(() => import('./pages/Administradores'));
+const Missionarios = lazy(() => import('./pages/Missionarios'));
+const PerfilMissionario = lazy(() => import('./pages/PerfilMissionario'));
+const PerfilCasa = lazy(() => import('./pages/PerfilCasa'));
+const Logs = lazy(() => import('./pages/Logs'));
+const LogsAcesso = lazy(() => import('./pages/LogsAcesso'));
+const Relatorios = lazy(() => import('./pages/Relatorios'));
+const Financeiro = lazy(() => import('./pages/Financeiro'));
+const ExtratosMensais = lazy(() => import('./pages/ExtratosMensais'));
+const MeuPerfil = lazy(() => import('./pages/MeuPerfil'));
+const MeusDados = lazy(() => import('./pages/MeusDados'));
+const GestaoFinanceira = lazy(() => import('./pages/GestaoFinanceira'));
+const MapaRNSMM = lazy(() => import('./pages/MapaRNSMM'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+
+const PageLoader = () => (
+  <div className="page-loader" role="status" aria-label="Carregando">
+    <div className="page-loader-spinner" />
+  </div>
+);
 
 function App() {
   return (
@@ -34,6 +45,7 @@ function App() {
       <AuthProvider>
         <CurrencyProvider>
           <Router>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -138,6 +150,13 @@ function App() {
             </ProtectedRoute>
           } />
 
+          {/* Meus Dados — visualização somente leitura para missionários comuns */}
+          <Route path="/meus-dados" element={
+            <ProtectedRoute>
+              <MainLayout><MeusDados /></MainLayout>
+            </ProtectedRoute>
+          } />
+
           <Route path="/meu-perfil" element={
             <ProtectedRoute>
               <MainLayout>
@@ -149,6 +168,8 @@ function App() {
           <Route path="/home" element={<Navigate to="/mapa" replace />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
+          </Suspense>
+          <AppDialogHost />
       </Router>
       </CurrencyProvider>
     </AuthProvider>

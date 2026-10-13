@@ -155,3 +155,45 @@
   border-radius: 50%;
   margin-top: 6px;
 }
+
+@media (max-width: 768px) {
+  .notification-bell-container {
+    margin-right: 0.25rem;
+  }
+
+  .bell-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Dropdown anchored to the viewport so it never runs off the left edge */
+  .notifications-dropdown {
+    position: fixed;
+    top: calc(70px + var(--safe-area-top, 0px));
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-height: min(70vh, 480px);
+    max-height: min(70dvh, 480px);
+    margin-top: 0.5rem;
+  }
+
+  .notif-header {
+    gap: 0.75rem;
+  }
+
+  .notif-header button {
+    min-height: 36px;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .notif-list {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .notif-msg {
+    overflow-wrap: anywhere;
+  }
+}

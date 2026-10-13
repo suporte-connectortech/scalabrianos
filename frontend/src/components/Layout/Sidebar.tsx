@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect, useEffect } from 'react';
 import {
   Settings, LogOut, Home as HomeIcon, ChevronDown, ChevronRight,
-  Users, Lock, ClipboardList, DollarSign, ShieldCheck, Globe, X
+  Users, Lock, ClipboardList, DollarSign, ShieldCheck, Globe, X, IdCard
 } from 'lucide-react';
 import { useLayout } from '../../context/LayoutContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -29,8 +29,30 @@ const Sidebar: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAdminGeral, canEdit, isRegional } = useAuth();
+  const { user, isAdminGeral, canEdit, isRegional, isOconomo, isSuperior } = useAuth();
   const { isSidebarOpen, toggleSidebar } = useLayout();
+
+  const isMobileViewport = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+
+  // Mobile: the sidebar is an overlay drawer — start closed and close on every navigation.
+  // useLayoutEffect avoids a flash of the open drawer on first paint.
+  useLayoutEffect(() => {
+    if (isMobileViewport() && isSidebarOpen) {
+      toggleSidebar();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Mobile: lock page scroll behind the open drawer.
+  useEffect(() => {
+    if (!isSidebarOpen || !isMobileViewport()) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isSidebarOpen]);
   const getInitials = (name: string) => {
     if (!name) return '??';
     const parts = name.split(' ');
@@ -59,6 +81,11 @@ const Sidebar: React.FC = () => {
   // 2. Presença Missionária
   if (isAdminGeral || canEdit || isRegional) {
     menuItems.push({ icon: <HomeIcon size={20} />, label: t('menu.houses'), path: '/casas-religiosas' });
+  }
+
+  // 2.1 Meus Dados (somente missionários comuns: visualização dos dados e documentos cadastrados)
+  if (!isAdminGeral && !canEdit && !isRegional && !isOconomo && !isSuperior) {
+    menuItems.push({ icon: <IdCard size={20} />, label: t('menu.my_data', 'Meus Dados'), path: '/meus-dados' });
   }
 
   // 3. Prestação de Contas, Extratos e Mapa (apenas para ativos ou administradores)
@@ -105,7 +132,7 @@ const Sidebar: React.FC = () => {
                 toggleSection(item.label);
               } else if (item.path) {
                 navigate(item.path);
-                if (window.innerWidth <= 768 && isSidebarOpen) {
+                if (isMobileViewport() && isSidebarOpen && location.pathname === item.path) {
                   toggleSidebar();
                 }
               }
@@ -134,7 +161,7 @@ const Sidebar: React.FC = () => {
       <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-mobile-header">
           <div className="sidebar-mobile-logo">
-            <img src={logo} alt="Scalabrianos Logo" className="sidebar-header-logo" />
+            <img src={logo} alt={t('header.logo_alt', 'Scalabrianos Logo')} className="sidebar-header-logo" />
           </div>
           <button className="sidebar-close-btn" onClick={toggleSidebar} aria-label={t('common.close', 'Fechar')}>
             <X size={22} />
@@ -149,7 +176,7 @@ const Sidebar: React.FC = () => {
         <div className={`sidebar-item ${location.pathname === '/meu-perfil' ? 'active' : ''}`} onClick={() => navigate('/meu-perfil')}>
           <span className="item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {user?.foto_perfil ? (
-               <img src={getFileUrl(user.foto_perfil) || user.foto_perfil} alt="Perfil" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+               <img src={getFileUrl(user.foto_perfil) || user.foto_perfil} alt={t('menu.my_profile', 'Meu Perfil')} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold' }}>
                  {getInitials(user?.nome || '')}

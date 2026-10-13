@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Save, Loader2, CheckCircle, XCircle, AlertCircle,
   Calendar, FileText, Download, TrendingUp, TrendingDown
@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../../context/CurrencyContext';
 import api, { getFileUrl } from '../../api';
-import MonthPicker from '../Common/MonthPicker';
+import MonthPicker, { formatMonthLabel } from '../Common/MonthPicker';
 
 interface Categoria {
   id: number;
@@ -101,13 +101,18 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   const { user, isAdminGeral } = useAuth();
   const { formatCurrency, currencySymbol } = useCurrency();
   const blacklist = ['Congregação', 'Saúde/Medicamentos', 'Transporte', 'Vestuário', 'Água', 'Supermercado', 'Aluguel', 'Energia Elétrica', 'Internet'];
-  const [selectedMes, setSelectedMes] = useState(externalMes || new Date().toISOString().slice(0, 7));
+  // Na prestação do próprio missionário o Mês/Ano começa vazio: a seleção pelo seletor é obrigatória
+  const [selectedMes, setSelectedMes] = useState(externalMes || (externalUsuarioId ? new Date().toISOString().slice(0, 7) : ''));
+  // Marca quando o Mês/Ano foi escolhido manualmente, para avisar se já existe prestação naquele período
+  const mesEscolhidoPeloUsuario = useRef(false);
   useEffect(() => {
     if (externalMes) {
       setSelectedMes(externalMes);
     }
   }, [externalMes]);
   const [selectedCasa, setSelectedCasa] = useState('');
+  const [casasAtivas, setCasasAtivas] = useState<{ id: number; nome: string }[]>([]);
+  const [casasAtivasLoaded, setCasasAtivasLoaded] = useState(false);
   const [planilha, setPlanilha] = useState<PlanilhaData | null>(null);
   const [, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,6 +166,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     const catId = tipo === 'CREDITO' ? tempReceitaCat : tempDespesaCat;
     const valStr = tipo === 'CREDITO' ? tempReceitaVal : tempDespesaVal;
 
+    if (!validarPeriodoECasa(false)) return;
     if (!catId) { alert('Selecione uma categoria.'); return; }
     const num = parseMaskedCurrency(valStr);
     if (isNaN(num) || num <= 0) { alert('Informe um valor válido.'); return; }
@@ -207,11 +213,51 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     ? (planilha?.status === 'EM_VALIDACAO' || planilha?.status === 'VALIDADO')
     : (planilha?.status !== 'EM_VALIDACAO');
 
+  const jaPrestado = isOwner && !!planilha?.id && (planilha.status === 'EM_VALIDACAO' || planilha.status === 'VALIDADO');
+
+  // Na prestação do próprio missionário a Comunidade Religiosa ativa deve ser escolhida explicitamente
   useEffect(() => {
-    if (user?.casa_id && !selectedCasa) {
+    if (!isOwner && user?.casa_id && !selectedCasa) {
       setSelectedCasa(user.casa_id.toString());
     }
-  }, [user, selectedCasa]);
+  }, [user, selectedCasa, isOwner]);
+
+  useEffect(() => {
+    if (!isOwner || !user?.id) return;
+    const hoje = new Date().toISOString().slice(0, 10);
+    api.get(`/usuarios/${user.id}/casas-historico`)
+      .then(res => {
+        const ativas = (res.data || [])
+          .filter((h: any) => !h.data_fim || String(h.data_fim).slice(0, 10) >= hoje)
+          .map((h: any) => ({ id: h.casa_id, nome: h.casa_nome }));
+        setCasasAtivas(ativas.filter((c: any, i: number) => ativas.findIndex((x: any) => x.id === c.id) === i));
+      })
+      .catch(err => console.error('Erro ao carregar comunidades ativas:', err))
+      .finally(() => setCasasAtivasLoaded(true));
+  }, [isOwner, user?.id]);
+
+  const validarPeriodoECasa = (exigirNaoPrestado = true): boolean => {
+    if (!selectedMes) {
+      alert(t('planilha.select_month_required', 'Selecione o Mês/Ano de referência no seletor para prosseguir com a prestação de contas.'));
+      return false;
+    }
+    if (isOwner && exigirNaoPrestado && jaPrestado) {
+      alert(t('planilha.month_already_submitted', { mes: formatMonthLabel(selectedMes), defaultValue: 'Já foi realizada uma prestação de contas para o Mês/Ano {{mes}}. Selecione outro Mês/Ano.' }));
+      return false;
+    }
+    if (!selectedCasa || (isOwner && !isAdminGeral && casasAtivasLoaded && !casasAtivas.some(c => String(c.id) === selectedCasa) && !planilha?.id)) {
+      alert(isOwner && casasAtivasLoaded && casasAtivas.length === 0
+        ? t('planilha.no_active_community', 'Você não possui Comunidade Religiosa ativa vinculada. Procure o administrador.')
+        : t('planilha.select_community_required', 'Selecione a Comunidade Religiosa ativa antes de enviar as informações financeiras.'));
+      return false;
+    }
+    return true;
+  };
+
+  const handleMesChange = (mes: string) => {
+    mesEscolhidoPeloUsuario.current = true;
+    setSelectedMes(mes);
+  };
 
   useEffect(() => {
     if (selectedMes && user) {
@@ -236,6 +282,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       const res = await api.get(`/financas-mensais/usuario/${uid}/mes/${selectedMes}`);
       if (res.data) {
         setPlanilha(res.data);
+        if (mesEscolhidoPeloUsuario.current && !targetUserId && !externalUsuarioId && res.data.id &&
+            (res.data.status === 'EM_VALIDACAO' || res.data.status === 'VALIDADO')) {
+          alert(t('planilha.month_already_submitted', { mes: formatMonthLabel(selectedMes), defaultValue: 'Já foi realizada uma prestação de contas para o Mês/Ano {{mes}}. Selecione outro Mês/Ano.' }));
+        }
+        mesEscolhidoPeloUsuario.current = false;
         const vals: Record<number, number> = {};
         const logs: EntryLog[] = [];
         (res.data.itens || []).forEach((it: any, idx: number) => {
@@ -343,14 +394,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   };
 
   const handleSave = async () => {
-    if (!selectedMes) {
-      alert('Por favor, selecione o Mês/Ano de referência antes de salvar.');
-      return;
-    }
-    if (!user || !selectedCasa) {
-      alert('Selecione uma casa religiosa.');
-      return;
-    }
+    if (!user || !validarPeriodoECasa(isOwner)) return;
     setIsSaving(true);
 
     let finalAnexoPath = anexoUrl;
@@ -404,14 +448,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   };
 
   const handleFinalize = async () => {
-    if (!selectedMes) {
-      alert('Por favor, selecione o Mês/Ano de referência antes de enviar.');
-      return;
-    }
-    if (!user || !selectedCasa) {
-      alert('Selecione uma casa religiosa.');
-      return;
-    }
+    if (!user || !validarPeriodoECasa()) return;
 
     const isSuperiorSelf = isSuperior && (!selectedUserId || selectedUserId === user.id);
     const confirmMsg = isSuperiorSelf
@@ -578,9 +615,20 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
         <div className="filters-grid-premium">
           <div className="filter-item">
             <label><Calendar size={14} /> {t('planilha.month_year', 'Mês/Ano')}</label>
-            <MonthPicker value={selectedMes} onChange={setSelectedMes} />
+            <MonthPicker value={selectedMes} onChange={handleMesChange} />
           </div>
-          {(isAdminGeral || user?.is_oconomo || user?.is_superior) && (
+          {isOwner && !isAdminGeral ? (
+            <div className="filter-item">
+              <label>{t('planilha.active_community', 'Comunidade Religiosa Ativa')}</label>
+              <select className="select-with-arrow" value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)} disabled={!!planilha?.id}>
+                <option value="">{t('planilha.select_active_community', 'Selecione a comunidade...')}</option>
+                {casasAtivas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {selectedCasa && !casasAtivas.some(c => String(c.id) === selectedCasa) && (
+                  <option value={selectedCasa}>{casas.find(c => String(c.id) === selectedCasa)?.nome || selectedCasa}</option>
+                )}
+              </select>
+            </div>
+          ) : (isAdminGeral || user?.is_oconomo || user?.is_superior) && (
             <div className="filter-item">
               <label>{t('planilha.community', 'Casa Religiosa')}</label>
               <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)} disabled={!isAdminGeral || !!planilha || !!externalUsuarioId}>
@@ -600,6 +648,28 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
         </div>
       </div>
 
+      {isOwner && viewMode === 'individual' && (!selectedMes || !selectedCasa) && (
+        <div style={{ marginBottom: '20px', padding: '14px 18px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start', color: '#92400e', fontSize: '13px' }}>
+          <AlertCircle size={20} style={{ flexShrink: 0, color: '#d97706' }} />
+          <div>
+            <strong>{t('planilha.pending_requirements', 'Antes de prosseguir com a prestação de contas, selecione:')}</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
+              {!selectedMes && <li>{t('planilha.select_month_required', 'Selecione o Mês/Ano de referência no seletor para prosseguir com a prestação de contas.')}</li>}
+              {!selectedCasa && <li>{casasAtivasLoaded && casasAtivas.length === 0
+                ? t('planilha.no_active_community', 'Você não possui Comunidade Religiosa ativa vinculada. Procure o administrador.')
+                : t('planilha.select_community_required', 'Selecione a Comunidade Religiosa ativa antes de enviar as informações financeiras.')}</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {jaPrestado && viewMode === 'individual' && (
+        <div style={{ marginBottom: '20px', padding: '14px 18px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', color: '#991b1b', fontSize: '13px', fontWeight: 600 }}>
+          <AlertCircle size={20} style={{ flexShrink: 0, color: '#dc2626' }} />
+          {t('planilha.month_already_submitted', { mes: formatMonthLabel(selectedMes), defaultValue: 'Já foi realizada uma prestação de contas para o Mês/Ano {{mes}}. Selecione outro Mês/Ano.' })}
+        </div>
+      )}
+
       {(canValidate || isSuperior) && selectedUserId && (
         <div className="view-mode-tabs">
           <button className="mode-btn active" style={{ marginLeft: 'auto' }}>
@@ -611,7 +681,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       {viewMode === 'consolidado' ? (
         <div className="consolidado-container">
           <div className="consolidado-approval-card card-lite" style={{ marginBottom: '20px', borderTop: '4px solid #6366f1' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 style={{ margin: 0 }}>{t('planilha.consolidado_title')}</h3>
                 <p style={{ margin: '5px 0 0', opacity: 0.7 }}>{t('planilha.consolidado_desc')}</p>
@@ -621,7 +691,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               </span>
             </div>
 
-            <div className="approval-workflow" style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+            <div className="approval-workflow" style={{ marginTop: '20px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
               {user?.is_oconomo && consolidadoStatus?.status === 'PENDENTE_ECONOMO' && (
                 <button
                   className="btn-approve"
@@ -663,7 +733,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             )}
           </div>
 
-          <div className="data-table card-lite">
+          <div className="data-table card-lite fin-table-scroll">
             <table>
               <thead>
                 <tr>
@@ -716,12 +786,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             <div className="spreedsheet-header" style={{ marginBottom: '30px', borderBottom: '2px solid #013375', paddingBottom: '15px' }}>
               <div className="header-info">
                 <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#013375', margin: 0 }}>Prestação de Contas Mensal - Missionário</h3>
-                <div style={{ display: 'flex', gap: '30px', marginTop: '10px', fontSize: '0.95rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 30px', marginTop: '10px', fontSize: '0.95rem' }}>
                   <p style={{ margin: 0 }}>Missionário: <strong style={{ borderBottom: '1px dotted #000' }}>{selectedUserName || user?.nome}</strong></p>
                   <p style={{ margin: 0 }}>Data: <strong style={{ borderBottom: '1px dotted #000' }}>{selectedMes}</strong></p>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {planilha && (
                   <button className="btn-export-small" onClick={exportIndividualToExcel} style={{ background: '#10b981', color: 'white' }}>
                     <Download size={18} /> {t('financeiro.actions.export')}
@@ -759,7 +829,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
 
             {/* INSERTION FORM AREA */}
             {isOwner && !isLocked && (
-              <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <div className="insertion-fields-card" style={{ marginBottom: '20px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                 <div className="spreadsheet-insertion-grid">
                   {/* RECEITA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -790,7 +860,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       <input
                         type="text"
                         placeholder={t('planilha.obs_receita_placeholder', 'Observação da receita...')}
-                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        style={{ flex: 1, minWidth: 0, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsReceita}
                         onChange={e => setObsReceita(e.target.value)}
                       />
@@ -832,7 +902,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       <input
                         type="text"
                         placeholder={t('planilha.obs_despesa_placeholder', 'Observação da despesa...')}
-                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        style={{ flex: 1, minWidth: 0, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsDespesa}
                         onChange={e => setObsDespesa(e.target.value)}
                       />
@@ -1017,7 +1087,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                     placeholder={t('planilha.review_placeholder', 'Descreva aqui o motivo da devolução ou observações de aprovação...')}
                   />
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <button
                     className="btn-approve"
                     onClick={() => handleValidar('VALIDADO')}
@@ -1070,10 +1140,12 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
           background: 'linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%)',
         }}>
           {/* Header */}
-          <div style={{
+          <div className="fin-statement-header" style={{
             background: 'linear-gradient(90deg, #03077fff 0%, #453bf2ff 100%)',
             padding: '18px 24px',
             display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}>
@@ -1086,7 +1158,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>{t('planilha.financial_statement', 'Demonstrativo Financeiro')}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '24px' }}>
+            <div className="fin-statement-totals" style={{ display: 'flex', gap: '24px' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_receitas', 'Total Receitas')}</div>
                 <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totals.credito)}</div>
@@ -1104,11 +1176,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
             </div>
           </div>
 
-          <div style={{ padding: '24px' }}>
+          <div className="fin-statement-body" style={{ padding: '24px' }}>
 
             {/* ══ SEÇÃO — Lançamentos Individuais ══ */}
             <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                 <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#03077f,#453bf2)', borderRadius: '2px' }} />
                 <span style={{ fontWeight: 800, fontSize: '13px', color: '#312e81', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {t('planilha.individual_entries', 'Lançamentos Individuais')} ({entryLogs.length})
@@ -1118,8 +1190,8 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </span>
               </div>
               {entryLogs.length > 0 ? (
-                <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #c7d2fe' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <div style={{ borderRadius: '10px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #c7d2fe' }}>
+                  <table className="fin-log-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                       <tr style={{ background: 'linear-gradient(90deg,#03077fff,#453bf2ff)' }}>
                         <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.type', 'Tipo')}</th>
@@ -1200,7 +1272,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               return (
                 <>
                   <div style={{ borderTop: '2px dashed #c7d2fe', marginBottom: '20px' }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                     <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#059669,#dc2626)', borderRadius: '2px' }} />
                     <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {t('planilha.consolidated_summary', 'Resumo Consolidado')}
@@ -1209,7 +1281,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                       — {t('planilha.total_by_category', 'total por categoria')}
                     </span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="fin-grid-2">
                     <div style={{ border: '1px solid #a7f3d0', borderRadius: '10px', overflow: 'hidden' }}>
                       <div style={{ background: 'linear-gradient(90deg,#059669,#10b981)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <TrendingUp size={14} color="#fff" />

@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
-const { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail } = require('./emailService');
+const { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail, sendCorrecaoDadosEmail } = require('./emailService');
 const { validateCNPJ, formatCNPJ, cleanCNPJ } = require('./cnpjHelper');
 require('dotenv').config();
 
@@ -153,7 +153,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+// Larger limit so long itinerary observations fit (Vercel caps request bodies at 4.5MB)
+app.use(express.json({ limit: '4mb' }));
 
 // Method override middleware to allow PUT/DELETE via POST with custom header (avoiding 403 firewall blocks)
 app.use((req, res, next) => {
@@ -335,6 +336,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Death records (óbito) are restricted to Registro Regional and the system superuser
+const OBITO_ROLES = ['REGISTRO_REGIONAL', 'ADMIN_GERAL'];
+const OBITO_FIELDS = ['data_falecimento', 'cidade_falecimento', 'certidao_obito_path', 'local_sepultamento'];
+const canAccessObito = (user) => OBITO_ROLES.includes(user?.role);
+const stripObitoFields = (row, user) => {
+  if (!row || canAccessObito(user)) return row;
+  const clean = { ...row };
+  OBITO_FIELDS.forEach(f => { clean[f] = null; });
+  return clean;
+};
+
 // Health check (Enhanced for diagnostic)
 app.use(['/api/health', '/health'], (req, res) => {
   res.json({ 
@@ -435,11 +447,30 @@ async function ensureOptionalSchema() {
         exclaustrado_data DATE DEFAULT NULL,
         exclaustrado_processo VARCHAR(255) DEFAULT NULL,
         exclaustrado_doc_path VARCHAR(500) DEFAULT NULL,
+        transferido_data_inicio DATE DEFAULT NULL,
+        transferido_data_fim DATE DEFAULT NULL,
+        transferido_origem VARCHAR(255) DEFAULT NULL,
+        transferido_destino VARCHAR(255) DEFAULT NULL,
+        transferido_doc_path TEXT DEFAULT NULL,
+        transferido_observacao TEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `).catch(err => console.error('[BACKEND] Error creating tb_dados_situacao:', err?.message));
+
+    // 1.0 Solicitações de correção enviadas pelo missionário à Sede Regional
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_solicitacoes_correcao (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        secao VARCHAR(100) NOT NULL,
+        descricao TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'ABERTA',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch(err => console.error('[BACKEND] Error creating tb_solicitacoes_correcao:', err?.message));
 
     // 1.1 Ensure tb_historico_perfil table exists
     await db.query(`
@@ -525,7 +556,13 @@ async function ensureOptionalSchema() {
         table: 'tb_dados_situacao',
         columns: [
           { name: 'egresso_transf_sacerdotes_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN egresso_transf_sacerdotes_path VARCHAR(500) DEFAULT NULL" },
-          { name: 'exclaustrado_doc_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN exclaustrado_doc_path VARCHAR(500) DEFAULT NULL" }
+          { name: 'exclaustrado_doc_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN exclaustrado_doc_path VARCHAR(500) DEFAULT NULL" },
+          { name: 'transferido_data_inicio', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_data_inicio DATE DEFAULT NULL" },
+          { name: 'transferido_data_fim', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_data_fim DATE DEFAULT NULL" },
+          { name: 'transferido_origem', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_origem VARCHAR(255) DEFAULT NULL" },
+          { name: 'transferido_destino', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_destino VARCHAR(255) DEFAULT NULL" },
+          { name: 'transferido_doc_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_doc_path TEXT DEFAULT NULL" },
+          { name: 'transferido_observacao', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_observacao TEXT DEFAULT NULL" }
         ]
       }
     ];
@@ -551,6 +588,33 @@ async function ensureOptionalSchema() {
       }
     } catch (colErr) {
       console.error('[BACKEND] Could not alter foto_perfil to MEDIUMTEXT:', colErr?.message || colErr);
+    }
+
+    // Itinerary observations have no practical length limit (TEXT caps at 64KB)
+    try {
+      const [rows] = await db.query(`SHOW COLUMNS FROM tb_itinerario_formativo LIKE 'observacoes'`);
+      if (rows.length === 0) {
+        await db.query('ALTER TABLE tb_itinerario_formativo ADD COLUMN observacoes MEDIUMTEXT DEFAULT NULL');
+      } else if (!/mediumtext|longtext/i.test(rows[0].Type || '')) {
+        await db.query('ALTER TABLE tb_itinerario_formativo MODIFY COLUMN observacoes MEDIUMTEXT DEFAULT NULL');
+      }
+    } catch (colErr) {
+      console.error('[BACKEND] Could not alter itinerary observacoes to MEDIUMTEXT:', colErr?.message || colErr);
+    }
+
+    // Ensure tb_usuarios.situacao ENUM accepts TRANSFERIDO (keeps any existing values)
+    try {
+      const [rows] = await db.query(`SHOW COLUMNS FROM tb_usuarios LIKE 'situacao'`);
+      const type = rows[0]?.Type || '';
+      if (type.toLowerCase().startsWith('enum(') && !type.toUpperCase().includes("'TRANSFERIDO'")) {
+        const values = (type.match(/'([^']*)'/g) || []).map(v => v.slice(1, -1));
+        values.push('TRANSFERIDO');
+        const enumSql = values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+        await db.query(`ALTER TABLE tb_usuarios MODIFY COLUMN situacao ENUM(${enumSql}) DEFAULT 'ATIVO'`);
+        console.log('[BACKEND] Added TRANSFERIDO to tb_usuarios.situacao');
+      }
+    } catch (colErr) {
+      console.error('[BACKEND] Could not add TRANSFERIDO to situacao enum:', colErr?.message || colErr);
     }
     schemaEnsured = true;
   } catch (err) {
@@ -885,6 +949,227 @@ app.get('/api/meu-perfil', authenticateToken, async (req, res) => {
   }
 });
 
+// --- Meus Dados (visualização somente leitura para o missionário) ---
+app.get('/api/meus-dados', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const q = (sql) => db.query(sql, [userId]).then(([rows]) => rows).catch(() => []);
+  try {
+    const [
+      usuario, civis, nacionalidades, rgs, endereco, contatos, religiosos, casas,
+      itinerario, formacao, atividades, obras, saude, contas, documentos
+    ] = await Promise.all([
+      q('SELECT id, nome, login, role, situacao, foto_perfil FROM tb_usuarios WHERE id = ?'),
+      q('SELECT * FROM tb_dados_civis WHERE usuario_id = ?'),
+      q('SELECT nacionalidade, doc_path FROM tb_nacionalidades WHERE usuario_id = ?'),
+      q('SELECT numero, doc_path FROM tb_rgs WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_enderecos_contatos WHERE usuario_id = ?'),
+      q('SELECT parentesco, nome, endereco, telefone, email FROM tb_contatos WHERE usuario_id = ? ORDER BY id ASC'),
+      q('SELECT * FROM tb_dados_religiosos WHERE usuario_id = ?'),
+      q(`SELECT h.*, c.nome as casa_nome, c.cidade as casa_cidade, c.pais as casa_pais
+         FROM tb_missionario_casas h JOIN tb_casas_religiosas c ON h.casa_id = c.id
+         WHERE h.usuario_id = ? ORDER BY h.data_inicio DESC`),
+      q('SELECT * FROM tb_itinerario_formativo WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_formacao_academica WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_atividade_missionaria WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_obras_realizadas WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_saude WHERE usuario_id = ?'),
+      q('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?'),
+      q('SELECT id, descricao, arquivo_path, arquivo_nome, tipo_arquivo, data_upload FROM tb_documentos WHERE usuario_id = ? ORDER BY id DESC')
+    ]);
+    if (usuario.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    res.json({
+      usuario: usuario[0],
+      dadosCivis: civis[0] || null,
+      nacionalidades,
+      rgs,
+      enderecoContato: endereco[0] || null,
+      contatos,
+      dadosReligiosos: religiosos[0] || null,
+      casasHistorico: casas,
+      itinerario,
+      formacaoAcademica: formacao,
+      atividadesMissionarias: atividades,
+      obrasRealizadas: obras,
+      saude,
+      contasBancarias: contas,
+      documentos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Garante a estrutura da tabela de solicitações (não depende do ensureOptionalSchema, que não roda em serverless)
+let correcaoSchemaOk = false;
+async function ensureCorrecaoSchema() {
+  if (correcaoSchemaOk) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS tb_solicitacoes_correcao (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      secao VARCHAR(100) NOT NULL,
+      descricao TEXT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'ABERTA',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+  const [cols] = await db.query('SHOW COLUMNS FROM tb_solicitacoes_correcao');
+  const has = (c) => cols.some(col => col.Field === c);
+  if (!has('secao_key')) await db.query('ALTER TABLE tb_solicitacoes_correcao ADD COLUMN secao_key VARCHAR(50) DEFAULT NULL');
+  if (!has('campos')) await db.query('ALTER TABLE tb_solicitacoes_correcao ADD COLUMN campos TEXT DEFAULT NULL');
+  if (!has('resolvido_por')) await db.query('ALTER TABLE tb_solicitacoes_correcao ADD COLUMN resolvido_por INT DEFAULT NULL');
+  if (!has('resolvido_em')) await db.query('ALTER TABLE tb_solicitacoes_correcao ADD COLUMN resolvido_em DATETIME DEFAULT NULL');
+  correcaoSchemaOk = true;
+}
+
+// Seção da página "Meus Dados" → aba correspondente no perfil do missionário (gestão)
+const CORRECAO_SECAO_TAB = {
+  pessoais: 'dados', contato: 'contatos', religiosos: 'religiosos', comunidades: 'casas',
+  itinerario: 'itin_4.1', formacao: 'formacao_academica', atividades: 'atividade_missionaria',
+  obras: 'formacao_missao', saude: 'saude_individual', bancarios: 'contas_bancarias', documentos: 'dados'
+};
+
+const parseCampos = (raw) => {
+  if (!raw) return [];
+  try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : []; } catch { return []; }
+};
+
+// Quem pode ver/tratar solicitações de outros missionários (Sede Regional)
+const canTratarCorrecao = async (userId) => {
+  const [rows] = await db.query('SELECT role, nome FROM tb_usuarios WHERE id = ?', [userId]);
+  const u = rows[0];
+  if (!u) return false;
+  return ['ADMIN_GERAL', 'REGISTRO_REGIONAL', 'ADMINISTRADOR', 'SECRETARIO_REGIONAL'].includes(u.role)
+    || String(u.nome || '').trim().toLowerCase() === 'registro regional';
+};
+
+app.get('/api/meus-dados/correcoes', authenticateToken, async (req, res) => {
+  try {
+    await ensureCorrecaoSchema();
+    const [rows] = await db.query(
+      'SELECT id, secao, secao_key, campos, descricao, status, created_at, resolvido_em FROM tb_solicitacoes_correcao WHERE usuario_id = ? ORDER BY created_at DESC',
+      [req.user.id]
+    );
+    res.json(rows.map(r => ({ ...r, campos: parseCampos(r.campos) })));
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+app.post('/api/meus-dados/correcoes', authenticateToken, async (req, res) => {
+  const secao = String(req.body?.secao || '').trim().slice(0, 100);
+  const secaoKey = String(req.body?.secao_key || '').trim().slice(0, 50);
+  const descricao = String(req.body?.descricao || '').trim();
+  const campos = (Array.isArray(req.body?.campos) ? req.body.campos : [])
+    .map(c => String(c || '').trim().slice(0, 150))
+    .filter(Boolean)
+    .slice(0, 50);
+  if (!secao || !descricao) {
+    return res.status(400).json({ message: 'Informe a seção e descreva o que está incorreto.' });
+  }
+  if (campos.length === 0) {
+    return res.status(400).json({ message: 'Selecione ao menos um campo que precisa ser alterado.' });
+  }
+  try {
+    await ensureCorrecaoSchema();
+    const [result] = await db.query(
+      'INSERT INTO tb_solicitacoes_correcao (usuario_id, secao, secao_key, campos, descricao) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, secao, secaoKey || null, JSON.stringify(campos), descricao]
+    );
+    const solicitacaoId = result.insertId;
+
+    const [missRows] = await db.query('SELECT nome, login FROM tb_usuarios WHERE id = ?', [req.user.id]);
+    const missNome = missRows[0]?.nome || 'Um missionário';
+
+    // Somente o Registro Regional recebe: perfil REGISTRO_REGIONAL ou a conta "Registro Regional"
+    const [destinatarios] = await db.query(
+      "SELECT id FROM tb_usuarios WHERE (role = 'REGISTRO_REGIONAL' OR LOWER(TRIM(nome)) = 'registro regional') AND status = 'ATIVO' AND id != ?",
+      [req.user.id]
+    );
+    const tab = CORRECAO_SECAO_TAB[secaoKey] || 'dados';
+    const linkPath = `/missionarios/${req.user.id}?tab=${encodeURIComponent(tab)}&correcao=${solicitacaoId}`;
+    for (const d of destinatarios) {
+      await createNotification(
+        d.id,
+        `${missNome} solicitou correção na seção "${secao}" — campos: ${campos.join(', ')}.`,
+        'ALERTA',
+        linkPath
+      );
+    }
+
+    // E-mail para a Sede Regional com quem enviou, os campos, a observação, data e hora
+    const emailSede = (process.env.SEDE_REGIONAL_EMAIL || 'secretaria@scalabrinianos.com').trim();
+    await sendCorrecaoDadosEmail(emailSede, {
+      missionarioNome: missNome,
+      missionarioEmail: missRows[0]?.login || '',
+      secao,
+      campos,
+      descricao,
+      enviadoEm: new Date()
+    });
+
+    await logAction(req.user.id, 'SOLICITAR_CORRECAO_DADOS', 'tb_solicitacoes_correcao', `Seção: ${secao} | Campos: ${campos.join(', ')}`);
+    res.json({ success: true, id: solicitacaoId });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/correcoes/:id', authenticateToken, async (req, res) => {
+  try {
+    await ensureCorrecaoSchema();
+    const [rows] = await db.query(`
+      SELECT s.*, u.nome AS missionario_nome, u.login AS missionario_email, r.nome AS resolvido_por_nome
+      FROM tb_solicitacoes_correcao s
+      JOIN tb_usuarios u ON u.id = s.usuario_id
+      LEFT JOIN tb_usuarios r ON r.id = s.resolvido_por
+      WHERE s.id = ?
+    `, [req.params.id]);
+    const sol = rows[0];
+    if (!sol) return res.status(404).json({ message: 'Solicitação não encontrada.' });
+    if (sol.usuario_id !== req.user.id && !(await canTratarCorrecao(req.user.id))) {
+      return res.status(403).json({ message: 'Acesso negado.' });
+    }
+    const tab = CORRECAO_SECAO_TAB[sol.secao_key] || 'dados';
+    res.json({
+      ...sol,
+      campos: parseCampos(sol.campos),
+      tab,
+      link_path: `/missionarios/${sol.usuario_id}?tab=${encodeURIComponent(tab)}&correcao=${sol.id}`
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/correcoes/:id/resolver', authenticateToken, async (req, res) => {
+  try {
+    await ensureCorrecaoSchema();
+    if (!(await canTratarCorrecao(req.user.id))) return res.status(403).json({ message: 'Acesso negado.' });
+    const [rows] = await db.query('SELECT id, usuario_id, secao, status FROM tb_solicitacoes_correcao WHERE id = ?', [req.params.id]);
+    const sol = rows[0];
+    if (!sol) return res.status(404).json({ message: 'Solicitação não encontrada.' });
+    if (sol.status !== 'RESOLVIDA') {
+      await db.query(
+        "UPDATE tb_solicitacoes_correcao SET status = 'RESOLVIDA', resolvido_por = ?, resolvido_em = NOW() WHERE id = ?",
+        [req.user.id, sol.id]
+      );
+      await createNotification(
+        sol.usuario_id,
+        `Sua solicitação de correção na seção "${sol.secao}" foi resolvida pela Sede Regional.`,
+        'SUCESSO',
+        '/meus-dados'
+      );
+      await logAction(req.user.id, 'RESOLVER_CORRECAO_DADOS', 'tb_solicitacoes_correcao', `Solicitação ${sol.id} resolvida`);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 app.put('/api/meu-perfil', authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const { nome } = req.body;
@@ -1152,7 +1437,7 @@ const handleGetPerfilCompleto = async (req, res) => {
       observacoesGerais: obsRows[0] || [],
       quadroPessoal: quadroRows[0][0] || null,
       contatos: contRows[0] || [],
-      situacaoData: sitRows[0][0] || null,
+      situacaoData: stripObitoFields(sitRows[0][0], req.user) || null,
       historicoSituacao: hSitRows[0] || [],
       historicoPerfil: hPerfRows[0] || []
     });
@@ -2816,7 +3101,7 @@ app.delete('/api/usuarios/:id/observacoes-gerais/:oid', authenticateToken, async
 app.get('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
-    res.json(rows[0] || null);
+    res.json(stripObitoFields(rows[0], req.user) || null);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -2828,8 +3113,10 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
     egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
     egresso_transf_sacerdotes_path,
     egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
-    exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path
+    exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path,
+    transferido_data_inicio, transferido_data_fim, transferido_origem, transferido_destino, transferido_observacao
   } = req.body;
+  const obitoAllowed = canAccessObito(req.user);
   
   try {
     const [existing] = await db.query('SELECT id FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
@@ -2837,9 +3124,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
     if (existing.length > 0) {
       await db.query(`
         UPDATE tb_dados_situacao SET 
-          data_falecimento = ?, cidade_falecimento = ?, 
-          certidao_obito_path = COALESCE(?, certidao_obito_path), 
-          local_sepultamento = ?,
+          ${obitoAllowed ? 'data_falecimento = ?, cidade_falecimento = ?, certidao_obito_path = COALESCE(?, certidao_obito_path), local_sepultamento = ?,' : ''}
           egresso_incardinado_path = COALESCE(?, egresso_incardinado_path), 
           egresso_desistencia_path = COALESCE(?, egresso_desistencia_path), 
           egresso_laicizado_path = COALESCE(?, egresso_laicizado_path),
@@ -2847,13 +3132,17 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
           egresso_transf_para_regiao_path = COALESCE(?, egresso_transf_para_regiao_path), 
           egresso_transf_da_regiao_path = COALESCE(?, egresso_transf_da_regiao_path),
           exclaustrado_data = ?, exclaustrado_processo = ?, 
-          exclaustrado_doc_path = COALESCE(?, exclaustrado_doc_path)
+          exclaustrado_doc_path = COALESCE(?, exclaustrado_doc_path),
+          transferido_data_inicio = ?, transferido_data_fim = ?,
+          transferido_origem = ?, transferido_destino = ?, transferido_observacao = ?
         WHERE usuario_id = ?
       `, [
-        sanitizeDate(data_falecimento), 
-        sanitizeString(cidade_falecimento), 
-        sanitizeString(certidao_obito_path), 
-        sanitizeString(local_sepultamento),
+        ...(obitoAllowed ? [
+          sanitizeDate(data_falecimento), 
+          sanitizeString(cidade_falecimento), 
+          sanitizeString(certidao_obito_path), 
+          sanitizeString(local_sepultamento)
+        ] : []),
         sanitizeString(egresso_incardinado_path), 
         sanitizeString(egresso_desistencia_path), 
         sanitizeString(egresso_laicizado_path),
@@ -2863,6 +3152,11 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeDate(exclaustrado_data), 
         sanitizeString(exclaustrado_processo), 
         sanitizeString(exclaustrado_doc_path),
+        sanitizeDate(transferido_data_inicio),
+        sanitizeDate(transferido_data_fim),
+        sanitizeString(transferido_origem),
+        sanitizeString(transferido_destino),
+        sanitizeString(transferido_observacao),
         req.params.id
       ]);
     } else {
@@ -2872,14 +3166,15 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
           egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
           egresso_transf_sacerdotes_path,
           egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
-          exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path,
+          transferido_data_inicio, transferido_data_fim, transferido_origem, transferido_destino, transferido_observacao
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         req.params.id, 
-        sanitizeDate(data_falecimento), 
-        sanitizeString(cidade_falecimento), 
-        sanitizeString(certidao_obito_path), 
-        sanitizeString(local_sepultamento),
+        obitoAllowed ? sanitizeDate(data_falecimento) : null, 
+        obitoAllowed ? sanitizeString(cidade_falecimento) : null, 
+        obitoAllowed ? sanitizeString(certidao_obito_path) : null, 
+        obitoAllowed ? sanitizeString(local_sepultamento) : null,
         sanitizeString(egresso_incardinado_path), 
         sanitizeString(egresso_desistencia_path), 
         sanitizeString(egresso_laicizado_path),
@@ -2888,7 +3183,12 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeString(egresso_transf_da_regiao_path),
         sanitizeDate(exclaustrado_data), 
         sanitizeString(exclaustrado_processo),
-        sanitizeString(exclaustrado_doc_path)
+        sanitizeString(exclaustrado_doc_path),
+        sanitizeDate(transferido_data_inicio),
+        sanitizeDate(transferido_data_fim),
+        sanitizeString(transferido_origem),
+        sanitizeString(transferido_destino),
+        sanitizeString(transferido_observacao)
       ]);
     }
     res.json({ success: true });
@@ -2918,6 +3218,15 @@ app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) 
     if (!allowedCampos.includes(campo)) {
       return res.status(400).json({ message: 'Campo inválido' });
     }
+    if (campo === 'certidao_obito_path') {
+      if (!canAccessObito(req.user)) {
+        return res.status(403).json({ message: 'Acesso restrito ao Registro Regional' });
+      }
+      const ext = path.extname(req.file.originalname || '').toLowerCase();
+      if (!['.pdf', '.png', '.jpg', '.jpeg'].includes(ext)) {
+        return res.status(400).json({ message: 'A certidão de óbito deve ser PDF, PNG ou JPG.' });
+      }
+    }
 
     try {
       const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
@@ -2940,6 +3249,63 @@ app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) 
   });
 });
 
+// Anexos de transferência (até 4 documentos, guardados em transferido_doc_path separados por vírgula)
+const MAX_TRANSFERIDO_DOCS = 4;
+const parseDocPaths = (value) => (value || '').split(',').map(p => p.trim()).filter(Boolean);
+
+app.post('/api/usuarios/:id/situacao/transferido-doc', authenticateToken, (req, res) => {
+  upload.single('arquivo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo enviado' });
+
+    try {
+      const [existing] = await db.query('SELECT transferido_doc_path FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
+      const paths = parseDocPaths(existing[0]?.transferido_doc_path);
+      if (paths.length >= MAX_TRANSFERIDO_DOCS) {
+        return res.status(400).json({ message: `Limite de ${MAX_TRANSFERIDO_DOCS} anexos de transferência atingido.` });
+      }
+
+      const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+      const mimeType = req.file.mimetype || getMimeType(req.file.filename);
+      if (fileBuffer) {
+        await saveUploadedFileToDb(req.file.filename, fileBuffer, mimeType, req.file.originalname);
+      }
+      const filePath = `/uploads/documentos/${req.file.filename}`;
+      const newValue = [...paths, filePath].join(',');
+      if (existing.length > 0) {
+        await db.query('UPDATE tb_dados_situacao SET transferido_doc_path = ? WHERE usuario_id = ?', [newValue, req.params.id]);
+      } else {
+        await db.query('INSERT INTO tb_dados_situacao (usuario_id, transferido_doc_path) VALUES (?, ?)', [req.params.id, newValue]);
+      }
+      res.json({ success: true, filePath, transferido_doc_path: newValue });
+    } catch (error) {
+      console.error('Error uploading transferido doc:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+});
+
+const handleRemoveTransferidoDoc = async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  try {
+    const [existing] = await db.query('SELECT transferido_doc_path FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
+    const paths = parseDocPaths(existing[0]?.transferido_doc_path);
+    if (Number.isNaN(index) || index < 0 || index >= paths.length) {
+      return res.status(400).json({ message: 'Anexo não encontrado' });
+    }
+    paths.splice(index, 1);
+    const newValue = paths.length ? paths.join(',') : null;
+    await db.query('UPDATE tb_dados_situacao SET transferido_doc_path = ? WHERE usuario_id = ?', [newValue, req.params.id]);
+    res.json({ success: true, transferido_doc_path: newValue || '' });
+  } catch (error) {
+    console.error('Error removing transferido doc:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+app.delete('/api/usuarios/:id/situacao/transferido-doc/:index', authenticateToken, handleRemoveTransferidoDoc);
+app.post('/api/usuarios/:id/situacao/transferido-doc/:index/delete', authenticateToken, handleRemoveTransferidoDoc);
+
 // Remover documento específico de situação
 const handleRemoveSituacaoDoc = async (req, res) => {
   const { id, campo } = req.params;
@@ -2955,6 +3321,9 @@ const handleRemoveSituacaoDoc = async (req, res) => {
   ];
   if (!allowedCampos.includes(campo)) {
     return res.status(400).json({ message: 'Campo inválido' });
+  }
+  if (campo === 'certidao_obito_path' && !canAccessObito(req.user)) {
+    return res.status(403).json({ message: 'Acesso restrito ao Registro Regional' });
   }
 
   try {
@@ -3092,13 +3461,38 @@ app.get('/api/financas-mensais/historico/casa/:casa_id', authenticateToken, asyn
 
 app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
   const { usuario_id, casa_id, mes_referencia, itens, total_credito, total_debito, num_missas_superior, anexo_path, obs_receita, obs_despesa, status } = req.body;
+  if (!mes_referencia || !/^\d{4}-\d{2}$/.test(mes_referencia)) {
+    return res.status(400).json({ message: 'Selecione o Mês/Ano de referência para prosseguir com a prestação de contas.' });
+  }
+  if (!casa_id) {
+    return res.status(400).json({ message: 'Selecione a Comunidade Religiosa ativa antes de enviar as informações financeiras.' });
+  }
+  const isProprioMissionario = Number(usuario_id) === Number(req.user.id);
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
     // Check if exists
     const [existing] = await connection.query('SELECT id, status FROM tb_financas_mensais WHERE usuario_id = ? AND mes_referencia = ?', [usuario_id, mes_referencia]);
-    
+
+    // O missionário não pode refazer a prestação de um Mês/Ano já enviado ou validado
+    if (isProprioMissionario && existing.length > 0 && ['EM_VALIDACAO', 'VALIDADO'].includes(existing[0].status) && req.user.role !== 'ADMIN_GERAL') {
+      await connection.rollback();
+      return res.status(409).json({ message: `Já foi realizada uma prestação de contas para o Mês/Ano ${mes_referencia}.` });
+    }
+
+    // Na prestação própria, a comunidade deve ser uma das comunidades ativas do missionário
+    if (isProprioMissionario && existing.length === 0 && req.user.role !== 'ADMIN_GERAL') {
+      const [ativa] = await connection.query(
+        'SELECT 1 FROM tb_missionario_casas WHERE usuario_id = ? AND casa_id = ? AND (data_fim IS NULL OR data_fim >= CURDATE()) LIMIT 1',
+        [usuario_id, casa_id]
+      );
+      if (ativa.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: 'Selecione a Comunidade Religiosa ativa antes de enviar as informações financeiras.' });
+      }
+    }
+
     let planilhaId;
     if (existing.length > 0) {
       if (existing[0].status === 'VALIDADO' && req.user.role !== 'ADMIN_GERAL') {

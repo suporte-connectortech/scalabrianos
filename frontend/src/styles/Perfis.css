@@ -96,7 +96,11 @@
     background: white;
     border-radius: 12px;
     border: 1px solid var(--border-color);
-    overflow: hidden;
+    /* scroll instead of clipping when the table is wider than the container (tablets) */
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
 }
 
 table {
@@ -203,6 +207,11 @@ td {
 .situacao-tag.exclaustrado {
     color: #c2410c;
     border-color: #c2410c;
+}
+
+.situacao-tag.transferido {
+    color: #1d4ed8;
+    border-color: #1d4ed8;
 }
 
 .btn-icon-view,
@@ -443,5 +452,126 @@ td {
         width: 95% !important;
         max-width: 95vw !important;
         padding: 1.25rem !important;
+    }
+}
+@media (max-width: 768px) {
+    .page-header h2 {
+        overflow-wrap: anywhere;
+    }
+
+    .filters-card .btn-filter {
+        min-height: 44px;
+        justify-content: center;
+    }
+
+    .btn-new {
+        min-height: 44px;
+    }
+
+    .btn-icon-view,
+    .btn-icon-delete {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn {
+        min-width: 40px;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .modal-header {
+        gap: 0.75rem;
+    }
+
+    .modal-footer {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+    }
+
+    .modal-footer .btn-cancel,
+    .modal-footer .btn-save {
+        flex: 1 1 auto;
+        min-height: 44px;
+        justify-content: center;
+    }
+}
+
+/* ── Administradores: modal de acesso (scoped) ─────────────── */
+.casa-wizard-add-fields.admin-casa-add-fields {
+    display: grid;
+    grid-template-columns: 1.2fr 2fr 1fr 1.2fr 1.2fr;
+    gap: 12px;
+}
+
+@media (max-width: 900px) {
+    .casa-wizard-add-fields.admin-casa-add-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-content.admin-modal-container {
+        padding: 0 !important;
+        max-height: 92vh !important;
+        max-height: 92dvh !important;
+    }
+
+    .admin-modal-container > .modal-header {
+        padding: 14px 16px !important;
+        margin-bottom: 0;
+    }
+
+    .admin-modal-container .admin-modal-pane {
+        padding: 16px !important;
+    }
+
+    .admin-modal-container .modal-footer.admin-modal-footer {
+        padding: 14px 16px !important;
+        padding-bottom: calc(14px + var(--safe-area-bottom, 0px)) !important;
+        margin-top: 0;
+    }
+
+    .admin-modal-actions {
+        width: 100%;
+    }
+
+    .admin-modal-actions > button {
+        flex: 1 1 auto;
+        min-height: 44px;
+        justify-content: center;
+    }
+
+    .admin-modal-container .btn-remove-wz {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .admin-pagination button {
+        min-width: 44px;
+        min-height: 40px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-role-status-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .casa-wizard-add-fields.admin-casa-add-fields {
+        grid-template-columns: 1fr;
     }
 }

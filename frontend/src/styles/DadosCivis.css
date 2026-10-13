@@ -164,3 +164,46 @@ input:disabled {
     background-color: #f1f5f9;
     cursor: not-allowed;
 }
+/* ── Mobile Responsive (App Mobile View) ─────────────────── */
+@media (max-width: 768px) {
+    .module-container .page-header {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .module-container .btn-save-main {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+    }
+
+    .module-container .form-card {
+        padding: 1.15rem;
+    }
+
+    .module-container .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .module-container .form-grid > .full-row,
+    .module-container .form-grid > .form-group.full-row {
+        grid-column: 1 / -1;
+    }
+
+    .module-container .input-with-upload input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .module-container .btn-upload,
+    .module-container .btn-remove {
+        min-width: 42px;
+        justify-content: center;
+    }
+
+    .module-container .btn-add-circle {
+        width: 32px;
+        height: 32px;
+    }
+}

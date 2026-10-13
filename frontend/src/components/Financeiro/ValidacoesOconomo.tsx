@@ -278,7 +278,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                 flexDirection: 'column',
                 gap: '12px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <FileText size={14} /> {item.mes_referencia}
                   </span>
@@ -317,7 +317,7 @@ const ValidacoesOconomo: React.FC<Props> = ({ casas, categorias, tipo }) => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
                   {/* Individual Item Status tag */}
                   {(item.status === 'VALIDADO' || item.status === 'APROVADO') && (
                     <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>

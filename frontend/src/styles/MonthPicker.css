@@ -200,3 +200,31 @@
   color: #0284c7;
   background: #eff6ff;
 }
+
+/* ── Mobile: popover fits viewport + larger tap targets ─────── */
+@media (max-width: 768px) {
+  .custom-month-picker-popover {
+    width: 100%;
+    min-width: 240px;
+    max-width: calc(100vw - 32px);
+    max-width: calc(100dvw - 32px);
+    box-sizing: border-box;
+  }
+
+  .picker-nav-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .picker-month-btn {
+    min-height: 42px;
+    font-size: 0.9rem;
+    touch-action: manipulation;
+  }
+
+  .picker-footer-btn {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+}

@@ -81,7 +81,7 @@ const Home: React.FC = () => {
       </div>
 
       {isAdm && (
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        <div className="stats-grid home-stats-grid">
           {stats.map((stat, index) => (
             <div 
               key={index} 
@@ -101,9 +101,9 @@ const Home: React.FC = () => {
         </div>
       )}
 
-      <div className="dashboard-content" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+      <div className="dashboard-content home-dashboard-content">
         <div className="map-section card-lite" style={{ padding: '0', overflow: 'hidden', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
-          <div className="section-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+          <div className="section-header home-map-header" style={{ borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Globe size={20} className="text-primary" /> {t('dashboard.sede_title', 'Sede Regional RNSMM')}
             </h3>
@@ -119,8 +119,8 @@ const Home: React.FC = () => {
                 allowFullScreen
             ></iframe>
           </div>
-          <div style={{ padding: '15px 24px', background: '#f8fafc', fontSize: '13px', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="home-map-footer" style={{ background: '#f8fafc', fontSize: '13px', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <span>R. Dr. Mário Vicente, 1108 - Ipiranga, São Paulo - SP, 04270-001</span>
               <button 
                   onClick={() => navigate('/mapa')}
@@ -129,14 +129,14 @@ const Home: React.FC = () => {
                   {t('common.view_details', 'Ver Detalhes')} <ArrowRight size={14} />
               </button>
             </div>
-            <div style={{ display: 'flex', gap: '20px', fontSize: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> +55 11 97286-1612</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Mail size={12} /> faleconosco@scalabrinianos.com</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflowWrap: 'anywhere' }}><Mail size={12} /> faleconosco@scalabrinianos.com</span>
             </div>
           </div>
         </div>
 
-        <div className="activity-section card-lite" style={{ padding: '24px' }}>
+        <div className="activity-section card-lite home-activity-section">
           <div className="section-header">
             <h3>{t('dashboard.recent_activity')}</h3>
           </div>

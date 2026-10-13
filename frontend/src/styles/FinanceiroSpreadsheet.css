@@ -382,3 +382,340 @@
         justify-content: center;
     }
 }
+
+/* ── Shared helpers (Planilhas / Gestão / Extratos) ───────────── */
+.insertion-fields-card {
+    padding: 24px;
+}
+
+.fin-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.fin-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+/* Tables inside financial screens scroll inside their own box */
+.fin-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
+
+/* GestaoFinanceira details modal: zero-specificity fallback so the modal
+   still works when no other page CSS defining .modal-overlay is loaded */
+:where(.fin-details-overlay) {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+:where(.fin-details-modal) {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+:where(.fin-details-modal .modal-header) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+:where(.fin-details-modal .modal-footer) {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* GestaoFinanceira: missionary autocomplete list floats over content */
+.search-missionary-field .autocomplete-wrapper {
+    position: relative;
+}
+
+.search-missionary-field .autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    max-height: 240px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+}
+
+.search-missionary-field .dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.search-missionary-field .dropdown-item:hover {
+    background: #f1f5f9;
+}
+
+@media (max-width: 768px) {
+    /* Tab bars: horizontal scroll instead of stacking */
+    .financeiro-tabs {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 4px;
+    }
+    .tab-btn {
+        width: auto;
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 10px 14px;
+        min-height: 42px;
+    }
+
+    .mode-btn {
+        min-height: 40px;
+    }
+
+    .spreedsheet-header h3 {
+        font-size: 1.15rem !important;
+        line-height: 1.3;
+    }
+
+    .insertion-fields-card {
+        padding: 14px;
+    }
+
+    .spreadsheet-summary label.btn-save {
+        height: auto !important;
+        min-height: 44px;
+        padding: 10px 16px !important;
+        justify-content: center;
+        text-align: center;
+        word-break: break-word;
+    }
+
+    .spreadsheet-summary .btn-save {
+        height: auto !important;
+        min-height: 44px;
+        padding: 10px 16px !important;
+    }
+
+    .btn-approve,
+    .btn-reject {
+        min-height: 42px;
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .fin-grid-2,
+    .fin-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fin-summary-grid h3 {
+        font-size: 1.15rem;
+        word-break: break-word;
+    }
+
+    .fin-table-scroll table {
+        min-width: 620px;
+    }
+
+    .fin-table-scroll .clean-input {
+        min-width: 90px;
+    }
+
+    /* Larger tap targets in table action cells */
+    .fin-table-scroll .btn-icon-view,
+    .fin-row-actions .btn-ok,
+    .fin-row-actions .btn-no {
+        width: 38px;
+        height: 38px;
+    }
+
+    /* Demonstrativo (statement) header & body */
+    .fin-statement-header {
+        padding: 14px 16px !important;
+    }
+    .fin-statement-totals {
+        width: 100%;
+        justify-content: space-between;
+        gap: 10px !important;
+    }
+    .fin-statement-totals > div > div:last-child {
+        font-size: 15px !important;
+    }
+    .fin-statement-body {
+        padding: 14px !important;
+    }
+    .fin-log-table {
+        min-width: 560px;
+    }
+
+    /* GestaoFinanceira filters: stack, full width */
+    .filters-card-simple .filters-row {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .filters-card-simple .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+    }
+    .filters-card-simple .filter-field select,
+    .filters-card-simple .filter-field input {
+        width: 100%;
+        min-height: 42px;
+        box-sizing: border-box;
+    }
+    .search-missionary-field .dropdown-item {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* GestaoFinanceira details modal */
+    .modal-content.fin-details-modal {
+        padding: 1rem !important;
+        width: 100% !important;
+        max-width: calc(100vw - 2rem) !important;
+        max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .fin-details-modal .modal-header {
+        gap: 10px;
+    }
+    .fin-details-modal .modal-header h3 {
+        font-size: 1.05rem;
+        line-height: 1.3;
+    }
+    .fin-details-modal .btn-close {
+        min-width: 40px;
+        min-height: 40px;
+        flex-shrink: 0;
+    }
+    .fin-details-modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none !important;
+        padding: 12px 4px !important;
+    }
+
+    /* ExtratosMensais */
+    .extratos-page {
+        padding: 0 !important;
+    }
+    .extratos-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+    }
+    .extratos-tabs > button {
+        flex-shrink: 0;
+        white-space: nowrap;
+        min-height: 42px;
+        padding: 10px 14px !important;
+    }
+    .extratos-filter-field {
+        width: 100%;
+        min-width: 0 !important;
+    }
+    .extratos-month-row {
+        min-width: 0 !important;
+    }
+    .extratos-month-row > button {
+        min-height: 42px;
+        flex-shrink: 0;
+    }
+    .extratos-filter-field select {
+        height: 42px !important;
+        width: 100%;
+    }
+    /* Sticky "Mês Referência" column while scrolling the table */
+    .extratos-table th:first-child,
+    .extratos-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        box-shadow: 1px 0 0 #e2e8f0;
+    }
+    .extratos-table th:first-child {
+        background: #f8fafc;
+    }
+    .extratos-table td:first-child {
+        background: #fff;
+    }
+    .extratos-table th,
+    .extratos-table td {
+        padding: 12px 14px !important;
+    }
+    .extratos-pagination button {
+        min-width: 42px;
+        min-height: 42px;
+        justify-content: center;
+    }
+    .extratos-modal-overlay {
+        padding: 1rem !important;
+    }
+    .extratos-modal-header,
+    .extratos-modal-body {
+        padding: 16px !important;
+    }
+    .extratos-modal-footer {
+        padding: 12px 16px !important;
+    }
+    .extratos-modal-footer button {
+        min-height: 42px;
+        width: 100%;
+    }
+}
+
+@supports (height: 100dvh) {
+    .extratos-modal {
+        max-height: 90dvh !important;
+    }
+}
+
+/* Seta indicando que o seletor pode ser aberto (ex.: Comunidade Religiosa Ativa) */
+.filter-item select.select-with-arrow,
+.filter-item select.select-with-arrow:focus {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+
+.filter-item select.select-with-arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

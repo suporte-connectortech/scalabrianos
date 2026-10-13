@@ -501,7 +501,7 @@ const CasasReligiosas: React.FC = () => {
           <HomeIcon size={24} />
           <h2>{t('casas.title')}</h2>
         </div>
-        <div className="header-actions">
+        <div className="header-actions casas-header-actions">
           <button className="btn-print-report" onClick={handlePrintHouses} title={t('casas.print_report', 'Imprimir listagem completa')}>
             <Printer size={18} /> {t('casas.print_report', 'Imprimir Relatório')}
           </button>
@@ -580,7 +580,7 @@ const CasasReligiosas: React.FC = () => {
         </div>
       ) : (
         <div className="data-table">
-          <table>
+          <table className="casas-table">
             <thead>
               <tr>
                 <th>{t('missionaries.table.id', 'ID')}</th>
@@ -657,7 +657,7 @@ const CasasReligiosas: React.FC = () => {
       )}
 
       {totalPages > 1 && (
-        <div className="pagination">
+        <div className="pagination casas-pagination">
           <button
             className="pagination-btn"
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -679,8 +679,8 @@ const CasasReligiosas: React.FC = () => {
       )}
 
       {isModalOpen && editingHouse && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay casas-modal-overlay">
+          <div className="modal-content casas-modal">
             <div className="modal-header">
               <h3>{editingHouse.id === 0 ? t('casas.new_house') : t('casas.edit_house')}</h3>
               <button className="close-btn" onClick={() => setIsModalOpen(false)}>
@@ -982,7 +982,7 @@ const CasasReligiosas: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemovePendingFile(idx)}
-                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', minWidth: '36px', minHeight: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Remover anexo"
                         >
                           <Trash2 size={15} />
@@ -1023,7 +1023,7 @@ const CasasReligiosas: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleDeleteExistingDoc(doc.id)}
-                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                          style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '4px', minWidth: '36px', minHeight: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Excluir documento"
                         >
                           <Trash2 size={15} />

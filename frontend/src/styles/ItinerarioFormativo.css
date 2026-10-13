@@ -103,3 +103,35 @@ textarea:disabled {
     background-color: #f1f5f9;
     cursor: not-allowed;
 }
+/* ── Mobile Responsive (App Mobile View) ─────────────────── */
+@media (max-width: 768px) {
+    .itinerary-dashboard .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .itinerary-dashboard .form-grid > .full-row {
+        grid-column: 1 / -1;
+    }
+
+    .itinerary-dashboard .multi-input {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .itinerary-dashboard .multi-input input {
+        width: 100%;
+    }
+
+    .itin-page-header {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .itin-page-header .btn-save-main {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+    }
+}

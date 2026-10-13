@@ -434,7 +434,7 @@ const GestaoFinanceira: React.FC = () => {
 
       {/* Summary cards */}
       {selectedCasa && filteredMissionarios.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '20px' }}>
+        <div className="fin-summary-grid">
           <div className="card-lite" style={{ padding: '16px', textAlign: 'center', borderTop: '3px solid #10b981' }}>
             <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>{t('gestao_financeira.total_credits', 'Total Créditos')}</p>
             <h3 style={{ margin: '6px 0 0', color: '#10b981' }}>{formatCurrency(totalCredito)}</h3>
@@ -451,7 +451,7 @@ const GestaoFinanceira: React.FC = () => {
       )}
 
       {/* Missionaries table */}
-      <div className="data-table card-lite">
+      <div className="data-table card-lite fin-table-scroll">
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>{t('common.loading', 'Carregando...')}</div>
         ) : !selectedCasa ? (
@@ -489,7 +489,7 @@ const GestaoFinanceira: React.FC = () => {
                       {formatCurrency(saldo)}
                     </td>
                     <td className="center">
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <div className="fin-row-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                         <button className="btn-icon-view" onClick={() => loadDetails(m)} title={t('gestao_financeira.view_details', 'Ver Detalhes')}>
                           <FileText size={16} />
                         </button>
@@ -527,23 +527,23 @@ const GestaoFinanceira: React.FC = () => {
       </div>
 
       {showDetails && (
-        <div className="modal-overlay" onClick={() => setShowDetails(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
+        <div className="modal-overlay fin-details-overlay" onClick={() => setShowDetails(null)}>
+          <div className="modal-content fin-details-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
             <div className="modal-header">
               <h3>{t('gestao_financeira.details_title', 'Detalhes Financeiros')} - {showDetails.usuario_nome || t('gestao_financeira.missionary', 'Missionário')}</h3>
               <button onClick={() => setShowDetails(null)} className="btn-close">✕</button>
             </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '20px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div className="modal-body fin-details-modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '20px' }}>
+              <div className="fin-grid-2" style={{ gap: '20px' }}>
                 <div>
                   <h4 style={{ color: '#10b981', borderBottom: '1px solid #dcfce7', paddingBottom: '8px', marginBottom: '12px' }}>{t('gestao_financeira.credits', 'Créditos')}</h4>
                   {categorias.filter(c => c.tipo === 'CREDITO').map(cat => {
                     const item = showDetails.itens?.find((i: any) => i.categoria_id === cat.id);
                     if (!item || parseFloat(item.valor) === 0) return null;
                     return (
-                      <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
+                      <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '14px', marginBottom: '8px' }}>
                         <span>{cat.codigo && <b style={{ color: '#ef4444', marginRight: '8px' }}>{cat.codigo}</b>}{cat.nome}</span>
-                        <span className="bold">{formatCurrency(parseFloat(item.valor))}</span>
+                        <span className="bold" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(parseFloat(item.valor))}</span>
                       </div>
                     );
                   })}
@@ -558,9 +558,9 @@ const GestaoFinanceira: React.FC = () => {
                     const item = showDetails.itens?.find((i: any) => i.categoria_id === cat.id);
                     if (!item || parseFloat(item.valor) === 0) return null;
                     return (
-                      <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
+                      <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '14px', marginBottom: '8px' }}>
                         <span>{cat.codigo && <b style={{ color: '#ef4444', marginRight: '8px' }}>{cat.codigo}</b>}{cat.nome}</span>
-                        <span className="bold">{formatCurrency(parseFloat(item.valor))}</span>
+                        <span className="bold" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(parseFloat(item.valor))}</span>
                       </div>
                     );
                   })}
@@ -585,7 +585,7 @@ const GestaoFinanceira: React.FC = () => {
       )}
 
       {detailsLoading && (
-        <div className="modal-overlay" style={{ background: 'rgba(255,255,255,0.7)' }}>
+        <div className="modal-overlay fin-details-overlay" style={{ background: 'rgba(255,255,255,0.7)' }}>
           <Loader2 className="animate-spin" size={40} color="#013375" />
         </div>
       )}

@@ -502,7 +502,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
         <div className="spreedsheet-header" style={{ marginBottom: '30px', borderBottom: '2px solid #013375', paddingBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div className="header-info">
             <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#013375', margin: 0 }}>{t('planilha.comunidade_title', 'Prestação de Contas MENSAL - Casa Religiosa')}</h3>
-            <div style={{ display: 'flex', gap: '30px', marginTop: '10px', fontSize: '0.95rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 30px', marginTop: '10px', fontSize: '0.95rem', alignItems: 'center' }}>
               <p style={{ margin: 0, color: '#64748b', fontWeight: 500 }}>{t('planilha.instruction_comunidade', 'Preenchimento pelo ecônomo ou superior local.')}</p>
               {planilha && (
                 <span className={`status-tag ${(planilha.status || '').toLowerCase()}`} style={{
@@ -569,7 +569,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
             </div>
 
             {!isLocked && (
-              <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <div className="insertion-fields-card" style={{ marginBottom: '20px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                 <div className="spreadsheet-insertion-grid">
                   {/* RECEITA COL */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -600,7 +600,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       <input
                         type="text"
                         placeholder={t('planilha.obs_receita_placeholder', 'Observação da receita...')}
-                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        style={{ flex: 1, minWidth: 0, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsReceita}
                         onChange={e => setObsReceita(e.target.value)}
                       />
@@ -642,7 +642,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       <input
                         type="text"
                         placeholder={t('planilha.obs_despesa_placeholder', 'Observação da despesa...')}
-                        style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                        style={{ flex: 1, minWidth: 0, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
                         value={obsDespesa}
                         onChange={e => setObsDespesa(e.target.value)}
                       />
@@ -781,13 +781,13 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                 </div>
 
                 <div style={{ padding: '15px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                     <span style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>{t('planilha.superavit_deficit', 'SUPERÁVIT / DÉFICIT')} (= 30 - 40)</span>
                     <strong style={{ fontSize: '16px', color: totals.saldo >= 0 ? '#166534' : '#991b1b' }}>
                       {formatCurrency(totals.saldo)}
                     </strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>{t('planilha.missas_comunidade', 'Missas celebradas ad mentem Superioris n.º')}</span>
                     <input
                       type="number"
@@ -872,7 +872,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       onChange={e => setApontamentos(e.target.value)}
                       style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '16px', fontSize: '13px', outline: 'none' }}
                     />
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => handleValidateCommunity('APROVADO')}
                         style={{ background: '#10b981', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -945,10 +945,12 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                   background: 'linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%)',
                 }}>
                   {/* Header */}
-                  <div style={{
+                  <div className="fin-statement-header" style={{
                     background: 'linear-gradient(90deg, #03077fff 0%, #453bf2ff 100%)',
                     padding: '18px 24px',
                     display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                   }}>
@@ -961,7 +963,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         <div style={{ color: '#fff', fontSize: '16px', fontWeight: 800 }}>{t('planilha.community_statement', 'Demonstrativo da Comunidade')}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '24px' }}>
+                    <div className="fin-statement-totals" style={{ display: 'flex', gap: '24px' }}>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ color: '#a5f3c3', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>{t('planilha.total_receitas', 'Total Receitas')}</div>
                         <div style={{ color: '#fff', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(totalRec)}</div>
@@ -979,11 +981,11 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                     </div>
                   </div>
 
-                  <div style={{ padding: '24px' }}>
+                  <div className="fin-statement-body" style={{ padding: '24px' }}>
 
                     {/* ══ SEÇÃO 2 — Lançamentos Individuais ══ */}
                     <div style={{ marginBottom: '28px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                         <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#03077f,#453bf2)', borderRadius: '2px' }} />
                         <span style={{ fontWeight: 800, fontSize: '13px', color: '#312e81', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {t('planilha.individual_entries', 'Lançamentos Individuais')} ({entryLogs.length})
@@ -993,8 +995,8 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                         </span>
                       </div>
                       {entryLogs.length > 0 ? (
-                        <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #c7d2fe' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <div style={{ borderRadius: '10px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #c7d2fe' }}>
+                          <table className="fin-log-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                             <thead>
                               <tr style={{ background: 'linear-gradient(90deg,#03077fff,#453bf2ff)' }}>
                                 <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('logs.table.type', 'Tipo')}</th>
@@ -1058,7 +1060,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                     <div style={{ borderTop: '2px dashed #c7d2fe', marginBottom: '24px' }} />
 
                     {/* ══ Resumo consolidado (planilha + individuais) ══ */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                       <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#059669,#dc2626)', borderRadius: '2px' }} />
                       <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {t('planilha.consolidated_summary', 'Resumo Consolidado')}
@@ -1068,7 +1070,7 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
                       </span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="fin-grid-2">
                       <div style={{ border: '1px solid #a7f3d0', borderRadius: '10px', overflow: 'hidden' }}>
                         <div style={{ background: 'linear-gradient(90deg,#059669,#10b981)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <TrendingUp size={14} color="#fff" />

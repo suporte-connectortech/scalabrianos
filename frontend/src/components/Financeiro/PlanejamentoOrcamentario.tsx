@@ -110,7 +110,7 @@ const PlanejamentoOrcamentario: React.FC<Props> = ({ casas, categorias }) => {
         {isLoading ? (
           <div style={{ padding: '50px', textAlign: 'center' }}><Loader2 className="animate-spin" size={40} /></div>
         ) : (
-          <div className="data-table">
+          <div className="data-table fin-table-scroll">
             <table className="excel-style">
               <thead>
                 <tr>

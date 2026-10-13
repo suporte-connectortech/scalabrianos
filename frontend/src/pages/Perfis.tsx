@@ -13,7 +13,7 @@ interface UserProfile {
   password?: string;
   role: UserRole;
   status: 'ATIVO' | 'INATIVO';
-  situacao: 'ATIVO' | 'FALECIDO' | 'EGRESSO' | 'EXCLAUSTRADO';
+  situacao: 'ATIVO' | 'FALECIDO' | 'EGRESSO' | 'EXCLAUSTRADO' | 'TRANSFERIDO';
 }
 
 const Perfis: React.FC = () => {

@@ -911,3 +911,73 @@
     gap: 0.65rem;
   }
 }
+
+/* ─── Mobile overrides (declared last so they beat the base rules above) ─── */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .stat-value {
+    font-size: 19px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .filter-action-group {
+    flex-wrap: wrap;
+  }
+
+  .filter-action-group > button,
+  .btn-filter-main,
+  .btn-refresh-financeiro {
+    min-height: 42px;
+  }
+
+  .form-card-premium {
+    padding: 16px;
+  }
+
+  .form-grid-premium {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .form-actions-premium {
+    flex-wrap: wrap;
+  }
+
+  .form-actions-premium > button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .card-panel {
+    padding: 16px;
+  }
+
+  /* Comfortable tap targets for icon buttons inside tables */
+  .btn-edit-lite,
+  .btn-delete-lite,
+  .btn-ok,
+  .btn-no,
+  .btn-icon-view,
+  .btn-icon-edit,
+  .btn-icon-delete {
+    width: 38px;
+    height: 38px;
+  }
+
+  .btn-save-inline,
+  .btn-cancel-inline {
+    width: 36px;
+    height: 36px;
+  }
+}

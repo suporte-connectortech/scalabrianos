@@ -24,6 +24,25 @@
   transform: translateY(-1px);
 }
 
+.btn-cadastro {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--primary);
+  background: white;
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-cadastro:hover {
+  background-color: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+}
+
 .btn-new {
   display: flex;
   align-items: center;
@@ -46,7 +65,7 @@
 
 /* ─── Wizard modal ──────── */
 .wizard-modal {
-  width: 1100px !important; min-width: 1100px !important; max-width: 95vw !important; max-height: 94vh;
+  width: 1100px !important; min-width: min(1100px, 95vw) !important; max-width: 95vw !important; max-height: 94vh;
   overflow: hidden; display: flex; flex-direction: column;
 }
 
@@ -164,8 +183,13 @@
 .form-group input:focus, .form-group select:focus { outline: none; border-color: #4a90e2; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.wz-grid-2 { display: grid; grid-template-columns: 1fr 1fr; }
+.wz-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 540px) {
-  .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  .form-row-2, .form-row-3, .wz-grid-2 { grid-template-columns: 1fr; }
+  .wz-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  /* span 2 em grid de 1 coluna cria coluna implícita e estoura a largura */
+  .form-row-2 > .form-group.full, .form-row-3 > .form-group.full { grid-column: 1 / -1; }
 }
 
 .checkbox-label,
@@ -248,8 +272,12 @@
   background: #f8f9ff; border: 1px solid #d8e8f8; border-radius: 12px; padding: 16px;
 }
 .casa-wizard-add-fields {
-  display: grid; grid-template-columns: 2fr 1fr; gap: 12px;
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px;
 }
+/* Keep presence fields inside the card (same fix as the profile) */
+.casa-wizard-add-fields .form-group { min-width: 0; }
+.casa-wizard-add-fields input,
+.casa-wizard-add-fields select { width: 100%; min-width: 0; max-width: 100%; }
 @media (max-width: 480px) {
   .casa-wizard-add-fields { grid-template-columns: 1fr; }
 }
@@ -303,7 +331,8 @@
 /* Summary card */
 .wizard-summary { background: #f8f9ff; border: 1px solid #d8e8f8; border-radius: 10px; padding: 14px; }
 .wizard-summary h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #4a90e2; margin: 0 0 10px; }
-.summary-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #e8e8e8; font-size: 13px; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid #e8e8e8; font-size: 13px; }
+.summary-row strong { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .summary-row:last-child { border-bottom: none; }
 .summary-row span { color: #888; }
 .summary-row strong { color: #333; }
@@ -337,25 +366,47 @@
 
 /* ── Mobile Responsive (App Mobile View) ─────────────────── */
 @media (max-width: 768px) {
-  .wizard-modal {
-    width: 96% !important;
+  /* Modal ocupa a tela; somente o corpo rola, rodapé com ações sempre visível */
+  .modal-content.wizard-modal {
+    width: 100% !important;
     min-width: 0 !important;
-    max-width: 96vw !important;
-    max-height: 95vh;
-    max-height: 95dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    max-width: 100% !important;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+    padding: 1rem 0.85rem !important;
     border-radius: 14px;
     box-sizing: border-box;
   }
 
+  .wizard-modal .modal-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .wizard-modal .modal-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .wizard-modal .close-btn {
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .wizard-body {
-    padding: 14px 16px;
+    padding: 12px 2px;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
   }
 
   .wizard-steps {
     padding: 8px 10px;
     gap: 4px;
+    margin: 0 -0.85rem;
   }
 
   .step-label {
@@ -393,15 +444,43 @@
     min-width: 650px !important;
   }
 
-  .wizard-footer {
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 16px;
+  .btn-cadastro {
+    min-height: 36px;
   }
 
-  .wizard-footer > div {
-    width: 100%;
+  .wizard-footer {
+    gap: 10px;
+    padding: 10px 0 0;
+    margin: 0;
+    background: transparent;
+  }
+
+  /* 15 pontos não cabem ao lado dos botões; o progresso já aparece na barra de etapas */
+  .wizard-footer .step-dots {
+    display: none;
+  }
+
+  .wizard-footer > button {
+    flex: 1;
+    min-height: 44px;
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .password-toggle {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .btn-remove-wz {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .doc-remove {
+    width: 28px;
+    height: 28px;
   }
 }

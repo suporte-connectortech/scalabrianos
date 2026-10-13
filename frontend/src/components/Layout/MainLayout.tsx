@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { LayoutProvider, useLayout } from '../../context/LayoutContext';
@@ -17,7 +17,9 @@ const MainLayoutContent: React.FC<MainLayoutContentProps> = ({ children }) => {
       <div className="layout-body">
         <Sidebar />
         <main className={`main-content ${!isSidebarOpen ? 'expanded' : ''}`}>
-          {children}
+          <Suspense fallback={<div className="page-loader" role="status" aria-label="Carregando"><div className="page-loader-spinner" /></div>}>
+            {children}
+          </Suspense>
         </main>
       </div>
 

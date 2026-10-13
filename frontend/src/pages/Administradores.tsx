@@ -76,7 +76,7 @@ interface AdminProfile {
   password?: string;
   role: UserRole;
   status: 'ATIVO' | 'INATIVO';
-  situacao: 'ATIVO' | 'FALECIDO' | 'EGRESSO' | 'EXCLAUSTRADO';
+  situacao: 'ATIVO' | 'FALECIDO' | 'EGRESSO' | 'EXCLAUSTRADO' | 'TRANSFERIDO';
   permissoes?: Record<string, boolean>;
   casa_nome?: string;
   created_at?: string;
@@ -872,7 +872,7 @@ const Administradores: React.FC = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+            <div className="admin-pagination" style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
               <span style={{ fontSize: '14px', color: '#64748b' }}>Página {currentPage} de {totalPages}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
@@ -1004,7 +1004,7 @@ const Administradores: React.FC = () => {
               
               {/* ABA 1: DADOS & PERMISSÕES */}
               {activeModalTab === 'dados' && (
-                <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', overflowY: 'auto', flex: 1 }}>
+                <div className="admin-modal-pane" style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', overflowY: 'auto', flex: 1 }}>
 
                   {/* COLUNA ESQUERDA: DADOS BÁSICOS */}
                   <div className="form-column">
@@ -1063,7 +1063,7 @@ const Administradores: React.FC = () => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
+                      <div className="admin-role-status-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #f1f5f9' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'block', fontSize: '0.85rem' }}>Perfil de Acesso</label>
                           <select value={editingProfile.role} onChange={e => setEditingProfile({ ...editingProfile, role: e.target.value as UserRole })} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.9rem', cursor: 'pointer', background: 'white' }}>
@@ -1167,7 +1167,7 @@ const Administradores: React.FC = () => {
                           Presença Missionária (Opcional)
                         </h4>
                       </div>
-                      <div className="casa-wizard-add-fields" style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 1fr 1.2fr 1.2fr', gap: '12px' }}>
+                      <div className="casa-wizard-add-fields admin-casa-add-fields">
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontWeight: 700, color: '#334155', marginBottom: '6px', display: 'block', fontSize: '0.8rem' }}>Tipo</label>
                           <select value={novaCasa.tipo} onChange={e => setNovaCasa(p => ({ ...p, tipo: e.target.value }))} style={{ padding: '9px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.88rem', background: 'white' }}>
@@ -1273,7 +1273,7 @@ const Administradores: React.FC = () => {
 
               {/* ABA 2: HISTÓRICO DE PERFIL & CADASTRO */}
               {activeModalTab === 'historico' && (
-                <div style={{ padding: '25px 30px', overflowY: 'auto', flex: 1 }}>
+                <div className="admin-modal-pane" style={{ padding: '25px 30px', overflowY: 'auto', flex: 1 }}>
                   {historyLoading ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                       <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto 10px' }} />
@@ -1295,7 +1295,7 @@ const Administradores: React.FC = () => {
                             </h4>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
                           <div>
                             <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Perfil Atual:</span>
                             <span className={`role-tag ${(editingProfile.role || '').toLowerCase()}`} style={{ fontSize: '0.85rem' }}>
@@ -1321,8 +1321,8 @@ const Administradores: React.FC = () => {
                         </div>
                         
                         {historicoCompleto.historico_perfil && historicoCompleto.historico_perfil.length > 0 ? (
-                          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '600px' }}>
                               <thead>
                                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
                                   <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>Data e Hora</th>
@@ -1376,8 +1376,8 @@ const Administradores: React.FC = () => {
                               Histórico de Alterações de Situação
                             </h4>
                           </div>
-                          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: '600px' }}>
                               <thead>
                                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
                                   <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>Data e Hora</th>
@@ -1425,7 +1425,7 @@ const Administradores: React.FC = () => {
 
               {/* ABA 3: ATIVIDADES NO SISTEMA (LOGS) */}
               {activeModalTab === 'atividades' && (
-                <div style={{ padding: '25px 30px', overflowY: 'auto', flex: 1 }}>
+                <div className="admin-modal-pane" style={{ padding: '25px 30px', overflowY: 'auto', flex: 1 }}>
                   {historyLoading ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                       <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto 10px' }} />
@@ -1433,7 +1433,7 @@ const Administradores: React.FC = () => {
                     </div>
                   ) : historicoCompleto.logs && historicoCompleto.logs.length > 0 ? (
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Activity size={18} style={{ color: '#013375' }} />
                           <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 800 }}>
@@ -1500,7 +1500,7 @@ const Administradores: React.FC = () => {
               )}
 
               {/* MODAL FOOTER */}
-              <div className="modal-footer" style={{ padding: '20px 30px', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="modal-footer admin-modal-footer" style={{ padding: '20px 30px', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
                   {editingProfile.id !== 0 && initialRole && editingProfile.role !== initialRole && (
                     <span style={{ color: '#d97706', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -1508,7 +1508,7 @@ const Administradores: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="admin-modal-actions" style={{ display: 'flex', gap: '12px' }}>
                   <button type="button" className="btn-cancel" onClick={() => setIsModalOpen(false)} style={{ borderRadius: '10px', padding: '10px 20px', fontWeight: 700, fontSize: '0.88rem', border: '1px solid #e2e8f0' }}>
                     {t('common.cancel')}
                   </button>
@@ -1550,7 +1550,7 @@ const Administradores: React.FC = () => {
             </div>
 
             {/* Resumo da Mudança */}
-            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
               <span style={{ padding: '5px 10px', borderRadius: '6px', background: '#e2e8f0', color: '#334155', fontWeight: 700, fontSize: '0.85rem' }}>
                 {getRoleLabel(initialRole)}
               </span>
@@ -1574,7 +1574,7 @@ const Administradores: React.FC = () => {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="admin-modal-actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '10px' }}>
               <button
                 type="button"
                 className="btn-cancel"

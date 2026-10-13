@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Building2, ChevronDown, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { type BankItem, loadAllBanks, searchBanks, formatBankLabel, POPULAR_BANKS } from '../../utils/banks';
 
 interface BankAutocompleteProps {
@@ -19,6 +20,7 @@ export const BankAutocomplete: React.FC<BankAutocompleteProps> = ({
   className = '',
   id
 }) => {
+  const { t } = useTranslation();
   const [banksList, setBanksList] = useState<BankItem[]>(POPULAR_BANKS);
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(value || '');
@@ -138,7 +140,8 @@ export const BankAutocomplete: React.FC<BankAutocompleteProps> = ({
             top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            maxHeight: '230px',
+            maxHeight: 'min(230px, 45vh)',
+            WebkitOverflowScrolling: 'touch',
             overflowY: 'auto',
             background: '#ffffff',
             border: '1px solid #cbd5e1',
@@ -163,6 +166,8 @@ export const BankAutocomplete: React.FC<BankAutocompleteProps> = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '8px 12px',
+                    minHeight: '40px',
+                    boxSizing: 'border-box',
                     fontSize: '0.875rem',
                     cursor: 'pointer',
                     background: isHighlighted ? '#f1f5f9' : isSelected ? '#eff6ff' : 'transparent',
@@ -171,7 +176,7 @@ export const BankAutocomplete: React.FC<BankAutocompleteProps> = ({
                     transition: 'background 0.15s'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', minWidth: 0 }}>
                     <Building2 size={14} style={{ color: isSelected ? '#2563eb' : '#94a3b8', flexShrink: 0 }} />
                     <span style={{ fontWeight: isSelected ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {formatted}
@@ -183,7 +188,7 @@ export const BankAutocomplete: React.FC<BankAutocompleteProps> = ({
             })
           ) : (
             <div style={{ padding: '10px 12px', fontSize: '0.85rem', color: '#64748b', textAlign: 'center' }}>
-              Nenhum banco encontrado. Você pode manter o texto digitado livremente.
+              {t('profile.bank.no_bank_found', 'Nenhum banco encontrado. Você pode manter o texto digitado livremente.')}
             </div>
           )}
         </div>

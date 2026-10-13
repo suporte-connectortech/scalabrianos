@@ -129,6 +129,7 @@
 .perfil-status-dot.falecido { background: #ef4444; }
 .perfil-status-dot.egresso { background: #f59e0b; }
 .perfil-status-dot.exclaustrado { background: #8b5cf6; }
+.perfil-status-dot.transferido { background: #3b82f6; }
 
 .perfil-main-info {
   display: flex;
@@ -166,6 +167,7 @@
 .situacao-tag-premium.falecido { background: #fee2e2; color: #991b1b; }
 .situacao-tag-premium.egresso { background: #fef3c7; color: #92400e; }
 .situacao-tag-premium.exclaustrado { background: #f3e8ff; color: #6b21a8; }
+.situacao-tag-premium.transferido { background: #dbeafe; color: #1e40af; }
 
 .perfil-badges-row {
   display: flex;
@@ -221,6 +223,7 @@
 .status-badge.falecido { background: #fce4ec; color: #c62828; }
 .status-badge.egresso { background: #fff3e0; color: #e65100; }
 .status-badge.exclaustrado { background: #ede7f6; color: #4527a0; }
+.status-badge.transferido { background: #e3f2fd; color: #1565c0; }
 .oconomo-badge { background: #e3f2fd; color: #1565c0; }
 .superior-badge { background: #fff8e1; color: #ff8f00; border: 1px solid #ffe082; }
 .id-badge { background: #f5f5f5; color: #777; }
@@ -383,7 +386,7 @@
   align-items: flex-end;
   gap: 12px;
   flex: 1;
-  min-width: 260px;
+  min-width: min(260px, 100%);
 }
 
 .doc-upload-fields .form-group {
@@ -727,7 +730,7 @@
 /* Itinerário Formativo Styles */
 .itinerary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
 }
@@ -1655,7 +1658,7 @@
 /* --- CV Links Externos --- */
 .cv-links-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 12px;
   margin-top: 14px;
 }
@@ -1841,4 +1844,270 @@
 .cv-add-link-form input:focus {
   border-color: #013375;
   box-shadow: 0 0 0 2px rgba(1, 51, 117, 0.1);
+}
+
+/* ─── Grids auxiliares (antes inline) ─────────────────────── */
+.pm-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ── Mobile Responsive (App Mobile View) ─────────────────── */
+@media (max-width: 768px) {
+  /* Cabeçalho do perfil */
+  .perfil-top-card {
+    padding: 16px;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .perfil-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+  .perfil-main-info {
+    min-width: 0;
+  }
+  .perfil-name-section {
+    gap: 10px;
+  }
+  .perfil-name-section h1 {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+  .perfil-name-section .btn-edit-access {
+    min-height: 40px;
+  }
+  .perfil-header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .btn-back {
+    min-height: 40px;
+  }
+
+  /* Navegação lateral vira faixa horizontal rolável */
+  .perfil-layout {
+    gap: 14px;
+  }
+  .perfil-sidebar {
+    padding: 10px 8px;
+    min-width: 0;
+  }
+  .sidebar-section-title {
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+  }
+  .sidebar-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .sidebar-nav::-webkit-scrollbar {
+    height: 4px;
+  }
+  .sidebar-nav-group {
+    display: contents;
+  }
+  .sidebar-nav-item,
+  .sidebar-nav-item[style*="padding-left: 32px"] {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 0;
+    min-height: 40px;
+    margin-left: 0;
+    padding: 8px 12px !important;
+    white-space: nowrap;
+    background: #f8fafc;
+  }
+  .sidebar-nav-item.active {
+    padding-bottom: 5px !important;
+  }
+
+  /* Abas principais */
+  .tab-btn {
+    min-height: 42px;
+    padding: 10px 14px;
+  }
+
+  /* Cartões de seção */
+  .section-card {
+    padding: 16px 14px;
+  }
+  .section-header-flex {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .section-header-flex > div {
+    flex-wrap: wrap;
+  }
+  .section-header-flex .section-title {
+    margin-bottom: 0;
+  }
+  .btn-action-lite-text {
+    min-height: 36px;
+    padding: 6px 12px;
+  }
+  .btn-action-lite {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pm-permissions-box {
+    padding: 14px !important;
+  }
+
+  /* Listas */
+  .list-item-card-premium {
+    padding: 12px;
+    gap: 12px;
+  }
+  .list-item-card-premium:hover {
+    transform: none;
+  }
+  .lancamento-item {
+    flex-wrap: wrap;
+  }
+  .lancamento-right {
+    min-width: 0;
+    align-items: flex-start;
+  }
+  .itin-label {
+    min-width: 0;
+  }
+  .casa-item {
+    padding: 12px;
+  }
+
+  /* Curriculum Vitae */
+  .cv-file-header-card {
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+  .cv-actions-group {
+    width: 100%;
+  }
+  .cv-preview-frame-container {
+    min-height: 0;
+  }
+  .cv-iframe-preview {
+    height: 70vh;
+    height: 70dvh;
+  }
+  .cv-image-preview-wrapper {
+    padding: 10px;
+  }
+  .cv-link-card-container:hover,
+  .cv-link-card:hover {
+    transform: none;
+  }
+
+  /* Modais: ações sempre visíveis no rodapé do modal */
+  .modal-content.perfil-modal {
+    width: 100% !important;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+  }
+  .perfil-modal .modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding-top: 12px;
+    flex-wrap: wrap;
+    box-shadow: 0 1.5rem 0 white;
+    z-index: 2;
+  }
+  .perfil-modal .modal-actions > button {
+    flex: 1 1 auto;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 540px) {
+  .pm-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Subsections shared with the "Novo Cadastro" wizard (Dados Religiosos / Contatos) ── */
+.religious-subtitle {
+  margin: 22px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e2e8f0;
+  color: #013375;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.religious-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.religious-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.religious-doc-empty {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.religious-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.religious-grid-2 .form-group.full,
+.form-grid-3 .form-group.full {
+  grid-column: 1 / -1;
+}
+
+.religious-checkbox-row .checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #334155;
+}
+
+@media (max-width: 768px) {
+  .religious-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Presença Missionária: keep all bind fields inside the card ── */
+.casa-bind-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.casa-bind-grid .form-group {
+  min-width: 0;
+}
+
+.casa-bind-grid input,
+.casa-bind-grid select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }

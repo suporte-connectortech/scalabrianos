@@ -41,6 +41,7 @@ interface AuthContextType {
     isOconomo: boolean;
     isSuperior: boolean;
     isRegional: boolean;
+    canAccessObito: boolean;
     isAuthenticated: boolean;
 }
 
@@ -91,6 +92,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         'SECRETARIADO_FORMACAO'
     ].includes(userRole || '');
     const canEdit = isAdminGeral || userRole === 'ADMINISTRADOR' || isRegional;
+    // Death records (óbito) are restricted to Registro Regional (and the system superuser)
+    const canAccessObito = userRole === 'REGISTRO_REGIONAL' || isAdminGeral;
     const isAuthenticated = !!token;
 
     return (
@@ -106,6 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isOconomo,
             isSuperior,
             isRegional,
+            canAccessObito,
             isAuthenticated 
         }}>
             {children}

@@ -967,3 +967,143 @@
     }
 }
 
+
+/* ── Tablet: two-column profile is too cramped next to the sidebar ── */
+@media (max-width: 1100px) {
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Mobile refinements (Casas Religiosas / Perfil da Casa) ── */
+@media (max-width: 768px) {
+    /* Header buttons: wrap instead of overflowing the screen */
+    .casas-header-actions {
+        flex-wrap: wrap;
+    }
+    .casas-header-actions .btn-print-report,
+    .casas-header-actions .btn-export,
+    .casas-header-actions .btn-new {
+        flex: 1 1 140px;
+        justify-content: center;
+        padding: 0 0.75rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+    .casas-header-actions .btn-print-report {
+        flex-basis: 100%;
+    }
+
+    .filters-actions .btn-clear,
+    .filters-actions .btn-filter-main {
+        height: 44px;
+    }
+
+    /* Table action icons & pagination: comfortable tap targets */
+    .house-actions .btn-action-icon,
+    .doc-attachment-actions .btn-action-icon,
+    .profile-grid .btn-action-icon {
+        width: 38px;
+        height: 38px;
+    }
+    .casas-pagination {
+        gap: 0.75rem;
+        padding: 0.75rem;
+        margin-top: 1rem;
+    }
+    .casas-pagination .pagination-btn {
+        width: 42px;
+        height: 42px;
+    }
+
+    /* Keep the house name visible while scrolling the table sideways */
+    .casas-table th:nth-child(2),
+    .casas-table td:nth-child(2) {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #fff;
+        box-shadow: 1px 0 0 #e2e8f0;
+        min-width: 160px;
+    }
+    .casas-table th:nth-child(2) {
+        background-color: var(--primary-light, #e0f2fe);
+    }
+    .casas-table th,
+    .casas-table td {
+        padding: 0.75rem;
+    }
+
+    /* Modal (Nova / Editar Presença) */
+    .casas-modal-overlay {
+        padding: 0.75rem;
+    }
+    .casas-modal .modal-header {
+        gap: 0.75rem;
+    }
+    .casas-modal .modal-header h3 {
+        font-size: 1.1rem;
+        line-height: 1.3;
+    }
+    .casas-modal .close-btn {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .casas-modal .modal-footer {
+        flex-wrap: wrap;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        gap: 0.75rem;
+    }
+    .casas-modal .modal-footer .btn-cancel,
+    .casas-modal .modal-footer .btn-save {
+        flex: 1 1 120px;
+        min-height: 44px;
+        justify-content: center;
+    }
+
+    /* Perfil da Casa */
+    .casa-detail-top {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .casa-detail-top-actions {
+        flex-wrap: wrap;
+        gap: 8px !important;
+    }
+    .btn-back-casa {
+        min-height: 40px;
+    }
+    .casa-detail-title-wrapper {
+        align-items: flex-start;
+    }
+    .casa-detail-title {
+        overflow-wrap: anywhere;
+    }
+    .profile-grid .card-lite {
+        padding: 1rem !important;
+    }
+    .casa-section-header {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .doc-attachment-item {
+        gap: 8px;
+        padding: 10px;
+    }
+    .doc-attachment-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .doc-attachment-info > div {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    .doc-attachment-actions {
+        flex-shrink: 0;
+    }
+}
