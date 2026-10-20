@@ -113,6 +113,7 @@
         "view_details": "Ver Detalles"
       },
       "wizard": {
+        "unnamed": "Nuevo Misionero",
         "title": "Nuevo Registro",
         "steps": {
           "civil": "1. Datos Civiles",

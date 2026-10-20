@@ -109,6 +109,7 @@
         "view_details": "Ver Detalhes"
       },
       "wizard": {
+        "unnamed": "Novo Missionário",
         "title": "Novo Cadastro",
         "steps": {
           "civil": "1. Dados Civis",

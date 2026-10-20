@@ -484,3 +484,135 @@
     height: 28px;
   }
 }
+
+/* ─── Wizard com o mesmo layout do Perfil do Missionário ───────────
+   Regras copiadas de PerfilMissionario.css, escopadas ao modal para não
+   depender de o perfil já ter sido carregado. */
+.wizard-perfil-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px; background: #f8fafc; }
+.wizard-modal .wizard-perfil-scroll .wizard-body { overflow: visible; padding: 0; }
+
+.wizard-modal .perfil-top-card {
+  display: flex; align-items: center; gap: 24px; background: white; padding: 20px 24px;
+  border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+.wizard-modal .perfil-avatar-wrapper { position: relative; flex-shrink: 0; }
+.wizard-modal .perfil-avatar {
+  width: 64px; height: 64px; background: linear-gradient(135deg, #013375, #1e40af); border-radius: 18px;
+  display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; font-weight: 800;
+  box-shadow: 0 10px 15px -3px rgba(1, 51, 117, 0.2);
+}
+.wizard-modal .perfil-status-dot {
+  position: absolute; bottom: -4px; right: -4px; width: 18px; height: 18px;
+  border-radius: 50%; border: 3px solid white; background: #cbd5e1;
+}
+.wizard-modal .perfil-status-dot.ativo { background: #22c55e; }
+.wizard-modal .perfil-status-dot.falecido { background: #ef4444; }
+.wizard-modal .perfil-status-dot.egresso { background: #f59e0b; }
+.wizard-modal .perfil-status-dot.exclaustrado { background: #8b5cf6; }
+.wizard-modal .perfil-status-dot.transferido { background: #3b82f6; }
+.wizard-modal .perfil-main-info { display: flex; flex-direction: column; gap: 8px; }
+.wizard-modal .perfil-name-section { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.wizard-modal .perfil-name-section h1 {
+  margin: 0; font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; overflow-wrap: anywhere;
+}
+.wizard-modal .situacao-tag-premium {
+  padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.5px; background: #f1f5f9; color: #475569;
+}
+.wizard-modal .situacao-tag-premium.ativo { background: #dcfce7; color: #166534; }
+.wizard-modal .situacao-tag-premium.falecido { background: #fee2e2; color: #991b1b; }
+.wizard-modal .situacao-tag-premium.egresso { background: #fef3c7; color: #92400e; }
+.wizard-modal .situacao-tag-premium.exclaustrado { background: #f3e8ff; color: #6b21a8; }
+.wizard-modal .situacao-tag-premium.transferido { background: #dbeafe; color: #1e40af; }
+.wizard-modal .perfil-badges-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.wizard-modal .perfil-badge-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 6px; color: #64748b; font-size: 13px; font-weight: 600;
+}
+.wizard-modal .perfil-badge-item svg { color: #94a3b8; }
+
+.wizard-modal .perfil-layout { display: flex; gap: 20px; align-items: flex-start; }
+.wizard-modal .perfil-sidebar {
+  width: 220px; flex-shrink: 0; background: white; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 16px 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); position: sticky; top: 0;
+}
+.wizard-modal .sidebar-section-title {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8;
+  padding: 0 8px 10px; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px;
+}
+.wizard-modal .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.wizard-modal .sidebar-nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none;
+  border-radius: 9px; background: transparent; color: #64748b; font-size: 13px; font-weight: 500;
+  cursor: pointer; text-align: left; transition: all 0.18s ease; position: relative;
+}
+.wizard-modal .sidebar-nav-item:hover { background: #f1f5f9; color: #013375; }
+.wizard-modal .sidebar-nav-item.active {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); color: #013375; font-weight: 700;
+  border-left: 3px solid #013375; padding-left: 7px;
+}
+.wizard-modal .sidebar-nav-icon { display: flex; align-items: center; flex-shrink: 0; opacity: 0.75; }
+.wizard-modal .sidebar-nav-item.active .sidebar-nav-icon { opacity: 1; }
+.wizard-modal .sidebar-nav-label { line-height: 1.3; }
+
+.wizard-modal .perfil-main-area {
+  flex: 1; min-width: 0; background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 4px 20px 20px;
+}
+.wizard-modal .perfil-tabs {
+  display: flex; gap: 4px; border-bottom: 2px solid #e8e8e8; margin-bottom: 20px; flex-wrap: wrap;
+}
+.wizard-modal .tab-btn {
+  display: flex; align-items: center; gap: 6px; padding: 10px 18px; background: transparent; border: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; cursor: pointer; font-size: 13px;
+  font-weight: 500; color: #666; transition: all 0.2s;
+}
+.wizard-modal .tab-btn:hover { color: #4a90e2; background: #f5f9ff; border-radius: 6px 6px 0 0; }
+.wizard-modal .tab-btn.active { color: #4a90e2; border-bottom-color: #4a90e2; font-weight: 700; }
+
+@media (max-width: 900px) {
+  .wizard-modal .perfil-layout { flex-direction: column; }
+  .wizard-modal .perfil-sidebar { width: 100%; position: static; box-sizing: border-box; }
+  .wizard-modal .perfil-main-area { width: 100%; box-sizing: border-box; }
+  .wizard-modal .sidebar-nav { flex-direction: row; flex-wrap: wrap; }
+  .wizard-modal .sidebar-nav-item { flex: 1; min-width: 140px; justify-content: center; text-align: center; }
+  .wizard-modal .sidebar-nav-item.active {
+    border-left: none; border-bottom: 3px solid #013375; padding-left: 10px; padding-bottom: 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .wizard-perfil-scroll { padding: 12px 2px; margin: 0 -0.85rem; padding-left: 0.85rem; padding-right: 0.85rem; -webkit-overflow-scrolling: touch; }
+  .wizard-modal .perfil-top-card { padding: 14px; gap: 14px; margin-bottom: 14px; }
+  .wizard-modal .perfil-avatar { width: 52px; height: 52px; font-size: 20px; border-radius: 14px; }
+  .wizard-modal .perfil-name-section h1 { font-size: 18px; }
+  .wizard-modal .perfil-layout { gap: 14px; }
+  .wizard-modal .perfil-sidebar { padding: 10px 8px; min-width: 0; }
+  .wizard-modal .sidebar-nav {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+    gap: 6px; padding-bottom: 4px;
+  }
+  .wizard-modal .sidebar-nav-item {
+    flex: 0 0 auto; width: auto; min-width: 0; min-height: 40px; padding: 8px 12px;
+    white-space: nowrap; background: #f8fafc;
+  }
+  .wizard-modal .sidebar-nav-item.active { padding-bottom: 5px; }
+  .wizard-modal .perfil-main-area { padding: 4px 12px 14px; }
+  .wizard-modal .perfil-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .wizard-modal .tab-btn { min-height: 42px; padding: 10px 14px; white-space: nowrap; flex-shrink: 0; }
+}
+
+/* ─── Botões do card de filtros ─────────────────────────────────── */
+.filters-card .filter-actions { display: flex; gap: 8px; }
+.filters-card .btn-filter,
+.filters-card .btn-clear-filter {
+  flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 0 16px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.filters-card .btn-filter { background: var(--primary); color: #fff; border: 1px solid var(--primary); }
+.filters-card .btn-filter:hover { background: #1e4a8c; border-color: #1e4a8c; color: #fff; transform: translateY(-1px); }
+.filters-card .btn-clear-filter { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+.filters-card .btn-clear-filter:hover { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; }
+@media (max-width: 768px) {
+  .filters-card .btn-filter, .filters-card .btn-clear-filter { min-height: 44px; }
+}

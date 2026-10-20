@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  ChevronRight, ChevronLeft, User, MapPin, BookOpen, Lock, CheckCircle,
+  ChevronRight, ChevronLeft, User, MapPin, BookOpen, Lock,
   Home as HomeIcon, Plus, Trash2, FileText, Image as ImageIcon,
   Activity, Users, Search, Filter, Eye, X, Loader2, AlertCircle,
   GraduationCap, DollarSign, Save, ShieldCheck, EyeOff, Star, Upload
@@ -527,8 +527,18 @@ const Missionarios: React.FC = () => {
   const [casasVinculos, setCasasVinculos] = useState<CasaVinculo[]>([]);
   const [novaCasa, setNovaCasa] = useState<CasaVinculo>({ casa_id: '', data_inicio: '', data_fim: '', is_superior: false, funcao: [], tipo: '', pm: '', pais: 'Brasil' });
 
-  // Ref for auto-scrolling active step pill
-  const activeStepRef = useRef<HTMLDivElement | null>(null);
+  // Steps 0–2 aparecem como abas principais (como no perfil); os demais no menu lateral
+  const MAIN_TAB_STEPS = 3;
+
+  const goToStep = (i: number) => {
+    if (i <= wizardStep || (wizardStep === 1 && wizardData.nome.trim()) || wizardStep > 1) {
+      setWizardStep(i);
+    }
+  };
+
+  // Ref for auto-scrolling active step item
+  const activeStepRef = useRef<HTMLButtonElement | null>(null);
+  const wizardScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetchMissionarios();
@@ -536,6 +546,7 @@ const Missionarios: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (wizardScrollRef.current) wizardScrollRef.current.scrollTop = 0;
     if (activeStepRef.current) {
       activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
@@ -986,6 +997,16 @@ const Missionarios: React.FC = () => {
     }
   };
 
+  const hasActiveFilters = !!(searchTerm || casaFilter || cidadeFilter || paisFilter || situacaoFilter);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCasaFilter('');
+    setCidadeFilter('');
+    setPaisFilter('');
+    setSituacaoFilter('');
+  };
+
   const filtered = missionarios.filter(m => {
     const s = searchTerm.toLowerCase();
     const matchesSearch = m.nome.toLowerCase().includes(s);
@@ -1054,7 +1075,12 @@ const Missionarios: React.FC = () => {
             <option value="TRANSFERIDO">{t('missionaries.situations.transferido', 'Transferido')}</option>
           </select>
         </div>
-        <button className="btn-filter" style={{ gridColumn: 'span 1', width: '100%', height: '42px', marginTop: '0' }}><Filter size={18} /> {t('missionaries.filters.filter_btn', 'Filtrar')}</button>
+        <div className="filter-actions">
+          <button className="btn-filter"><Filter size={18} /> {t('missionaries.filters.filter_btn', 'Filtrar')}</button>
+          {hasActiveFilters && (
+            <button className="btn-clear-filter" onClick={clearFilters}><X size={18} /> {t('missionaries.filters.clear_btn', 'Limpar')}</button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -1137,51 +1163,67 @@ const Missionarios: React.FC = () => {
               <button className="close-btn" onClick={() => setIsWizardOpen(false)}><X size={20} /></button>
             </div>
 
-            {/* Missionary name banner – visible from Step 1 onward when name is entered */}
-            {wizardStep >= 1 && wizardData.nome && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                background: 'linear-gradient(90deg, #eef4ff 0%, #f5f0ff 100%)',
-                border: '1px solid #d0e0ff',
-                borderRadius: '10px',
-                padding: '8px 16px',
-                margin: '0 0 12px 0',
-              }}>
-                <span style={{ fontSize: '18px' }}>👤</span>
-                <div>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#7a8caa' }}>{t('missionaries.wizard.registering_banner', 'Missionário em cadastro')}</span>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary, #3a6fc4)', lineHeight: 1.2 }}>{wizardData.nome}</div>
+            {/* ── Mesmo layout do Perfil do Missionário: cabeçalho + abas principais + menu lateral ── */}
+            <div className="wizard-perfil-scroll" ref={wizardScrollRef}>
+            <div className="perfil-top-card">
+              <div className="perfil-avatar-wrapper">
+                <div className="perfil-avatar">{wizardData.nome.trim() ? wizardData.nome.trim().charAt(0) : <User size={28} />}</div>
+                <div className={`perfil-status-dot ${(wizardData.situacao || '').toLowerCase()}`}></div>
+              </div>
+              <div className="perfil-main-info" style={{ flex: 1, minWidth: 0 }}>
+                <div className="perfil-name-section">
+                  <h1>{wizardData.nome.trim() || t('missionaries.wizard.unnamed', 'Novo Missionário')}</h1>
+                  <span className={`situacao-tag-premium ${(wizardData.situacao || '').toLowerCase()}`}>
+                    {situacaoLabel(wizardData.situacao)}
+                  </span>
+                </div>
+                <div className="perfil-badges-row">
+                  <div className="perfil-badge-item">
+                    <User size={14} />
+                    <span>{t('profile.missionary_role', 'Missionário')}</span>
+                  </div>
+                  <div className="perfil-badge-item">
+                    <span>{t('missionaries.wizard.registering_banner', 'Missionário em cadastro')}</span>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Step bar */}
-            <div className="wizard-steps">
-              {STEPS.map((step, i) => {
-                const isActive = i === wizardStep;
-                return (
-                  <div
-                    key={i}
-                    ref={isActive ? activeStepRef : null}
-                    className={`wizard-step-indicator ${isActive ? 'active' : ''} ${i < wizardStep ? 'done' : ''}`}
-                    onClick={() => {
-                      if (i <= wizardStep || (wizardStep === 1 && wizardData.nome.trim()) || wizardStep > 1) {
-                        setWizardStep(i);
-                      }
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="step-circle">
-                      {i < wizardStep ? <CheckCircle size={14} /> : <span>{step.num}</span>}
-                    </div>
-                    <span className="step-label">{step.icon}{step.label}</span>
-                    {i < STEPS.length - 1 && <div className="step-line" />}
-                  </div>
-                );
-              })}
             </div>
+
+            <div className="perfil-layout">
+              {/* Sidebar esquerda — seções 3 em diante */}
+              <aside className="perfil-sidebar">
+                <div className="sidebar-section-title">{t('profile.ui.more_info', 'Mais Informações')}</div>
+                <nav className="sidebar-nav">
+                  {STEPS.map((step, i) => i >= MAIN_TAB_STEPS ? (
+                    <button
+                      key={i}
+                      type="button"
+                      ref={i === wizardStep ? activeStepRef : null}
+                      className={`sidebar-nav-item ${i === wizardStep ? 'active' : ''}`}
+                      onClick={() => goToStep(i)}
+                    >
+                      <span className="sidebar-nav-icon">{step.icon}</span>
+                      <span className="sidebar-nav-label">{step.label}</span>
+                    </button>
+                  ) : null)}
+                </nav>
+              </aside>
+
+              {/* Área principal com tabs Situação, Dados Civis e Contatos */}
+              <div className="perfil-main-area">
+                <div className="perfil-tabs">
+                  {STEPS.slice(0, MAIN_TAB_STEPS).map((step, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      ref={i === wizardStep ? activeStepRef : null}
+                      className={`tab-btn ${i === wizardStep ? 'active' : ''}`}
+                      onClick={() => goToStep(i)}
+                    >
+                      {step.icon} {step.label}
+                    </button>
+                  ))}
+                </div>
 
             {/* ── body ── */}
             <div className="wizard-body">
@@ -2622,6 +2664,9 @@ const Missionarios: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+              </div>
+            </div>
             </div>
 
             {/* Footer */}
