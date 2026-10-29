@@ -302,7 +302,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 categoriaNome: cat.nome,
                 valor: val,
                 obs: it.observacao || '',
-                timestamp: new Date(res.data.updated_at || res.data.created_at || Date.now())
+                timestamp: new Date(it.data_lancamento || res.data.created_at || Date.now())
               });
             }
           }
@@ -432,7 +432,8 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       itens: entryLogs.map(log => ({
         categoria_id: log.categoriaId,
         valor: log.valor,
-        observacao: log.obs
+        observacao: log.obs,
+        data_lancamento: log.timestamp.toISOString()
       }))
     };
 
@@ -474,7 +475,8 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       itens: entryLogs.map(log => ({
         categoria_id: log.categoriaId,
         valor: log.valor,
-        observacao: log.obs
+        observacao: log.obs,
+        data_lancamento: log.timestamp.toISOString()
       }))
     };
 

@@ -564,6 +564,18 @@ async function ensureOptionalSchema() {
           { name: 'transferido_doc_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_doc_path TEXT DEFAULT NULL" },
           { name: 'transferido_observacao', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN transferido_observacao TEXT DEFAULT NULL" }
         ]
+      },
+      {
+        table: 'tb_financas_mensais_itens',
+        columns: [
+          { name: 'data_lancamento', sql: "ALTER TABLE tb_financas_mensais_itens ADD COLUMN data_lancamento DATETIME DEFAULT NULL" }
+        ]
+      },
+      {
+        table: 'tb_financas_consolidado_itens',
+        columns: [
+          { name: 'data_lancamento', sql: "ALTER TABLE tb_financas_consolidado_itens ADD COLUMN data_lancamento DATETIME DEFAULT NULL" }
+        ]
       }
     ];
 
@@ -3459,6 +3471,12 @@ app.get('/api/financas-mensais/historico/casa/:casa_id', authenticateToken, asyn
   }
 });
 
+// Data/hora original do lançamento (os itens são recriados a cada salvamento, então ela vem do cliente)
+const parseDataLancamento = (value) => {
+  const d = value ? new Date(value) : null;
+  return d && !isNaN(d.getTime()) ? d : new Date();
+};
+
 app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
   const { usuario_id, casa_id, mes_referencia, itens, total_credito, total_debito, num_missas_superior, anexo_path, obs_receita, obs_despesa, status } = req.body;
   if (!mes_referencia || !/^\d{4}-\d{2}$/.test(mes_referencia)) {
@@ -3517,8 +3535,8 @@ app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
     for (const item of itens) {
       if (item.valor > 0) {
         await connection.query(
-          'INSERT INTO tb_financas_mensais_itens (planilha_id, categoria_id, valor, observacao) VALUES (?, ?, ?, ?)',
-          [planilhaId, item.categoria_id, item.valor, item.observacao || null]
+          'INSERT INTO tb_financas_mensais_itens (planilha_id, categoria_id, valor, observacao, data_lancamento) VALUES (?, ?, ?, ?, ?)',
+          [planilhaId, item.categoria_id, item.valor, item.observacao || null, parseDataLancamento(item.data_lancamento)]
         );
       }
     }
@@ -3800,8 +3818,8 @@ app.post('/api/financas-comunidade', authenticateToken, async (req, res) => {
     for (const item of itens) {
       if (item.valor > 0) {
         await connection.query(
-          'INSERT INTO tb_financas_consolidado_itens (consolidado_id, categoria_id, valor, observacao) VALUES (?, ?, ?, ?)',
-          [consolidadoId, item.categoria_id, item.valor, item.observacao || null]
+          'INSERT INTO tb_financas_consolidado_itens (consolidado_id, categoria_id, valor, observacao, data_lancamento) VALUES (?, ?, ?, ?, ?)',
+          [consolidadoId, item.categoria_id, item.valor, item.observacao || null, parseDataLancamento(item.data_lancamento)]
         );
       }
     }
