@@ -1520,7 +1520,7 @@ app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior FROM tb_usuarios WHERE id = ?', [id]);
+    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [id]);
     const current = currentRows[0];
     if (current) {
       const autorDisplay = getCleanAutorDisplay(req.user.role, req.user.nome || req.user.login);
@@ -1579,7 +1579,19 @@ app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
     }
 
     let query = 'UPDATE tb_usuarios SET nome = ?, login = ?, role = ?, status = ?, situacao = ?, is_oconomo = ?, is_superior = ?, proximos_passos = ?, permissoes = ?';
-    let params = [nome, login, role, status, situacao, is_oconomo ? 1 : 0, is_superior ? 1 : 0, proximos_passos || null, JSON.stringify(req.body.permissoes || {})];
+    // Campos ausentes no payload mantêm o valor atual (evita zerar perfil/status em salvamentos parciais)
+    const keep = (v, cur) => (v === undefined || v === null || v === '') ? (cur ?? null) : v;
+    const cur = current || {};
+    const permissoesFinal = req.body.permissoes !== undefined
+      ? JSON.stringify(req.body.permissoes || {})
+      : (typeof cur.permissoes === 'string' ? cur.permissoes : JSON.stringify(cur.permissoes || {}));
+    let params = [
+      keep(nome, cur.nome), keep(login, cur.login), keep(role, cur.role), keep(status, cur.status), keep(situacao, cur.situacao),
+      (is_oconomo === undefined ? cur.is_oconomo : is_oconomo) ? 1 : 0,
+      (is_superior === undefined ? cur.is_superior : is_superior) ? 1 : 0,
+      proximos_passos === undefined ? (cur.proximos_passos ?? null) : (proximos_passos || null),
+      permissoesFinal
+    ];
 
     if (password && password.trim() !== '') {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -1603,7 +1615,7 @@ app.post('/api/usuarios/:id/update', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior FROM tb_usuarios WHERE id = ?', [id]);
+    const [currentRows] = await db.query('SELECT role, status, situacao, nome, login, is_oconomo, is_superior, proximos_passos, permissoes FROM tb_usuarios WHERE id = ?', [id]);
     const current = currentRows[0];
     if (current) {
       const autorDisplay = getCleanAutorDisplay(req.user.role, req.user.nome || req.user.login);
@@ -1662,7 +1674,19 @@ app.post('/api/usuarios/:id/update', authenticateToken, async (req, res) => {
     }
 
     let query = 'UPDATE tb_usuarios SET nome = ?, login = ?, role = ?, status = ?, situacao = ?, is_oconomo = ?, is_superior = ?, proximos_passos = ?, permissoes = ?';
-    let params = [nome, login, role, status, situacao, is_oconomo ? 1 : 0, is_superior ? 1 : 0, proximos_passos || null, JSON.stringify(req.body.permissoes || {})];
+    // Campos ausentes no payload mantêm o valor atual (evita zerar perfil/status em salvamentos parciais)
+    const keep = (v, cur) => (v === undefined || v === null || v === '') ? (cur ?? null) : v;
+    const cur = current || {};
+    const permissoesFinal = req.body.permissoes !== undefined
+      ? JSON.stringify(req.body.permissoes || {})
+      : (typeof cur.permissoes === 'string' ? cur.permissoes : JSON.stringify(cur.permissoes || {}));
+    let params = [
+      keep(nome, cur.nome), keep(login, cur.login), keep(role, cur.role), keep(status, cur.status), keep(situacao, cur.situacao),
+      (is_oconomo === undefined ? cur.is_oconomo : is_oconomo) ? 1 : 0,
+      (is_superior === undefined ? cur.is_superior : is_superior) ? 1 : 0,
+      proximos_passos === undefined ? (cur.proximos_passos ?? null) : (proximos_passos || null),
+      permissoesFinal
+    ];
 
     if (password && password.trim() !== '') {
       const hashedPassword = await bcrypt.hash(password, 10);

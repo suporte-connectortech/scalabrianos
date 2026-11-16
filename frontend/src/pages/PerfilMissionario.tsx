@@ -1559,6 +1559,8 @@ const PerfilMissionario: React.FC = () => {
         is_superior: missionario?.is_superior,
         situacao: missionario?.situacao,
         proximos_passos: missionario?.proximos_passos,
+        role: missionario?.role,
+        status: missionario?.status,
         permissoes: missionario?.permissoes || {},
       });
 
