@@ -28,17 +28,95 @@ function createTransporter() {
   });
 }
 
-// Lazy transporter — created on first use
+// ---------------------------------------------------------------------------
+// Microsoft Graph (Microsoft 365) — usado quando MS_TENANT_ID/MS_CLIENT_ID/
+// MS_CLIENT_SECRET estão definidos. Envia via HTTPS (POST /users/{from}/sendMail),
+// sem SMTP. Requer app no Entra ID com permissão de aplicativo Mail.Send.
+// ---------------------------------------------------------------------------
+const useGraph = () => !!(clean(process.env.MS_TENANT_ID) && clean(process.env.MS_CLIENT_ID) && clean(process.env.MS_CLIENT_SECRET));
+const graphSender = () => clean(process.env.MAIL_FROM) || clean(process.env.SMTP_FROM) || clean(process.env.SMTP_USER);
+
+let _graphToken = null; // { value, expiresAt }
+async function getGraphToken() {
+  if (_graphToken && Date.now() < _graphToken.expiresAt) return _graphToken.value;
+  const tenant = clean(process.env.MS_TENANT_ID);
+  const res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clean(process.env.MS_CLIENT_ID),
+      client_secret: clean(process.env.MS_CLIENT_SECRET),
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    const err = new Error(`Falha ao obter token Microsoft: ${data.error_description || data.error || res.status}`);
+    err.code = 'EGRAPHAUTH';
+    throw err;
+  }
+  // renova 5 min antes de expirar
+  _graphToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in - 300) * 1000 };
+  return _graphToken.value;
+}
+
+// Converte "\"Nome\" <email>" ou "email" em { name, address }
+function parseAddress(addr) {
+  if (!addr) return null;
+  const m = String(addr).match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/);
+  return m ? { name: m[1].trim(), address: m[2].trim() } : { address: String(addr).trim() };
+}
+const toRecipients = (val) => (Array.isArray(val) ? val : String(val || '').split(','))
+  .map(parseAddress).filter(a => a && a.address)
+  .map(a => ({ emailAddress: a.name ? { name: a.name, address: a.address } : { address: a.address } }));
+
+async function sendViaGraph({ to, cc, bcc, replyTo, subject, text, html }) {
+  const sender = graphSender();
+  const token = await getGraphToken();
+  const message = {
+    subject,
+    body: html ? { contentType: 'HTML', content: html } : { contentType: 'Text', content: text || '' },
+    toRecipients: toRecipients(to),
+  };
+  if (cc) message.ccRecipients = toRecipients(cc);
+  if (bcc) message.bccRecipients = toRecipients(bcc);
+  if (replyTo) message.replyTo = toRecipients(replyTo);
+
+  const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, saveToSentItems: true }),
+  });
+  if (res.status !== 202) {
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) _graphToken = null;
+    const err = new Error(`Microsoft Graph ${res.status}: ${data?.error?.message || res.statusText}`);
+    err.code = data?.error?.code || 'EGRAPH';
+    err.responseCode = res.status;
+    throw err;
+  }
+  return { messageId: res.headers.get('request-id') || 'graph' };
+}
+
+// Lazy transporter — Graph quando configurado, senão SMTP (nodemailer)
 let _transporter = null;
 function getTransporter() {
+  if (useGraph()) return { sendMail: sendViaGraph };
   if (!_transporter) {
     _transporter = createTransporter();
   }
   return _transporter;
 }
 
-// Verify SMTP connection on startup (non-blocking)
+// Verify connection on startup (non-blocking)
 setTimeout(() => {
+  if (useGraph()) {
+    getGraphToken()
+      .then(() => console.log(`[EMAIL] Microsoft Graph ready (sender: ${graphSender()})`))
+      .catch((e) => console.error('[EMAIL] Microsoft Graph auth failed:', e.message));
+    return;
+  }
   const t = getTransporter();
   t.verify((error) => {
     if (error) {
@@ -163,7 +241,7 @@ async function sendPasswordResetEmail(email, nome) {
   const resetUrl = `${frontendUrl}/#/reset-password`;
   const fromAddr = clean(process.env.SMTP_FROM) || clean(process.env.SMTP_USER);
 
-  console.log(`[EMAIL] Sending password reset to ${email} via ${clean(process.env.SMTP_HOST)}:${clean(process.env.SMTP_PORT)}`);
+  console.log(`[EMAIL] Sending password reset to ${email} via ${useGraph() ? 'Microsoft Graph' : `${clean(process.env.SMTP_HOST)}:${clean(process.env.SMTP_PORT)}`}`);
 
   const info = await getTransporter().sendMail({
     from: `"Sistema Scalabrinianos" <${fromAddr}>`,
