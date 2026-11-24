@@ -849,8 +849,53 @@
       "actions": {
         "refresh": "Atualizar",
         "export": "Exportar Excel",
-        "new_entry": "Novo Lançamento"
-      }
+        "new_entry": "Novo Lançamento",
+        "print": "Imprimir"
+      },
+      "print": {
+        "button_title": "Imprimir em layout condensado (A4)",
+        "popup_blocked": "Autorize pop-ups no navegador para imprimir o relatório.",
+        "title_individual": "Prestação de Contas Mensal — Missionário",
+        "title_comunidade": "Prestação de Contas Mensal — Casa Religiosa",
+        "title_extrato_missionario": "Extrato Mensal — Missionário",
+        "title_extrato_casa": "Extrato Mensal — Casa Religiosa",
+        "region": "Região Nossa Senhora Mãe dos Migrantes (RNSMM)",
+        "region_short": "Direção Regional RNSMM",
+        "missionary": "Missionário",
+        "community": "Comunidade Religiosa",
+        "month": "Mês/Ano",
+        "all_months": "Todos",
+        "records": "Registros",
+        "entries": "Lançamentos",
+        "house_entries": "Lançamentos da Casa",
+        "type": "Tipo",
+        "category": "Categoria",
+        "notes": "Observação",
+        "datetime": "Data/Hora",
+        "income": "Receita",
+        "expense": "Despesa",
+        "no_entries": "Nenhum lançamento registrado.",
+        "obs_receitas": "Observações (Receitas):",
+        "obs_despesas": "Observações (Despesas):",
+        "review_notes": "Apontamentos da revisão:",
+        "excedente": "Excedente retido",
+        "balance_house": "Superávit / Déficit",
+        "mass_count": "Missas celebradas",
+        "sign_missionary": "Missionário",
+        "sign_economo": "Ecônomo Local",
+        "sign_superior": "Superior Local",
+        "sign_regional": "Ecônomo Regional",
+        "status_draft": "Rascunho",
+        "status_em_validacao": "Em validação",
+        "status_validado": "Validado",
+        "status_devolvido": "Devolvido",
+        "status_pendente_economo": "Em preenchimento",
+        "status_enviado_regional": "Enviado ao Regional",
+        "status_aprovado": "Aprovado",
+        "status_devolvido_superior": "Devolvido para ajustes"
+      },
+      "admin_account_title": "Acesso administrativo (e-mail institucional).",
+      "admin_account_notice": "A Prestação de Contas — Missionário é feita somente pelo acesso pessoal do missionário. Este acesso não possui prestação de contas individual."
     },
     "extratos": {
       "title": "Extratos Mensais",
@@ -881,8 +926,13 @@
         "total_incomes": "Total Receitas",
         "total_expenses": "Total Despesas",
         "net_balance": "Saldo Líquido",
-        "close": "Fechar Detalhes"
-      }
+        "close": "Fechar Detalhes",
+        "no_incomes": "Nenhuma receita registrada.",
+        "no_expenses": "Nenhuma despesa registrada.",
+        "no_details": "Nenhum detalhe encontrado para este mês.",
+        "missionaries_part": "Missionários"
+      },
+      "print_list": "Imprimir listagem"
     },
     "casas": {
       "title": "Presença Missionária",

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Save, Loader2,
-  Calendar, FileText, Download, TrendingUp, TrendingDown, Plus, AlertCircle
+  Calendar, FileText, Download, TrendingUp, TrendingDown, Plus, AlertCircle, Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../../context/CurrencyContext';
 import api, { getFileUrl } from '../../api';
-import MonthPicker from '../Common/MonthPicker';
+import MonthPicker, { formatMonthLabel } from '../Common/MonthPicker';
+import { openPrintReport, buildPrintTable, buildPrintSummary, buildPrintSection, buildPrintNote, formatIssuedAt, type PrintCell } from '../../utils/printReport';
 
 interface Categoria {
   id: number;
@@ -474,6 +475,109 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
 
   const totals = calculateTotals();
 
+  // Impressão condensada (A4): Casa + Missionários consolidados por categoria, resumo, lançamentos e assinaturas
+  const handlePrint = () => {
+    if (!selectedCasa || !selectedMes) {
+      alert(t('planilha.select_house', 'Selecione uma casa religiosa.'));
+      return;
+    }
+    const locale = i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR';
+    const money = (v: number) => formatCurrency(v, { hideSymbol: true });
+    const casaNome = casas.find(c => String(c.id) === selectedCasa)?.nome || '—';
+
+    const catRows = (tipo: 'CREDITO' | 'DEBITO'): PrintCell[][] =>
+      categorias.filter(c => c.tipo === tipo && c.perfil === 'PERFIL_2' && isCategoryAllowed(c)).map(c => {
+        const house = editValues[c.id] || 0;
+        const miss = missionarySums[c.id] || 0;
+        const total = house + miss;
+        const cell = (v: number, extra = '') => ({ v: v ? money(v) : '–', cls: `n ${v ? extra : 'z'}` });
+        return [{ v: c.codigo || '', cls: 'c' }, c.nome, cell(house), cell(miss), cell(total, 'b')];
+      });
+    const columns = (titulo: string) => [
+      { header: t('planilha.col_code', 'CÓD.'), cls: 'c' },
+      { header: titulo },
+      { header: t('planilha.col_house', 'CASA'), cls: 'n' },
+      { header: t('planilha.col_missio', 'MISSIO.'), cls: 'n' },
+      { header: `${t('planilha.col_total', 'TOTAL')} (${currencySymbol})`, cls: 'n' },
+    ];
+
+    const receitasTable = buildPrintTable({
+      className: 'cred',
+      columns: columns(t('planilha.receitas', 'RECEITAS')),
+      rows: catRows('CREDITO'),
+      footer: [[{ v: t('planilha.total_receitas', 'TOTAL RECEITAS'), colspan: 4 }, { v: money(totals.credito), cls: 'n' }]],
+    });
+    const despesasTable = buildPrintTable({
+      className: 'deb',
+      columns: columns(t('planilha.despesas', 'DESPESAS')),
+      rows: catRows('DEBITO'),
+      footer: [
+        [{ v: t('planilha.total_despesas', 'TOTAL DESPESAS'), colspan: 4 }, { v: money(totals.debito), cls: 'n' }],
+        [{ v: '50', cls: 'c' }, { v: t('financeiro.print.balance_house', 'Superávit / Déficit'), colspan: 3 }, { v: money(totals.saldo), cls: `n ${totals.saldo >= 0 ? 'pos' : 'neg'}` }],
+        [{ v: '70', cls: 'c' }, { v: t('financeiro.print.mass_count', 'Missas celebradas'), colspan: 3 }, { v: String(numMissas || 0), cls: 'n' }],
+      ],
+    });
+
+    const entriesTable = buildPrintTable({
+      columns: [
+        { header: t('financeiro.print.type', 'Tipo'), cls: 'c' },
+        { header: t('financeiro.print.category', 'Categoria') },
+        { header: t('financeiro.print.notes', 'Observação') },
+        { header: t('financeiro.print.datetime', 'Data/Hora'), cls: 'c' },
+        { header: `${t('financeiro.table.value', 'Valor')} (${currencySymbol})`, cls: 'n' },
+      ],
+      rows: sortedEntryLogs.map(e => [
+        { v: e.tipo === 'CREDITO' ? t('financeiro.print.income', 'Receita') : t('financeiro.print.expense', 'Despesa'), cls: `c ${e.tipo === 'CREDITO' ? 'pos' : 'neg'}` },
+        e.categoriaNome,
+        e.obs || '—',
+        { v: `${e.timestamp.toLocaleDateString(locale)} ${e.timestamp.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`, cls: 'c' },
+        { v: money(e.valor), cls: 'n' },
+      ]),
+      emptyText: t('financeiro.print.no_entries', 'Nenhum lançamento registrado.'),
+    });
+
+    const statusKey = planilha?.id ? (planilha.status || 'PENDENTE_ECONOMO') : 'PENDENTE_ECONOMO';
+    const statusMap: Record<string, { label: string; tone: 'ok' | 'warn' | 'info' | 'bad' }> = {
+      PENDENTE_ECONOMO: { label: t('financeiro.print.status_pendente_economo', 'Em preenchimento'), tone: 'warn' },
+      ENVIADO_REGIONAL: { label: t('financeiro.print.status_enviado_regional', 'Enviado ao Regional'), tone: 'info' },
+      APROVADO: { label: t('financeiro.print.status_aprovado', 'Aprovado'), tone: 'ok' },
+      DEVOLVIDO_SUPERIOR: { label: t('financeiro.print.status_devolvido_superior', 'Devolvido para ajustes'), tone: 'bad' },
+    };
+
+    openPrintReport({
+      lang: locale,
+      docTitle: `${t('financeiro.print.title_comunidade', 'Prestação de Contas Mensal — Casa Religiosa')} - ${casaNome} - ${selectedMes}`,
+      orgName: t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos'),
+      regionName: t('financeiro.print.region', 'Região Nossa Senhora Mãe dos Migrantes (RNSMM)'),
+      title: t('financeiro.print.title_comunidade', 'Prestação de Contas Mensal — Casa Religiosa'),
+      status: statusMap[statusKey] || statusMap.PENDENTE_ECONOMO,
+      issuedLabel: t('profile.print.issued', 'Emissão'),
+      issuedAt: formatIssuedAt(locale, t('profile.print.at', 'às')),
+      meta: [
+        { label: t('financeiro.print.community', 'Comunidade Religiosa'), value: casaNome },
+        { label: t('financeiro.print.month', 'Mês/Ano'), value: formatMonthLabel(selectedMes) },
+      ],
+      bodyHtml: `<div class="rp-cols"><div>${receitasTable}</div><div>${despesasTable}</div></div>`
+        + buildPrintSummary([
+          { label: t('planilha.total_receitas', 'Total Receitas'), value: formatCurrency(totals.credito), tone: 'pos' },
+          { label: t('planilha.total_despesas', 'Total Despesas'), value: formatCurrency(totals.debito), tone: 'neg' },
+          { label: t('financeiro.print.balance_house', 'Superávit / Déficit'), value: formatCurrency(totals.saldo), tone: totals.saldo >= 0 ? 'pos' : 'neg' },
+          { label: t('financeiro.print.mass_count', 'Missas celebradas'), value: String(numMissas || 0) },
+        ])
+        + buildPrintSection(`${t('financeiro.print.house_entries', 'Lançamentos da Casa')} (${entryLogs.length})`, entriesTable)
+        + (apontamentos ? buildPrintNote(t('financeiro.print.review_notes', 'Apontamentos da revisão:'), apontamentos) : ''),
+      signatures: [
+        { title: t('financeiro.print.sign_economo', 'Ecônomo Local'), role: casaNome },
+        { title: t('financeiro.print.sign_superior', 'Superior Local'), role: casaNome },
+        { title: t('financeiro.print.sign_regional', 'Ecônomo Regional'), role: t('financeiro.print.region_short', 'Direção Regional RNSMM') },
+      ],
+      footerLeft: t('profile.print.footer_system', 'Portal Scalabrinianos — Sistema de Gestão'),
+      footerRight: `${t('financeiro.print.month', 'Mês/Ano')}: ${formatMonthLabel(selectedMes)}`,
+      orientation: 'landscape',
+      popupBlockedMessage: t('financeiro.print.popup_blocked', 'Autorize pop-ups no navegador para imprimir o relatório.'),
+    });
+  };
+
   return (
     <div className="planilha-mensal-content">
       {!initialCasa && (
@@ -521,7 +625,28 @@ const PlanilhaComunidade: React.FC<Props> = ({ casas, categorias, initialCasa, i
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn-export-small"
+              onClick={handlePrint}
+              title={t('financeiro.print.button_title', 'Imprimir em layout condensado (A4)')}
+              style={{
+                background: '#013375',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                border: 'none',
+                fontSize: '13px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              <Printer size={18} /> {t('financeiro.actions.print', 'Imprimir')}
+            </button>
             <button
               className="btn-export-small"
               onClick={exportToExcel}

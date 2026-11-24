@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Save, Loader2, CheckCircle, XCircle, AlertCircle,
-  Calendar, FileText, Download, TrendingUp, TrendingDown
+  Calendar, FileText, Download, TrendingUp, TrendingDown, Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../../context/CurrencyContext';
 import api, { getFileUrl } from '../../api';
 import MonthPicker, { formatMonthLabel } from '../Common/MonthPicker';
+import { openPrintReport, buildPrintTable, buildPrintSummary, buildPrintSection, buildPrintNote, formatIssuedAt, type PrintCell } from '../../utils/printReport';
 
 interface Categoria {
   id: number;
@@ -105,6 +106,9 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   const [selectedMes, setSelectedMes] = useState(externalMes || (externalUsuarioId ? new Date().toISOString().slice(0, 7) : ''));
   // Marca quando o Mês/Ano foi escolhido manualmente, para avisar se já existe prestação naquele período
   const mesEscolhidoPeloUsuario = useRef(false);
+  // Marca quando a Comunidade veio de uma prestação já existente (e não de uma escolha do missionário),
+  // para que ela não seja herdada ao trocar para um Mês/Ano ainda sem prestação.
+  const casaVeioDaPlanilha = useRef(false);
   useEffect(() => {
     if (externalMes) {
       setSelectedMes(externalMes);
@@ -338,6 +342,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
         setAnexoUrl(res.data.anexo_path || null);
         if (res.data.casa_id) {
           setSelectedCasa(res.data.casa_id.toString());
+          casaVeioDaPlanilha.current = true;
+        } else if (isOwner && !targetUserId && casaVeioDaPlanilha.current) {
+          // Nova prestação: a Comunidade Religiosa ativa deve ser escolhida novamente pelo missionário
+          setSelectedCasa('');
+          casaVeioDaPlanilha.current = false;
         }
       } else {
         setPlanilha(null);
@@ -611,6 +620,107 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     XLSX.writeFile(wb, `Financeiro_${userName.replace(' ', '_')}_${selectedMes}.xlsx`);
   };
 
+  // Impressão condensada (A4, uma página): receitas e despesas lado a lado, resumo, lançamentos e assinaturas
+  const handlePrint = () => {
+    if (!selectedMes) {
+      alert(t('planilha.select_month_required', 'Selecione o Mês/Ano de referência no seletor para prosseguir com a prestação de contas.'));
+      return;
+    }
+    const locale = i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR';
+    const money = (v: number) => formatCurrency(v, { hideSymbol: true });
+    const casaNome = casas.find(c => String(c.id) === selectedCasa)?.nome
+      || casasAtivas.find(c => String(c.id) === selectedCasa)?.nome || '—';
+    const userName = selectedUserName || user?.nome || '';
+
+    const catRows = (tipo: 'CREDITO' | 'DEBITO'): PrintCell[][] =>
+      categorias.filter(c => c.tipo === tipo && c.perfil === 'PERFIL_1' && isCategoryAllowed(c)).map(c => {
+        const v = editValues[c.id] || 0;
+        return [{ v: c.codigo || '', cls: 'c' }, c.nome, { v: v ? money(v) : '–', cls: v ? 'n' : 'n z' }];
+      });
+    const valHeader = `${t('planilha.col_val', 'VALOR')} (${currencySymbol})`;
+
+    const receitasTable = buildPrintTable({
+      className: 'cred',
+      columns: [{ header: t('planilha.col_code', 'CÓD.'), cls: 'c' }, { header: t('planilha.receitas', 'RECEITAS') }, { header: valHeader, cls: 'n' }],
+      rows: catRows('CREDITO'),
+      footer: [[{ v: t('planilha.total_receitas', 'TOTAL RECEITAS'), colspan: 2 }, { v: money(totals.credito), cls: 'n' }]],
+    });
+    const despesasTable = buildPrintTable({
+      className: 'deb',
+      columns: [{ header: t('planilha.col_code', 'CÓD.'), cls: 'c' }, { header: t('planilha.despesas', 'DESPESAS') }, { header: valHeader, cls: 'n' }],
+      rows: catRows('DEBITO'),
+      footer: [
+        [{ v: t('planilha.total_despesas', 'TOTAL DESPESAS'), colspan: 2 }, { v: money(totals.debito), cls: 'n' }],
+        [{ v: '50', cls: 'c' }, t('financeiro.print.excedente', 'Excedente retido'), { v: money(totals.saldo), cls: `n ${totals.saldo >= 0 ? 'pos' : 'neg'}` }],
+        [{ v: '70', cls: 'c' }, t('financeiro.print.mass_count', 'Missas celebradas'), { v: String(numMissas || 0), cls: 'n' }],
+      ],
+    });
+
+    const entriesTable = buildPrintTable({
+      columns: [
+        { header: t('financeiro.print.type', 'Tipo'), cls: 'c' },
+        { header: t('financeiro.print.category', 'Categoria') },
+        { header: t('financeiro.print.notes', 'Observação') },
+        { header: t('financeiro.print.datetime', 'Data/Hora'), cls: 'c' },
+        { header: valHeader, cls: 'n' },
+      ],
+      rows: sortedEntryLogs.map(e => [
+        { v: e.tipo === 'CREDITO' ? t('financeiro.print.income', 'Receita') : t('financeiro.print.expense', 'Despesa'), cls: `c ${e.tipo === 'CREDITO' ? 'pos' : 'neg'}` },
+        e.categoriaNome,
+        e.obs || '—',
+        { v: `${e.timestamp.toLocaleDateString(locale)} ${e.timestamp.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`, cls: 'c' },
+        { v: money(e.valor), cls: 'n' },
+      ]),
+      emptyText: t('financeiro.print.no_entries', 'Nenhum lançamento registrado.'),
+    });
+
+    const notes = [
+      planilha?.obs_receita ? buildPrintNote(t('financeiro.print.obs_receitas', 'Observações (Receitas):'), planilha.obs_receita) : '',
+      planilha?.obs_despesa ? buildPrintNote(t('financeiro.print.obs_despesas', 'Observações (Despesas):'), planilha.obs_despesa) : '',
+      planilha?.apontamentos ? buildPrintNote(t('financeiro.print.review_notes', 'Apontamentos da revisão:'), planilha.apontamentos) : '',
+    ].join('');
+
+    const statusKey = (planilha?.id ? planilha.status : 'PENDENTE') || 'PENDENTE';
+    const statusMap: Record<string, { label: string; tone: 'ok' | 'warn' | 'info' | 'bad' }> = {
+      PENDENTE: { label: t('financeiro.print.status_draft', 'Rascunho'), tone: 'warn' },
+      EM_VALIDACAO: { label: t('financeiro.print.status_em_validacao', 'Em validação'), tone: 'info' },
+      VALIDADO: { label: t('financeiro.print.status_validado', 'Validado'), tone: 'ok' },
+      DEVOLVIDO: { label: t('financeiro.print.status_devolvido', 'Devolvido'), tone: 'bad' },
+    };
+
+    openPrintReport({
+      lang: locale,
+      docTitle: `${t('financeiro.print.title_individual', 'Prestação de Contas Mensal — Missionário')} - ${userName} - ${selectedMes}`,
+      orgName: t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos'),
+      regionName: t('financeiro.print.region', 'Região Nossa Senhora Mãe dos Migrantes (RNSMM)'),
+      title: t('financeiro.print.title_individual', 'Prestação de Contas Mensal — Missionário'),
+      status: statusMap[statusKey] || statusMap.PENDENTE,
+      issuedLabel: t('profile.print.issued', 'Emissão'),
+      issuedAt: formatIssuedAt(locale, t('profile.print.at', 'às')),
+      meta: [
+        { label: t('financeiro.print.missionary', 'Missionário'), value: userName },
+        { label: t('financeiro.print.community', 'Comunidade Religiosa'), value: casaNome },
+        { label: t('financeiro.print.month', 'Mês/Ano'), value: formatMonthLabel(selectedMes) },
+      ],
+      bodyHtml: `<div class="rp-cols"><div>${receitasTable}</div><div>${despesasTable}</div></div>`
+        + buildPrintSummary([
+          { label: t('planilha.total_receitas', 'Total Receitas'), value: formatCurrency(totals.credito), tone: 'pos' },
+          { label: t('planilha.total_despesas', 'Total Despesas'), value: formatCurrency(totals.debito), tone: 'neg' },
+          { label: t('planilha.saldo_mes', 'Saldo do Mês'), value: formatCurrency(totals.saldo), tone: totals.saldo >= 0 ? 'pos' : 'neg' },
+          { label: t('financeiro.print.mass_count', 'Missas celebradas'), value: String(numMissas || 0) },
+        ])
+        + buildPrintSection(`${t('financeiro.print.entries', 'Lançamentos')} (${entryLogs.length})`, entriesTable)
+        + notes,
+      signatures: [
+        { title: t('financeiro.print.sign_missionary', 'Missionário'), role: userName },
+        { title: t('financeiro.print.sign_economo', 'Ecônomo Local'), role: casaNome },
+      ],
+      footerLeft: t('profile.print.footer_system', 'Portal Scalabrinianos — Sistema de Gestão'),
+      footerRight: `${t('financeiro.print.month', 'Mês/Ano')}: ${formatMonthLabel(selectedMes)}`,
+      popupBlockedMessage: t('financeiro.print.popup_blocked', 'Autorize pop-ups no navegador para imprimir o relatório.'),
+    });
+  };
+
   return (
     <div className="planilha-mensal-content">
       <div className="filters-card" style={{ marginBottom: '20px', display: 'block' }}>
@@ -622,7 +732,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
           {isOwner && !isAdminGeral ? (
             <div className="filter-item">
               <label>{t('planilha.active_community', 'Comunidade Religiosa Ativa')}</label>
-              <select className="select-with-arrow" value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)} disabled={!!planilha?.id}>
+              <select className="select-with-arrow" value={selectedCasa} onChange={e => { casaVeioDaPlanilha.current = false; setSelectedCasa(e.target.value); }} disabled={!!planilha?.id}>
                 <option value="">{t('planilha.select_active_community', 'Selecione a comunidade...')}</option>
                 {casasAtivas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 {selectedCasa && !casasAtivas.some(c => String(c.id) === selectedCasa) && (
@@ -794,6 +904,11 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {planilha && (
+                  <button className="btn-export-small" onClick={handlePrint} style={{ background: '#013375', color: 'white' }} title={t('financeiro.print.button_title', 'Imprimir em layout condensado (A4)')}>
+                    <Printer size={18} /> {t('financeiro.actions.print', 'Imprimir')}
+                  </button>
+                )}
                 {planilha && (
                   <button className="btn-export-small" onClick={exportIndividualToExcel} style={{ background: '#10b981', color: 'white' }}>
                     <Download size={18} /> {t('financeiro.actions.export')}

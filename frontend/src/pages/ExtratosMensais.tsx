@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../context/CurrencyContext';
 import api from '../api';
-import { FileText, Calendar, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
-import MonthPicker from '../components/Common/MonthPicker';
+import { FileText, Calendar, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, X, Eye, Printer } from 'lucide-react';
+import MonthPicker, { formatMonthLabel } from '../components/Common/MonthPicker';
+import { openPrintReport, buildPrintTable, buildPrintSummary, formatIssuedAt, type PrintCell } from '../utils/printReport';
 import '../styles/FinanceiroSpreadsheet.css';
 
 interface ExtratoMes {
@@ -22,6 +23,7 @@ interface ExtratoMes {
 
 interface Categoria {
   id: number;
+  codigo?: string;
   nome: string;
   tipo: 'CREDITO' | 'DEBITO';
   perfil: string;
@@ -34,6 +36,19 @@ interface DetalhesPlanilha {
     categoria_id: number;
     valor: number;
   }[];
+  // Somente na Casa Religiosa: valores das prestações validadas dos missionários, por categoria
+  missionarySums?: Record<number, number>;
+}
+
+// Linha do detalhe: total por categoria (vários lançamentos da mesma categoria são somados)
+interface DetalheLinha {
+  categoria_id: number;
+  codigo: string;
+  nome: string;
+  tipo: 'CREDITO' | 'DEBITO';
+  casa: number;
+  missionarios: number;
+  total: number;
 }
 
 const ExtratosMensais: React.FC = () => {
@@ -102,7 +117,9 @@ const ExtratosMensais: React.FC = () => {
       if (isOconomo && activeTab === 'comunidade') {
         url = `/financas-comunidade/${extrato.casa_id}/${extrato.mes_referencia}?usuario_id=${extrato.usuario_id}`;
       } else {
-        url = `/financas-mensais/usuario/${extrato.usuario_id}/${extrato.mes_referencia}`;
+        // A listagem do próprio missionário não traz usuario_id: usa o usuário logado
+        const uid = extrato.usuario_id || user?.id;
+        url = `/financas-mensais/usuario/${uid}/mes/${extrato.mes_referencia}`;
       }
       const res = await api.get(url);
       setDetalhes(res.data);
@@ -113,9 +130,90 @@ const ExtratosMensais: React.FC = () => {
     }
   };
 
-  const getCategoriaNome = (id: number) => {
-    const cat = categorias.find(c => c.id === id);
-    return cat ? cat.nome : `Categoria #${id}`;
+  const isDetalheCasa = isOconomo && activeTab === 'comunidade';
+
+  // Consolida o detalhe por categoria. Na Casa Religiosa soma os lançamentos da casa
+  // com os valores das prestações validadas dos missionários (mesma regra da planilha da casa).
+  const detalheLinhas: DetalheLinha[] = (() => {
+    if (!detalhes) return [];
+    const map = new Map<number, DetalheLinha>();
+    const add = (categoriaId: number, valor: number, origem: 'casa' | 'missionarios') => {
+      const v = parseFloat(String(valor)) || 0;
+      if (v <= 0) return;
+      const cat = categorias.find(c => c.id === categoriaId);
+      if (!cat) return;
+      const linha = map.get(categoriaId) || {
+        categoria_id: categoriaId, codigo: cat.codigo || '', nome: cat.nome, tipo: cat.tipo, casa: 0, missionarios: 0, total: 0
+      };
+      linha[origem] += v;
+      linha.total += v;
+      map.set(categoriaId, linha);
+    };
+    (detalhes.itens || []).forEach(it => add(it.categoria_id, it.valor, 'casa'));
+    if (isDetalheCasa && detalhes.missionarySums) {
+      Object.entries(detalhes.missionarySums).forEach(([id, v]) => add(Number(id), v, 'missionarios'));
+    }
+    return Array.from(map.values());
+  })();
+  const detalheReceitas = detalheLinhas.filter(l => l.tipo === 'CREDITO');
+  const detalheDespesas = detalheLinhas.filter(l => l.tipo === 'DEBITO');
+
+  const dateLocale = i18n.language.startsWith('es') ? 'es-ES' : 'pt-BR';
+  const printCommon = () => ({
+    lang: dateLocale,
+    orgName: t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos'),
+    regionName: t('financeiro.print.region', 'Região Nossa Senhora Mãe dos Migrantes (RNSMM)'),
+    issuedLabel: t('profile.print.issued', 'Emissão'),
+    issuedAt: formatIssuedAt(dateLocale, t('profile.print.at', 'às')),
+    footerLeft: t('profile.print.footer_system', 'Portal Scalabrinianos — Sistema de Gestão'),
+    popupBlockedMessage: t('financeiro.print.popup_blocked', 'Autorize pop-ups no navegador para imprimir o relatório.'),
+  });
+
+  // Impressão condensada do extrato aberto no modal
+  const handlePrintDetalhe = () => {
+    if (!selectedExtrato) return;
+    const money = (v: number) => formatCurrency(v, { hideSymbol: true });
+    const linhasToRows = (linhas: DetalheLinha[]): PrintCell[][] => linhas.map(l => isDetalheCasa
+      ? [{ v: l.codigo, cls: 'c' }, l.nome, { v: l.casa ? money(l.casa) : '–', cls: l.casa ? 'n' : 'n z' }, { v: l.missionarios ? money(l.missionarios) : '–', cls: l.missionarios ? 'n' : 'n z' }, { v: money(l.total), cls: 'n b' }]
+      : [{ v: l.codigo, cls: 'c' }, l.nome, { v: money(l.total), cls: 'n' }]);
+    const cols = (titulo: string) => isDetalheCasa
+      ? [{ header: t('planilha.col_code', 'CÓD.'), cls: 'c' }, { header: titulo }, { header: t('planilha.col_house', 'CASA'), cls: 'n' }, { header: t('planilha.col_missio', 'MISSIO.'), cls: 'n' }, { header: t('planilha.col_total', 'TOTAL'), cls: 'n' }]
+      : [{ header: t('planilha.col_code', 'CÓD.'), cls: 'c' }, { header: titulo }, { header: t('financeiro.table.value', 'Valor'), cls: 'n' }];
+    const span = isDetalheCasa ? 4 : 2;
+    const totalRec = detalheReceitas.reduce((s, l) => s + l.total, 0);
+    const totalDep = detalheDespesas.reduce((s, l) => s + l.total, 0);
+    const titulo = isDetalheCasa
+      ? t('financeiro.print.title_extrato_casa', 'Extrato Mensal — Casa Religiosa')
+      : t('financeiro.print.title_extrato_missionario', 'Extrato Mensal — Missionário');
+
+    openPrintReport({
+      ...printCommon(),
+      docTitle: `${titulo} - ${selectedExtrato.nome_missionario || selectedExtrato.nome_casa || user?.nome || ''} - ${selectedExtrato.mes_referencia}`,
+      title: titulo,
+      status: { label: isDetalheCasa ? t('financeiro.print.status_aprovado', 'Aprovado') : t('financeiro.print.status_validado', 'Validado'), tone: 'ok' },
+      meta: [
+        ...(!isDetalheCasa ? [{ label: t('financeiro.print.missionary', 'Missionário'), value: selectedExtrato.nome_missionario || user?.nome || '' }] : []),
+        { label: t('financeiro.print.community', 'Comunidade Religiosa'), value: selectedExtrato.nome_casa || '' },
+        { label: t('financeiro.print.month', 'Mês/Ano'), value: formatMonthLabel(selectedExtrato.mes_referencia) },
+        { label: t('extratos.table.validation_date', 'Data Validação'), value: selectedExtrato.data_validacao ? new Date(selectedExtrato.data_validacao).toLocaleDateString(dateLocale) : '' },
+      ],
+      bodyHtml: `<div class="rp-cols"><div>${buildPrintTable({
+          className: 'cred', columns: cols(t('planilha.receitas', 'RECEITAS')), rows: linhasToRows(detalheReceitas),
+          footer: [[{ v: t('planilha.total_receitas', 'TOTAL RECEITAS'), colspan: span }, { v: money(totalRec), cls: 'n' }]],
+          emptyText: t('extratos.details_modal.no_incomes', 'Nenhuma receita registrada.'),
+        })}</div><div>${buildPrintTable({
+          className: 'deb', columns: cols(t('planilha.despesas', 'DESPESAS')), rows: linhasToRows(detalheDespesas),
+          footer: [[{ v: t('planilha.total_despesas', 'TOTAL DESPESAS'), colspan: span }, { v: money(totalDep), cls: 'n' }]],
+          emptyText: t('extratos.details_modal.no_expenses', 'Nenhuma despesa registrada.'),
+        })}</div></div>`
+        + buildPrintSummary([
+          { label: t('planilha.total_receitas', 'Total Receitas'), value: formatCurrency(selectedExtrato.total_credito), tone: 'pos' },
+          { label: t('planilha.total_despesas', 'Total Despesas'), value: formatCurrency(selectedExtrato.total_debito), tone: 'neg' },
+          { label: t('extratos.table.balance', 'Saldo'), value: formatCurrency(selectedExtrato.saldo), tone: Number(selectedExtrato.saldo) >= 0 ? 'pos' : 'neg' },
+        ]),
+      footerRight: `${t('financeiro.print.month', 'Mês/Ano')}: ${formatMonthLabel(selectedExtrato.mes_referencia)}`,
+      orientation: isDetalheCasa ? 'landscape' : 'portrait',
+    });
   };
 
   // Filtering Logic
@@ -124,6 +222,58 @@ const ExtratosMensais: React.FC = () => {
     const matchesCasa = filterCasa ? ext.casa_id?.toString() === filterCasa : true;
     return matchesMes && matchesCasa;
   });
+
+  // Impressão condensada da listagem filtrada (todas as páginas)
+  const handlePrintLista = () => {
+    if (filteredExtratos.length === 0) return;
+    const money = (v: number) => formatCurrency(v, { hideSymbol: true });
+    const showCasa = isOconomo;
+    const showMiss = isOconomo && activeTab === 'missionario';
+    const titulo = activeTab === 'comunidade' && isOconomo
+      ? t('extratos.tab_community', 'Extratos da Casa Religiosa')
+      : isOconomo ? t('extratos.tab_missionary', 'Extratos dos Missionários') : t('extratos.title', 'Extratos Mensais');
+    const totCre = filteredExtratos.reduce((s, e) => s + (Number(e.total_credito) || 0), 0);
+    const totDeb = filteredExtratos.reduce((s, e) => s + (Number(e.total_debito) || 0), 0);
+    const colsAntes = 2 + (showCasa ? 1 : 0) + (showMiss ? 1 : 0);
+
+    openPrintReport({
+      ...printCommon(),
+      docTitle: titulo,
+      title: titulo,
+      meta: [
+        ...(!isOconomo ? [{ label: t('financeiro.print.missionary', 'Missionário'), value: user?.nome || '' }] : []),
+        { label: t('financeiro.print.month', 'Mês/Ano'), value: filterMes ? formatMonthLabel(filterMes) : t('financeiro.print.all_months', 'Todos') },
+        ...(filterCasa ? [{ label: t('financeiro.print.community', 'Comunidade Religiosa'), value: casas.find(c => String(c.id) === filterCasa)?.nome || '' }] : []),
+        { label: t('financeiro.print.records', 'Registros'), value: String(filteredExtratos.length) },
+      ],
+      bodyHtml: buildPrintTable({
+        columns: [
+          { header: t('extratos.table.month', 'Mês Referência'), cls: 'c' },
+          ...(showCasa ? [{ header: t('extratos.table.house', 'Casa Religiosa') }] : []),
+          ...(showMiss ? [{ header: t('extratos.table.missionary', 'Missionário') }] : []),
+          { header: t('extratos.table.validation_date', 'Data Validação'), cls: 'c' },
+          { header: t('extratos.table.incomes', 'Receitas'), cls: 'n' },
+          { header: t('extratos.table.expenses', 'Despesas'), cls: 'n' },
+          { header: t('extratos.table.balance', 'Saldo'), cls: 'n' },
+        ],
+        rows: filteredExtratos.map(e => [
+          { v: formatMonthLabel(e.mes_referencia), cls: 'c' },
+          ...(showCasa ? [e.nome_casa || 'SEDE'] : []),
+          ...(showMiss ? [e.nome_missionario || '—'] : []),
+          { v: e.data_validacao ? new Date(e.data_validacao).toLocaleDateString(dateLocale) : '—', cls: 'c' },
+          { v: money(Number(e.total_credito) || 0), cls: 'n' },
+          { v: money(Number(e.total_debito) || 0), cls: 'n' },
+          { v: money(Number(e.saldo) || 0), cls: `n ${Number(e.saldo) >= 0 ? 'pos' : 'neg'}` },
+        ]),
+        footer: [[
+          { v: t('planilha.col_total', 'TOTAL'), colspan: colsAntes },
+          { v: money(totCre), cls: 'n' },
+          { v: money(totDeb), cls: 'n' },
+          { v: money(totCre - totDeb), cls: `n ${totCre - totDeb >= 0 ? 'pos' : 'neg'}` },
+        ]],
+      }),
+    });
+  };
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredExtratos.length / itemsPerPage);
@@ -249,6 +399,15 @@ const ExtratosMensais: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <button
+              onClick={handlePrintLista}
+              disabled={filteredExtratos.length === 0}
+              title={t('financeiro.print.button_title', 'Imprimir em layout condensado (A4)')}
+              style={{ order: 99, marginLeft: 'auto', alignSelf: 'flex-end', background: '#013375', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', cursor: filteredExtratos.length === 0 ? 'not-allowed' : 'pointer', opacity: filteredExtratos.length === 0 ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px' }}
+            >
+              <Printer size={16} /> {t('extratos.print_list', 'Imprimir listagem')}
+            </button>
 
             {isOconomo && (user?.role === 'ECONOMO_REGIONAL' || user?.role === 'ADMIN_GERAL') && (
               <div className="extratos-filter-field" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px' }}>
@@ -399,54 +558,49 @@ const ExtratosMensais: React.FC = () => {
             <div className="extratos-modal-body" style={{ padding: '24px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               {isModalLoading ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>{t('common.loading', 'Carregando detalhes...')}</div>
-              ) : detalhes && detalhes.itens && detalhes.itens.length > 0 ? (
+              ) : detalheLinhas.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  
-                  {/* Receitas */}
-                  <div>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #d1fae5' }}>
-                      <TrendingUp size={18} /> {t('extratos.details_modal.incomes_title', 'Receitas Detalhadas')}
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').length > 0 ? (
-                        detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'CREDITO').map(item => (
-                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
-                            <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#059669', whiteSpace: 'nowrap' }}>{formatCurrency(item.valor)}</span>
+                  {([
+                    { tipo: 'CREDITO', linhas: detalheReceitas, cor: '#059669', borda: '#d1fae5', Icone: TrendingUp, titulo: t('extratos.details_modal.incomes_title', 'Receitas Detalhadas'), vazio: t('extratos.details_modal.no_incomes', 'Nenhuma receita registrada.') },
+                    { tipo: 'DEBITO', linhas: detalheDespesas, cor: '#dc2626', borda: '#fee2e2', Icone: TrendingDown, titulo: t('extratos.details_modal.expenses_title', 'Despesas Detalhadas'), vazio: t('extratos.details_modal.no_expenses', 'Nenhuma despesa registrada.') },
+                  ] as const).map(grupo => (
+                    <div key={grupo.tipo}>
+                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: grupo.cor, margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: `2px solid ${grupo.borda}` }}>
+                        <grupo.Icone size={18} /> {grupo.titulo}
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {grupo.linhas.length > 0 ? grupo.linhas.map(linha => (
+                          <div key={linha.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
+                            <span style={{ color: '#475569' }}>
+                              {linha.nome}
+                              {isDetalheCasa && linha.missionarios > 0 && (
+                                <span style={{ display: 'block', fontSize: '11px', color: '#94a3b8' }}>
+                                  {t('planilha.col_house', 'Casa')}: {formatCurrency(linha.casa)} · {t('extratos.details_modal.missionaries_part', 'Missionários')}: {formatCurrency(linha.missionarios)}
+                                </span>
+                              )}
+                            </span>
+                            <span style={{ fontWeight: 600, color: grupo.cor, whiteSpace: 'nowrap' }}>{formatCurrency(linha.total)}</span>
                           </div>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: '14px', color: '#94a3b8' }}>Nenhuma receita registrada.</span>
-                      )}
+                        )) : (
+                          <span style={{ fontSize: '14px', color: '#94a3b8' }}>{grupo.vazio}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Despesas */}
-                  <div>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #fee2e2' }}>
-                      <TrendingDown size={18} /> {t('extratos.details_modal.expenses_title', 'Despesas Detalhadas')}
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').length > 0 ? (
-                        detalhes.itens.filter(i => categorias.find(c => c.id === i.categoria_id)?.tipo === 'DEBITO').map(item => (
-                          <div key={item.categoria_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
-                            <span style={{ color: '#475569' }}>{getCategoriaNome(item.categoria_id)}</span>
-                            <span style={{ fontWeight: 600, color: '#dc2626', whiteSpace: 'nowrap' }}>{formatCurrency(item.valor)}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: '14px', color: '#94a3b8' }}>Nenhuma despesa registrada.</span>
-                      )}
-                    </div>
-                  </div>
-
+                  ))}
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Nenhum detalhe encontrado para este mês.</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>{t('extratos.details_modal.no_details', 'Nenhum detalhe encontrado para este mês.')}</div>
               )}
             </div>
             
-            <div className="extratos-modal-footer" style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+            <div className="extratos-modal-footer" style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+              <button
+                onClick={handlePrintDetalhe}
+                disabled={isModalLoading}
+                style={{ background: '#013375', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: isModalLoading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Printer size={16} /> {t('financeiro.actions.print', 'Imprimir')}
+              </button>
               <button onClick={() => setSelectedExtrato(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
                 {t('common.close', 'Fechar')}
               </button>

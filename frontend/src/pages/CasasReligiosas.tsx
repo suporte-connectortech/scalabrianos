@@ -184,7 +184,7 @@ const CasasReligiosas: React.FC = () => {
         <td style="white-space: nowrap; font-weight: 500;">${extractCidadeUf(h.cidade, h.endereco)}</td>
         <td style="white-space: nowrap;">${h.regional || h.pais || '---'}</td>
         <td style="text-align: center; font-weight: bold; width: 75px;">${h.status}</td>
-        <td style="font-size: 11px; color: #475569;">${h.endereco || '---'}</td>
+        <td style="color: #475569;">${h.endereco || '---'}</td>
       </tr>
     `).join('');
 
@@ -195,13 +195,15 @@ const CasasReligiosas: React.FC = () => {
         <meta charset="utf-8">
         <title>Relatório de Presenças Missionárias - Scalabrianos</title>
         <style>
-          @page { size: A4 landscape; margin: 12mm; }
+          @page { size: A4 landscape; margin: 8mm; }
           * { box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: #1e293b;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            font-size: 8.5pt;
+            line-height: 1.25;
             background: #fff;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -210,35 +212,35 @@ const CasasReligiosas: React.FC = () => {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #032b57;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
+            border-bottom: 1.5pt solid #032b57;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
           }
           .title h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 11.5pt;
             color: #032b57;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
           .title p {
-            margin: 4px 0 0;
-            font-size: 12px;
+            margin: 0;
+            font-size: 6.8pt;
             color: #64748b;
           }
           .meta {
             text-align: right;
-            font-size: 11px;
+            font-size: 7pt;
             color: #64748b;
-            line-height: 1.5;
+            line-height: 1.3;
           }
           .summary-bar {
-            margin-bottom: 14px;
-            font-size: 12px;
-            background: #f8fafc;
-            padding: 8px 12px;
-            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 7.5pt;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 2px;
             border: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
@@ -247,31 +249,32 @@ const CasasReligiosas: React.FC = () => {
           table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 7.5pt;
           }
           th {
             background-color: #032b57;
             color: #ffffff;
             text-align: left;
-            padding: 8px 10px;
+            padding: 2px 4px;
             font-weight: 700;
-            font-size: 11px;
+            font-size: 6.6pt;
             text-transform: uppercase;
           }
           th.center, td.center { text-align: center; }
           td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #e2e8f0;
-            vertical-align: middle;
+            padding: 1.5px 4px;
+            border-bottom: 0.5pt solid #cbd5e1;
+            vertical-align: top;
           }
           tr:nth-child(even) { background-color: #f8fafc; }
+          tr { page-break-inside: avoid; } thead { display: table-header-group; }
           .footer {
-            margin-top: 20px;
+            margin-top: 6px;
             text-align: right;
-            font-size: 10px;
+            font-size: 6.4pt;
             color: #94a3b8;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 8px;
+            border-top: 0.5pt solid #cbd5e1;
+            padding-top: 2px;
           }
         </style>
       </head>

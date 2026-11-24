@@ -1053,6 +1053,13 @@ const PerfilMissionario: React.FC = () => {
 
     clone.querySelectorAll(selectorToRemove).forEach(el => el.remove());
 
+    // 1.1 Remove espaçamentos inline da tela (margens, paddings, gaps e alturas mínimas),
+    // para que o layout condensado de impressão controle o aproveitamento da página
+    clone.querySelectorAll<HTMLElement>('[style]').forEach(el => {
+      ['margin', 'margin-top', 'margin-bottom', 'padding', 'padding-top', 'padding-bottom', 'gap', 'row-gap', 'min-height', 'box-shadow']
+        .forEach(prop => el.style.removeProperty(prop));
+    });
+
     // 2. Remove top section-header-flex or duplicate section-title at root of clone
     const topHeader = clone.querySelector('.section-header-flex');
     if (topHeader) {
@@ -1122,148 +1129,165 @@ const PerfilMissionario: React.FC = () => {
         <meta charset="UTF-8">
         <title>${title} - ${missionario?.nome || ''}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-          
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          
+          /* Layout de impressão condensado: A4 com margens curtas, fontes menores,
+             campos em 4 colunas e espaçamentos mínimos para aproveitar a página. */
+          * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
           @page {
             size: A4;
-            margin: 12mm 15mm 15mm 15mm;
+            margin: 8mm 9mm 9mm 9mm;
           }
 
           body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: #0f172a;
             background: #ffffff;
-            line-height: 1.5;
-            font-size: 12.5px;
-            padding: 20px;
+            line-height: 1.25;
+            font-size: 8.5pt;
           }
 
           .print-container {
-            max-width: 800px;
+            max-width: 100%;
             margin: 0 auto;
           }
 
-          /* Header institucional elegante */
+          /* Cabeçalho em uma faixa */
           .print-header {
-            text-align: center;
-            padding-bottom: 18px;
-            margin-bottom: 24px;
-            border-bottom: 2px solid #013375;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 10px;
+            padding-bottom: 3px;
+            margin-bottom: 5px;
+            border-bottom: 1.5pt solid #013375;
           }
 
           .print-header .org-name {
-            font-family: 'Cinzel', serif;
-            font-size: 13px;
+            font-size: 6.8pt;
             font-weight: 700;
-            letter-spacing: 1.5px;
-            color: #013375;
+            letter-spacing: 0.3px;
+            color: #475569;
             text-transform: uppercase;
-            margin-bottom: 4px;
           }
 
           .print-header .doc-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-top: 6px;
-            margin-bottom: 12px;
+            font-size: 11.5pt;
+            font-weight: 800;
+            color: #013375;
+            text-transform: uppercase;
+            line-height: 1.15;
           }
 
           .print-header-meta {
             display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 20px;
-            font-size: 12px;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0;
+            font-size: 7pt;
             color: #475569;
-            background: #f8fafc;
-            padding: 8px 16px;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
+            white-space: nowrap;
           }
 
           .print-header-meta span strong {
-            color: #013375;
+            color: #0f172a;
           }
 
-          /* Form grids e grupos */
+          /* Seções e títulos internos */
+          .section-title, h3, h4 {
+            font-size: 8pt !important;
+            font-weight: 800;
+            color: #013375;
+            text-transform: uppercase;
+            margin: 6px 0 3px !important;
+            padding-bottom: 1px;
+            border-bottom: 0.5pt solid #cbd5e1;
+          }
+
+          /* Campos em grade compacta (2 colunas da tela viram 4 no papel) */
           .form-grid-1, .form-grid-2, .form-grid-3, .form-grid-4 {
             display: grid;
-            gap: 14px 18px;
-            margin-bottom: 20px;
+            gap: 3px 10px;
+            margin-bottom: 5px !important;
           }
 
           .form-grid-1 { grid-template-columns: 1fr; }
-          .form-grid-2 { grid-template-columns: 1fr 1fr; }
-          .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-          .form-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+          .form-grid-2 { grid-template-columns: repeat(4, 1fr); }
+          .form-grid-3 { grid-template-columns: repeat(3, 1fr); }
+          .form-grid-4 { grid-template-columns: repeat(4, 1fr); }
 
           .form-group {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 0;
+            min-width: 0;
           }
 
+          .form-group.full, .form-group.full-row, .full-width, .full-row { grid-column: 1 / -1; }
+
           .form-group label {
-            font-size: 10.5px;
-            font-weight: 600;
+            font-size: 6.4pt;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.2px;
             color: #64748b;
           }
 
           .print-data-value {
-            font-size: 13px;
+            font-size: 8.5pt;
             font-weight: 500;
             color: #0f172a;
-            padding: 4px 0 6px 0;
-            border-bottom: 1px dashed #cbd5e1;
-            min-height: 22px;
+            padding: 0 0 1px 0;
+            border-bottom: 0.5pt dotted #cbd5e1;
+            min-height: 12px;
             display: block;
+            word-break: break-word;
           }
 
-          /* Listas e Cards Premium */
+          /* Listas e cards compactos */
           .list-item-card-premium, .contato-item-premium, .generic-list > div {
             background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 8px !important;
-            padding: 14px 18px !important;
-            margin-bottom: 14px !important;
+            border: 0.5pt solid #cbd5e1 !important;
+            border-radius: 2px !important;
+            padding: 3px 6px !important;
+            margin-bottom: 3px !important;
+            box-shadow: none !important;
             page-break-inside: avoid;
           }
 
           .item-main-content strong {
-            font-size: 14px;
+            font-size: 8.5pt;
             color: #013375;
-            display: block;
-            margin-bottom: 4px;
+            display: inline;
+            margin-right: 6px;
           }
 
           .item-subtitle {
-            font-size: 12px;
+            font-size: 7.5pt;
             color: #475569;
           }
 
           .item-description {
-            font-size: 12px;
+            font-size: 7.5pt;
             color: #334155;
-            margin-top: 6px;
-            line-height: 1.5;
+            margin-top: 1px;
+            line-height: 1.3;
             white-space: pre-wrap;
             word-break: break-word;
           }
 
+          table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+          th, td { padding: 1.5px 4px !important; border: 0.5pt solid #cbd5e1; text-align: left; }
+          th { background: #e2e8f0; font-size: 6.6pt; text-transform: uppercase; }
+
           /* Status Badges */
           .situacao-tag-premium, .tag {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
+            padding: 0 6px;
+            border-radius: 3px;
+            font-size: 6.8pt;
             font-weight: 700;
             text-transform: uppercase;
-            border: 1px solid #cbd5e1;
+            border: 0.5pt solid #cbd5e1;
           }
 
           .situacao-tag-premium.ativo { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
@@ -1275,31 +1299,31 @@ const PerfilMissionario: React.FC = () => {
             display: none !important;
           }
 
-          /* Footer */
+          /* Rodapé */
           .print-footer {
-            margin-top: 40px;
-            padding-top: 12px;
-            border-top: 1.5px solid #013375;
+            margin-top: 8px;
+            padding-top: 2px;
+            border-top: 0.5pt solid #cbd5e1;
             display: flex;
             justify-content: space-between;
-            font-size: 10.5px;
+            font-size: 6.4pt;
             color: #64748b;
           }
 
-          @media print {
-            body { padding: 0; }
-            .print-container { max-width: 100%; }
+          @media screen {
+            body { max-width: 210mm; margin: 0 auto; padding: 8mm; }
           }
         </style>
       </head>
       <body>
         <div class="print-container">
           <div class="print-header">
-            <div class="org-name">${t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos')}</div>
-            <div class="doc-title">${title}</div>
+            <div>
+              <div class="org-name">${t('profile.print.org_name', 'Congregação dos Missionários de São Carlos – Scalabrinianos')}</div>
+              <div class="doc-title">${title}</div>
+            </div>
             <div class="print-header-meta">
-              <span>${t('profile.missionary_role', 'Missionário')}: <strong>${missionario?.nome || ''}</strong></span>
-              <span>ID: <strong>#${missionario?.id || ''}</strong></span>
+              <span>${t('profile.missionary_role', 'Missionário')}: <strong>${missionario?.nome || ''}</strong> · ID <strong>#${missionario?.id || ''}</strong></span>
               <span>${t('profile.print.issued', 'Emissão')}: <strong>${dataAtual} ${t('profile.print.at', 'às')} ${horaAtual}</strong></span>
             </div>
           </div>

@@ -3450,10 +3450,12 @@ app.get('/api/financas-mensais/usuario/:id/extratos', authenticateToken, async (
   const { id } = req.params;
   try {
     const [rows] = await db.query(`
-      SELECT id, mes_referencia, total_credito, total_debito, (total_credito - total_debito) as saldo, updated_at as data_validacao
-      FROM tb_financas_mensais
-      WHERE usuario_id = ? AND status = 'VALIDADO'
-      ORDER BY created_at DESC
+      SELECT p.id, p.usuario_id, p.casa_id, c.nome as nome_casa, p.mes_referencia, p.total_credito, p.total_debito,
+             (p.total_credito - p.total_debito) as saldo, p.updated_at as data_validacao
+      FROM tb_financas_mensais p
+      LEFT JOIN tb_casas_religiosas c ON p.casa_id = c.id
+      WHERE p.usuario_id = ? AND p.status = 'VALIDADO'
+      ORDER BY p.mes_referencia DESC, p.created_at DESC
     `, [id]);
     res.json(rows);
   } catch (error) {
@@ -3495,6 +3497,9 @@ app.get('/api/financas-mensais/historico/casa/:casa_id', authenticateToken, asyn
   }
 });
 
+// Contas de missionário (e-mail pessoal) — as únicas com Prestação de Contas individual
+const MISSIONARY_ACCOUNT_ROLES = ['PADRE', 'MISSIONARIO'];
+
 // Data/hora original do lançamento (os itens são recriados a cada salvamento, então ela vem do cliente)
 const parseDataLancamento = (value) => {
   const d = value ? new Date(value) : null;
@@ -3510,6 +3515,11 @@ app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
     return res.status(400).json({ message: 'Selecione a Comunidade Religiosa ativa antes de enviar as informações financeiras.' });
   }
   const isProprioMissionario = Number(usuario_id) === Number(req.user.id);
+  // Separação de acessos: a prestação individual só existe para contas de missionário (e-mail pessoal).
+  // Acessos administrativos com e-mail institucional não enviam prestação de contas própria.
+  if (isProprioMissionario && !MISSIONARY_ACCOUNT_ROLES.includes(req.user.role) && req.user.role !== 'ADMIN_GERAL') {
+    return res.status(403).json({ message: 'Acessos administrativos (e-mail institucional) não possuem Prestação de Contas individual. Utilize o acesso pessoal do missionário.' });
+  }
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();

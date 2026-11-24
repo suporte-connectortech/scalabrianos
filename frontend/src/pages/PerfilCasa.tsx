@@ -255,7 +255,7 @@ const PerfilCasa: React.FC = () => {
         <style>
           @page {
             size: A4 portrait;
-            margin: 15mm 15mm 15mm 15mm;
+            margin: 8mm 9mm 9mm 9mm;
           }
           * {
             box-sizing: border-box;
@@ -268,34 +268,35 @@ const PerfilCasa: React.FC = () => {
             background: #ffffff;
             margin: 0;
             padding: 0;
-            font-size: 11pt;
-            line-height: 1.45;
+            font-size: 8.5pt;
+            line-height: 1.25;
           }
           .report-header {
-            border-bottom: 2px solid #032b57;
-            padding-bottom: 12px;
-            margin-bottom: 18px;
+            border-bottom: 1.5pt solid #032b57;
+            padding-bottom: 3px;
+            margin-bottom: 6px;
           }
           .org-title {
-            font-size: 10pt;
+            font-size: 6.8pt;
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin: 0 0 2px 0;
+            letter-spacing: 0.3px;
+            margin: 0;
           }
           .region-title {
-            font-size: 11pt;
+            font-size: 7.5pt;
             font-weight: 800;
             color: #032b57;
             text-transform: uppercase;
-            margin: 0 0 8px 0;
+            margin: 0 0 2px 0;
           }
           .doc-main-title {
-            font-size: 16pt;
-            font-weight: 900;
-            color: #0f172a;
-            margin: 0 0 10px 0;
+            font-size: 11.5pt;
+            font-weight: 800;
+            color: #013375;
+            text-transform: uppercase;
+            margin: 0 0 4px 0;
           }
           .header-meta-bar {
             display: flex;
@@ -303,58 +304,60 @@ const PerfilCasa: React.FC = () => {
             align-items: center;
             background: #f1f5f9;
             border: 1px solid #cbd5e1;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 9pt;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 7.5pt;
             color: #334155;
           }
           .status-badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 0 6px;
             border-radius: 3px;
             font-weight: 800;
-            font-size: 8.5pt;
+            font-size: 6.8pt;
             color: #fff;
             background: ${statusColor};
             text-transform: uppercase;
           }
           .section-block {
-            margin-bottom: 16px;
+            margin-bottom: 6px;
             page-break-inside: avoid;
           }
           .section-title {
-            font-size: 11pt;
+            font-size: 7.8pt;
             font-weight: 800;
             color: #032b57;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1.5px solid #e2e8f0;
-            padding-bottom: 4px;
-            margin: 0 0 8px 0;
+            letter-spacing: 0.3px;
+            border-bottom: 0.5pt solid #cbd5e1;
+            padding-bottom: 1px;
+            margin: 0 0 3px 0;
           }
           .data-grid-2 {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px 16px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px 10px;
           }
           .data-grid-3 {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px 16px;
+            gap: 2px 10px;
           }
           .data-field {
-            margin-bottom: 4px;
+            margin-bottom: 0;
+            min-width: 0;
           }
           .field-label {
-            font-size: 8.5pt;
+            font-size: 6.4pt;
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
             display: block;
-            margin-bottom: 2px;
+            margin-bottom: 0;
           }
           .field-value {
-            font-size: 10pt;
+            font-size: 8.5pt;
+            word-break: break-word;
             font-weight: 500;
             color: #0f172a;
           }
@@ -364,71 +367,72 @@ const PerfilCasa: React.FC = () => {
           .report-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9.5pt;
-            margin-top: 6px;
+            font-size: 7.5pt;
+            margin-top: 2px;
           }
           .report-table th {
             background-color: #f1f5f9;
             color: #0f172a;
             font-weight: 700;
             text-align: left;
-            padding: 6px 10px;
-            border: 1px solid #cbd5e1;
-            font-size: 8.5pt;
+            padding: 2px 4px;
+            border: 0.5pt solid #94a3b8;
+            font-size: 6.6pt;
             text-transform: uppercase;
           }
           .report-table td {
-            padding: 6px 10px;
-            border: 1px solid #cbd5e1;
+            padding: 1.5px 4px;
+            border: 0.5pt solid #cbd5e1;
             vertical-align: middle;
           }
           .obs-box {
             background: #f8fafc;
             border: 1px solid #cbd5e1;
-            padding: 10px 12px;
-            border-radius: 4px;
-            font-size: 9.5pt;
-            line-height: 1.5;
+            padding: 3px 5px;
+            border-radius: 2px;
+            font-size: 7.5pt;
+            line-height: 1.3;
             white-space: pre-wrap;
           }
           .empty-note {
-            font-size: 9pt;
+            font-size: 7.5pt;
             font-style: italic;
             color: #64748b;
-            margin: 4px 0;
+            margin: 1px 0;
           }
           .signatures-container {
-            margin-top: 36px;
+            margin-top: 24px;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px;
+            gap: 28px;
             page-break-inside: avoid;
           }
           .signature-box {
             text-align: center;
           }
           .signature-line {
-            border-top: 1px solid #0f172a;
-            margin-bottom: 6px;
+            border-top: 0.8pt solid #0f172a;
+            margin-bottom: 2px;
           }
           .signature-title {
-            font-size: 9pt;
+            font-size: 7.5pt;
             font-weight: 700;
             color: #0f172a;
           }
           .signature-role {
-            font-size: 8pt;
+            font-size: 6.6pt;
             color: #64748b;
           }
           .report-footer {
-            margin-top: 24px;
-            padding-top: 8px;
-            border-top: 1px solid #cbd5e1;
+            margin-top: 8px;
+            padding-top: 2px;
+            border-top: 0.5pt solid #cbd5e1;
             display: flex;
             justify-content: space-between;
-            font-size: 8pt;
+            font-size: 6.4pt;
             color: #64748b;
           }
+          @media screen { body { max-width: 210mm; margin: 0 auto; padding: 8mm; } }
         </style>
       </head>
       <body>

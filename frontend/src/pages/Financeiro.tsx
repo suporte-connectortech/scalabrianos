@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api';
@@ -43,19 +43,24 @@ const Financeiro: React.FC = () => {
   const effectiveIsOconomo = isOconomo || rawIsOconomo;
   const effectiveIsSuperior = isSuperior || rawIsSuperior;
 
-  // Default tab: individual users land on their own spreadsheet;
-  // admins (ADMIN_GERAL) go straight to the community/admin tab.
+  // Separação de acessos: a "Prestação de Contas — Missionário" (aba individual) existe somente
+  // para contas de missionário (e-mail pessoal: PADRE / MISSIONARIO). Acessos administrativos
+  // com e-mail institucional (Ecônomo Regional, Secretário, Registro, Administrador...) não a exibem.
+  const isMissionaryAccount = isPadre;
+
+  // Default tab: missionaries land on their own spreadsheet;
+  // administrative accounts go straight to the community/admin tab.
   const [activeTab, setActiveTab] = useState<'individual' | 'comunidade' | 'planejamento' | 'anual' | 'validacoes_pendentes' | 'historico_casa'>(
-    isAdminGeral ? 'comunidade' : 'individual'
+    isMissionaryAccount ? 'individual' : 'comunidade'
   );
 
   useEffect(() => {
-    if (queryTab && queryTab !== 'historico_aprovacoes') {
+    if (queryTab && queryTab !== 'historico_aprovacoes' && (queryTab !== 'individual' || isMissionaryAccount)) {
       setActiveTab(queryTab as any);
-    } else if (queryMes) {
+    } else if (queryMes && isMissionaryAccount) {
       setActiveTab('individual');
     }
-  }, [queryTab, queryMes]);
+  }, [queryTab, queryMes, isMissionaryAccount]);
 
   useEffect(() => {
     // Common missionaries (no authority role) are forced to individual
@@ -92,11 +97,11 @@ const Financeiro: React.FC = () => {
         </div>
       </div>
 
-      {!isCommonPadre && (
+      {!isCommonPadre && (isMissionaryAccount || isAdminGeral || isLocalAuthority) && (
         <>
           <div className="view-mode-tabs" style={{ margin: '0 auto 8px auto' }}>
-            {/* Individual tab: all non-adminGeral priests (including oconomo) */}
-            {!isAdminGeral && (
+            {/* Individual tab: only missionary accounts (personal e-mail), including local ecônomo/superior */}
+            {isMissionaryAccount && (
               <button
                 className={`mode-btn ${activeTab === 'individual' ? 'active' : ''}`}
                 onClick={() => setActiveTab('individual')}
@@ -146,8 +151,8 @@ const Financeiro: React.FC = () => {
             )}
           </div>
 
-          {/* Contextual hint for the Economo Local */}
-          {isOconomo && !isAdminGeral && (
+          {/* Contextual hint for the Economo Local (missionary account) */}
+          {isOconomo && isMissionaryAccount && (
             <div style={{
               marginBottom: '20px',
               padding: '10px 16px',
@@ -177,9 +182,20 @@ const Financeiro: React.FC = () => {
         </>
       )}
 
+      {/* Administrative account without a financial role: explain why there is no individual statement */}
+      {!isMissionaryAccount && !isAdminGeral && !isLocalAuthority && (
+        <div style={{ marginTop: '16px', padding: '14px 18px', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #cbd5e1', display: 'flex', gap: '12px', alignItems: 'flex-start', color: '#334155', fontSize: '13px' }}>
+          <Info size={20} style={{ flexShrink: 0, color: '#013375' }} />
+          <span>
+            <strong>{t('financeiro.admin_account_title', 'Acesso administrativo (e-mail institucional).')}</strong>{' '}
+            {t('financeiro.admin_account_notice', 'A Prestação de Contas — Missionário é feita somente pelo acesso pessoal do missionário. Este acesso não possui prestação de contas individual.')}
+          </span>
+        </div>
+      )}
+
       {/* Tab content */}
       <div className="tab-content" style={{ marginTop: '16px' }}>
-        {activeTab === 'individual' && !isAdminGeral && <PlanilhaMensal casas={casas} categorias={categorias} externalMes={queryMes} />}
+        {activeTab === 'individual' && isMissionaryAccount && <PlanilhaMensal casas={casas} categorias={categorias} externalMes={queryMes} />}
         {activeTab === 'comunidade' && (isAdminGeral || isLocalAuthority) && <PlanilhaComunidade casas={casas} categorias={categorias} />}
         {activeTab === 'planejamento' && isAdminGeral && <PlanejamentoOrcamentario casas={casas} categorias={categorias.filter(c => c.perfil === 'PLANEJAMENTO')} />}
         {activeTab === 'anual' && isAdminGeral && <PrestacaoContasAnual casas={casas} categorias={categorias.filter(c => c.perfil === 'ANUAL')} />}

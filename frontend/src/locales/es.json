@@ -853,8 +853,53 @@
       "actions": {
         "refresh": "Actualizar",
         "export": "Exportar Excel",
-        "new_entry": "Nuevo Registro"
-      }
+        "new_entry": "Nuevo Registro",
+        "print": "Imprimir"
+      },
+      "print": {
+        "button_title": "Imprimir en formato condensado (A4)",
+        "popup_blocked": "Autorice las ventanas emergentes en el navegador para imprimir el informe.",
+        "title_individual": "Rendición de Cuentas Mensual — Misionero",
+        "title_comunidade": "Rendición de Cuentas Mensual — Casa Religiosa",
+        "title_extrato_missionario": "Extracto Mensual — Misionero",
+        "title_extrato_casa": "Extracto Mensual — Casa Religiosa",
+        "region": "Región Nuestra Señora Madre de los Migrantes (RNSMM)",
+        "region_short": "Dirección Regional RNSMM",
+        "missionary": "Misionero",
+        "community": "Comunidad Religiosa",
+        "month": "Mes/Año",
+        "all_months": "Todos",
+        "records": "Registros",
+        "entries": "Movimientos",
+        "house_entries": "Movimientos de la Casa",
+        "type": "Tipo",
+        "category": "Categoría",
+        "notes": "Observación",
+        "datetime": "Fecha/Hora",
+        "income": "Ingreso",
+        "expense": "Egreso",
+        "no_entries": "Ningún movimiento registrado.",
+        "obs_receitas": "Observaciones (Ingresos):",
+        "obs_despesas": "Observaciones (Egresos):",
+        "review_notes": "Observaciones de la revisión:",
+        "excedente": "Excedente retenido",
+        "balance_house": "Superávit / Déficit",
+        "mass_count": "Misas celebradas",
+        "sign_missionary": "Misionero",
+        "sign_economo": "Ecónomo Local",
+        "sign_superior": "Superior Local",
+        "sign_regional": "Ecónomo Regional",
+        "status_draft": "Borrador",
+        "status_em_validacao": "En validación",
+        "status_validado": "Validado",
+        "status_devolvido": "Devuelto",
+        "status_pendente_economo": "En llenado",
+        "status_enviado_regional": "Enviado al Regional",
+        "status_aprovado": "Aprobado",
+        "status_devolvido_superior": "Devuelto para ajustes"
+      },
+      "admin_account_title": "Acceso administrativo (correo institucional).",
+      "admin_account_notice": "La Rendición de Cuentas — Misionero se realiza solo desde el acceso personal del misionero. Este acceso no tiene rendición de cuentas individual."
     },
     "extratos": {
       "title": "Extractos Mensuales",
@@ -885,8 +930,13 @@
         "total_incomes": "Total Ingresos",
         "total_expenses": "Total Egresos",
         "net_balance": "Saldo Neto",
-        "close": "Cerrar Detalles"
-      }
+        "close": "Cerrar Detalles",
+        "no_incomes": "Ningún ingreso registrado.",
+        "no_expenses": "Ningún egreso registrado.",
+        "no_details": "No se encontraron detalles para este mes.",
+        "missionaries_part": "Misioneros"
+      },
+      "print_list": "Imprimir listado"
     },
     "casas": {
       "title": "Presencia Misionera",

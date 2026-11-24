@@ -212,6 +212,60 @@ table {
   }
 }
 
+/* ── Impressão condensada pelo navegador (Ctrl+P) ─────────────
+   Remove menu, cabeçalho, filtros e botões e compacta os espaçamentos,
+   para que qualquer tela impressa aproveite a página inteira. Os relatórios
+   com botão "Imprimir" usam um layout próprio (utils/printReport.ts). */
+@media print {
+  @page { size: A4; margin: 8mm; }
+
+  html, body { background: #fff !important; font-size: 10px !important; }
+
+  .header, .sidebar, .sidebar-overlay, .sidebar-mobile-header, .menu-toggle,
+  .view-mode-tabs, .filters-card, .insertion-fields-card, .spreadsheet-summary,
+  .management-controls, .validation-bar, .pagination, .extratos-pagination,
+  .extratos-tabs, .tab-menu, .notification-bell, .page-loader,
+  button, input[type="file"] {
+    display: none !important;
+  }
+
+  .layout-body { margin-top: 0 !important; }
+  .main-content, .main-content.expanded {
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+  .page-container, .extratos-page {
+    max-width: 100% !important;
+    padding: 0 !important;
+    gap: 6px !important;
+  }
+
+  .card-lite, .spreedsheet-container, .data-table {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 6px !important;
+    margin: 0 0 6px 0 !important;
+  }
+  .spreedsheet-header { margin-bottom: 6px !important; padding-bottom: 4px !important; }
+  .spreedsheet-header h3 { font-size: 13px !important; }
+  .spreadsheet-grid { gap: 6px !important; grid-template-columns: 1fr 1fr !important; }
+  .fin-grid-2 { gap: 6px !important; grid-template-columns: 1fr 1fr !important; }
+
+  table { font-size: 9px !important; }
+  th, td { padding: 2px 4px !important; }
+  input, select, textarea {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: 9px !important;
+    box-shadow: none !important;
+  }
+
+  tr, .list-item-card-premium { page-break-inside: avoid; }
+}
+
 /* ── Cross-Browser Scrollbar Normalization ────────────────── */
 * {
   scrollbar-width: thin;
