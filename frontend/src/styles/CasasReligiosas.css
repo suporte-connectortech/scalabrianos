@@ -154,6 +154,22 @@
     border-color: #94a3b8;
 }
 
+.btn-filter-main {
+    height: 42px;
+    padding: 0 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-filter-main:hover {
+    background: #021f40 !important;
+}
+
 /* Houses Card Grid */
 .houses-grid {
     display: grid;

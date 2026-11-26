@@ -113,7 +113,7 @@ const CasasReligiosas: React.FC = () => {
       const matchesCountry = (house.regional || house.pais || '').toLowerCase().includes(filterCountry.toLowerCase());
       const matchesStatus = filterStatus === 'Todos' || house.status === filterStatus;
       return matchesName && matchesCity && matchesCountry && matchesStatus;
-    });
+    }).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' }));
   }, [houses, filterName, filterCity, filterCountry, filterStatus]);
 
   const totalPages = Math.ceil(filteredHouses.length / itemsPerPage);
@@ -134,8 +134,8 @@ const CasasReligiosas: React.FC = () => {
       return;
     }
 
-    const exportData = filteredHouses.map(h => ({
-      'ID': `#${h.id}`,
+    const exportData = filteredHouses.map((h, i) => ({
+      'ID': String(i + 1).padStart(2, '0'),
       'PM': h.pm_code || '',
       'Presença Missionária': h.nome,
       'Tipo': NOMENCLATURES.find(n => n.code === h.tipo)?.label || h.tipo || '',
@@ -176,9 +176,9 @@ const CasasReligiosas: React.FC = () => {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
-    const rowsHtml = filteredHouses.map((h) => `
+    const rowsHtml = filteredHouses.map((h, i) => `
       <tr>
-        <td style="text-align: center; font-weight: bold; width: 45px;">#${h.id}</td>
+        <td style="text-align: center; font-weight: bold; width: 45px;">${String(i + 1).padStart(2, '0')}</td>
         <td style="text-align: center; font-weight: bold; white-space: nowrap; width: 75px;">${h.pm_code || '---'}</td>
         <td style="font-weight: 600;">${h.nome}</td>
         <td style="white-space: nowrap; font-weight: 500;">${extractCidadeUf(h.cidade, h.endereco)}</td>
@@ -596,9 +596,9 @@ const CasasReligiosas: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedHouses.map((house) => (
+              {paginatedHouses.map((house, i) => (
                 <tr key={house.id}>
-                  <td>#{house.id}</td>
+                  <td>{String((currentPage - 1) * itemsPerPage + i + 1).padStart(2, '0')}</td>
                   <td className="bold">{house.nome}</td>
                   <td className="cidade-cell">{extractCidadeUf(house.cidade, house.endereco)}</td>
                   <td>{house.regional || house.pais || '---'}</td>

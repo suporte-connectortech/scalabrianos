@@ -1016,7 +1016,7 @@ const Missionarios: React.FC = () => {
     const matchesSituacao = situacaoFilter ? m.situacao === situacaoFilter : true;
 
     return matchesSearch && matchesCasa && matchesCidade && matchesPais && matchesSituacao;
-  });
+  }).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' }));
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedMissionarios = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -1102,9 +1102,9 @@ const Missionarios: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedMissionarios.map(m => (
+              {paginatedMissionarios.map((m, i) => (
                 <tr key={m.id}>
-                  <td>#{m.id}</td>
+                  <td>{String((currentPage - 1) * itemsPerPage + i + 1).padStart(2, '0')}</td>
                   <td className="bold">{m.nome}</td>
                   <td>{m.cidade_nascimento || m.cidade || '---'}</td>
                   <td>{m.pais_nascimento || m.pais || '---'}</td>
